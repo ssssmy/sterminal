@@ -402,9 +402,17 @@ const TerminalXterm = defineComponent({
           }
         }
 
+        const sshOsCallback = (payload: unknown) => {
+          const { connectionId, os } = payload as { connectionId: string; os: 'darwin' | 'windows' | 'linux' }
+          if (connectionId === pooled.sshConnectionId && instance) {
+            instance.remoteOS = os
+          }
+        }
+
         trackOn(IPC_SSH.DATA, sshDataCallback)
         trackOn(IPC_SSH.STATUS, sshStatusCallback)
         trackOn(IPC_SSH.ERROR, sshErrorCallback)
+        trackOn(IPC_SSH.OS_DETECTED, sshOsCallback)
 
         try {
           const result = await ipcInvoke<{ connectionId: string }>(IPC_SSH.CONNECT, {

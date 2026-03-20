@@ -85,6 +85,9 @@ import { ref, nextTick, onMounted, watch } from 'vue'
 import { Star, Close, Plus, ArrowLeft, ArrowRight, Monitor, Connection } from '@element-plus/icons-vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import type { TabSession } from '@shared/types/terminal'
+import IconMacOS from '../icons/IconMacOS.vue'
+import IconWindows from '../icons/IconWindows.vue'
+import IconLinux from '../icons/IconLinux.vue'
 
 const sessionsStore = useSessionsStore()
 
@@ -146,13 +149,17 @@ function isTabRecording(tab: TabSession): boolean {
   return checkNode(tab.root)
 }
 
-// ===== 标签图标：SSH 连接 vs 本地终端 =====
+// ===== 标签图标：SSH 连接成功后按远端 OS 显示，否则按类型显示 =====
 function getTabIcon(tab: TabSession): typeof Monitor {
-  // 通过 sessionsStore 中的 terminalInstances 判断类型
   const root = tab.root
   if (root.type === 'terminal') {
     const instance = sessionsStore.terminalInstances.get(root.terminalId)
-    if (instance?.type === 'ssh') return Connection
+    if (instance?.type === 'ssh') {
+      if (instance.remoteOS === 'darwin') return IconMacOS
+      if (instance.remoteOS === 'windows') return IconWindows
+      if (instance.remoteOS === 'linux') return IconLinux
+      return Connection
+    }
   }
   return Monitor
 }

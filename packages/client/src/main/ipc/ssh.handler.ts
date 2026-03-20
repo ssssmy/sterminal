@@ -109,6 +109,22 @@ export function registerSshHandlers(): void {
           })
 
           if (!settled) { settled = true; resolve({ connectionId }) }
+
+          // 检测远端操作系统
+          conn.exec('uname', (execErr, execStream) => {
+            if (execErr) return
+            let output = ''
+            execStream.on('data', (data: Buffer) => { output += data.toString() })
+            execStream.on('close', () => {
+              const uname = output.trim().toLowerCase()
+              let os: 'darwin' | 'windows' | 'linux' = 'linux'
+              if (uname.includes('darwin')) os = 'darwin'
+              else if (uname.includes('mingw') || uname.includes('cygwin') || uname.includes('msys') || uname.includes('windows')) os = 'windows'
+              if (!webContents.isDestroyed()) {
+                webContents.send(IPC_SSH.OS_DETECTED, { connectionId, os })
+              }
+            })
+          })
         })
       })
 

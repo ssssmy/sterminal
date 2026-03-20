@@ -58,6 +58,8 @@ export interface TerminalInstance {
   sshStatus?: 'connecting' | 'connected' | 'disconnected' | 'error'
   // PTY 进程 ID（本地终端启动后赋值）
   ptyId?: string
+  // 远端操作系统（SSH 连接成功后检测）
+  remoteOS?: 'darwin' | 'windows' | 'linux'
   // 共享字段
   recording: boolean
 }

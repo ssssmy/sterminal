@@ -167,6 +167,15 @@ const TerminalXterm = defineComponent({
               instance.sshConnectionId = sshConnectionId
               instance.sshStatus = 'connected'
             }
+            // 执行启动命令
+            if (hostConfig.startupCommand) {
+              setTimeout(() => {
+                invoke(IPC_SSH.WRITE, {
+                  connectionId: sshConnectionId!,
+                  data: hostConfig.startupCommand + '\n',
+                })
+              }, 300)
+            }
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err)

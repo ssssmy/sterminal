@@ -123,7 +123,7 @@ function handleSelect(key: string): void {
   }
 
   &__back {
-    padding: 0;
+    padding: 4px 12px;
     font-size: 13px;
     color: var(--text-secondary);
     margin-bottom: 12px;

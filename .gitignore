@@ -46,3 +46,6 @@ build/
 # Temp
 .tmp/
 tmp/
+
+# ReCode local database
+.recode

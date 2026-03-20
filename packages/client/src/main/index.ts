@@ -3,7 +3,7 @@
 
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
-import { initDatabase, closeDatabase } from './services/db'
+import { initDatabase, closeDatabase, dbGet, dbRun } from './services/db'
 import { registerAllHandlers } from './ipc/index'
 import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
@@ -14,16 +14,51 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
 
+// ===== 窗口尺寸/位置持久化 =====
+
+interface WindowBounds {
+  x?: number
+  y?: number
+  width: number
+  height: number
+  isMaximized?: boolean
+}
+
+function loadWindowBounds(): WindowBounds {
+  try {
+    const row = dbGet<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['window.bounds'])
+    if (row) return JSON.parse(row.value)
+  } catch { /* ignore */ }
+  return { width: 1440, height: 900 }
+}
+
+function saveWindowBounds(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const isMaximized = mainWindow.isMaximized()
+  // 最大化时用 getNormalBounds 获取还原前的尺寸
+  const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
+  const data: WindowBounds = { ...bounds, isMaximized }
+  try {
+    dbRun(
+      `INSERT INTO settings (key, value, sync_updated_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, sync_updated_at = excluded.sync_updated_at`,
+      ['window.bounds', JSON.stringify(data)]
+    )
+  } catch { /* ignore */ }
+}
+
 /**
  * 创建主窗口
  */
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
   const isWindows = process.platform === 'win32'
+  const saved = loadWindowBounds()
 
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: saved.width,
+    height: saved.height,
+    ...(saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : {}),
     minWidth: 1024,
     minHeight: 600,
     show: false, // 等渲染完成再显示，避免白屏闪烁
@@ -50,10 +85,25 @@ function createWindow(): void {
     },
   })
 
+  if (saved.isMaximized) {
+    mainWindow.maximize()
+  }
+
   // 页面渲染完成后再显示窗口，消除白屏感知
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
   })
+
+  // 记录窗口尺寸变化（节流，避免 resize 时频繁写库）
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  const debouncedSave = () => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(saveWindowBounds, 500)
+  }
+  mainWindow.on('resize', debouncedSave)
+  mainWindow.on('move', debouncedSave)
+  mainWindow.on('maximize', saveWindowBounds)
+  mainWindow.on('unmaximize', saveWindowBounds)
 
   if (isDev) {
     // 开发模式：加载 Vite dev server
@@ -110,6 +160,7 @@ app.on('window-all-closed', () => {
 
 // 应用退出前清理资源
 app.on('before-quit', () => {
+  saveWindowBounds()
   killAllPty()
   disconnectAllSsh()
   closeDatabase()

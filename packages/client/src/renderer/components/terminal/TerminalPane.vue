@@ -38,7 +38,7 @@ function ipcOff(channel: string, callback: (data: unknown) => void): void {
 }
 
 /**
- * 广播输入：将数据转发到同 tab 下的其他终端
+ * 广播输入：将数据转发到当前标签页分屏内的其他终端
  */
 function broadcastInput(sourceTerminalId: string, data: string): void {
   const store = useSessionsStore()

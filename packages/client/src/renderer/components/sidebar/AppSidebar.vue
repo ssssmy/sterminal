@@ -75,68 +75,70 @@
 
             <!-- 分组内主机列表 -->
             <template v-if="!collapsedGroups.has(group.id)">
-              <div
+              <el-dropdown
                 v-for="host in getGroupHosts(group.id)"
                 :key="host.id"
-                class="app-sidebar__host-item"
-                :class="{ 'app-sidebar__host-item--selected': selectedHostId === host.id }"
-                @click="selectHost(host)"
-                @dblclick="connectToHost(host)"
+                trigger="contextmenu"
+                @command="(cmd: string) => handleHostCmd(cmd, host)"
               >
-                <!-- 在线状态圆点 -->
-                <span
-                  class="app-sidebar__status-dot"
-                  :class="host.lastConnected ? 'app-sidebar__status-dot--online' : 'app-sidebar__status-dot--offline'"
-                />
-                <el-icon :size="13" class="app-sidebar__host-icon"><Connection /></el-icon>
-                <div class="app-sidebar__host-info">
-                  <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
-                  <span class="app-sidebar__host-addr">{{ host.username ? `${host.username}@${host.address}` : host.address }}</span>
+                <div
+                  class="app-sidebar__host-item"
+                  :class="{ 'app-sidebar__host-item--selected': selectedHostId === host.id }"
+                  @click="selectHost(host)"
+                  @dblclick="connectToHost(host)"
+                >
+                  <span
+                    class="app-sidebar__status-dot"
+                    :class="host.lastConnected ? 'app-sidebar__status-dot--online' : 'app-sidebar__status-dot--offline'"
+                  />
+                  <el-icon :size="13" class="app-sidebar__host-icon"><Connection /></el-icon>
+                  <div class="app-sidebar__host-info">
+                    <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
+                    <span class="app-sidebar__host-addr">{{ host.username ? `${host.username}@${host.address}` : host.address }}</span>
+                  </div>
                 </div>
-                <!-- 右键菜单 -->
-                <el-dropdown trigger="contextmenu" @command="(cmd: string) => handleHostCmd(cmd, host)">
-                  <span />
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="connect">连接</el-dropdown-item>
-                      <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                      <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="connect">连接</el-dropdown-item>
+                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
           </template>
 
           <!-- 未分组主机 -->
-          <div
+          <el-dropdown
             v-for="host in filteredUngroupedHosts"
             :key="host.id"
-            class="app-sidebar__host-item app-sidebar__host-item--root"
-            :class="{ 'app-sidebar__host-item--selected': selectedHostId === host.id }"
-            @click="selectHost(host)"
-            @dblclick="connectToHost(host)"
+            trigger="contextmenu"
+            @command="(cmd: string) => handleHostCmd(cmd, host)"
           >
-            <span
-              class="app-sidebar__status-dot"
-              :class="host.lastConnected ? 'app-sidebar__status-dot--online' : 'app-sidebar__status-dot--offline'"
-            />
-            <el-icon :size="13" class="app-sidebar__host-icon"><Connection /></el-icon>
-            <div class="app-sidebar__host-info">
-              <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
-              <span class="app-sidebar__host-addr">{{ host.username ? `${host.username}@${host.address}` : host.address }}</span>
+            <div
+              class="app-sidebar__host-item app-sidebar__host-item--root"
+              :class="{ 'app-sidebar__host-item--selected': selectedHostId === host.id }"
+              @click="selectHost(host)"
+              @dblclick="connectToHost(host)"
+            >
+              <span
+                class="app-sidebar__status-dot"
+                :class="host.lastConnected ? 'app-sidebar__status-dot--online' : 'app-sidebar__status-dot--offline'"
+              />
+              <el-icon :size="13" class="app-sidebar__host-icon"><Connection /></el-icon>
+              <div class="app-sidebar__host-info">
+                <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
+                <span class="app-sidebar__host-addr">{{ host.username ? `${host.username}@${host.address}` : host.address }}</span>
+              </div>
             </div>
-            <el-dropdown trigger="contextmenu" @command="(cmd: string) => handleHostCmd(cmd, host)">
-              <span />
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="connect">连接</el-dropdown-item>
-                  <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="connect">连接</el-dropdown-item>
+                <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
 
           <!-- 空状态 -->
           <div v-if="filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty">
@@ -163,30 +165,31 @@
 
         <!-- 终端配置列表 -->
         <div class="app-sidebar__terminal-list">
-          <div
+          <el-dropdown
             v-for="terminal in filteredTerminals"
             :key="terminal.id"
-            class="app-sidebar__terminal-item"
-            @click="openLocalTerminal(terminal)"
+            trigger="contextmenu"
+            @command="(cmd: string) => handleTerminalCmd(cmd, terminal)"
           >
-            <el-icon :size="14" class="app-sidebar__terminal-icon"><Cpu /></el-icon>
-            <div class="app-sidebar__terminal-info">
-              <span class="app-sidebar__terminal-name">{{ terminal.name }}</span>
-              <span class="app-sidebar__terminal-path">{{ terminal.cwd || terminal.shell || '默认 Shell' }}</span>
+            <div
+              class="app-sidebar__terminal-item"
+              @click="openLocalTerminal(terminal)"
+            >
+              <el-icon :size="14" class="app-sidebar__terminal-icon"><Cpu /></el-icon>
+              <div class="app-sidebar__terminal-info">
+                <span class="app-sidebar__terminal-name">{{ terminal.name }}</span>
+                <span class="app-sidebar__terminal-path">{{ terminal.cwd || terminal.shell || '默认 Shell' }}</span>
+              </div>
             </div>
-            <!-- 右键菜单 -->
-            <el-dropdown trigger="contextmenu" @command="(cmd: string) => handleTerminalCmd(cmd, terminal)">
-              <span />
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="open">打开</el-dropdown-item>
-                  <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                  <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="open">打开</el-dropdown-item>
+                <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
+                <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
 
           <!-- 空状态 -->
           <div v-if="filteredTerminals.length === 0" class="app-sidebar__empty">

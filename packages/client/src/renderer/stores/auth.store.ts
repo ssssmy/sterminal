@@ -21,14 +21,15 @@ const USER_KEY = 'auth_user'
 export const useAuthStore = defineStore('auth', () => {
   // ===== 状态 =====
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
-  const user = ref<UserInfo | null>(() => {
+  const savedUser = (() => {
     try {
       const saved = localStorage.getItem(USER_KEY)
       return saved ? (JSON.parse(saved) as UserInfo) : null
     } catch {
       return null
     }
-  }())
+  })()
+  const user = ref<UserInfo | null>(savedUser)
 
   // ===== 计算属性 =====
   const isLoggedIn = computed(() => !!token.value && !!user.value)

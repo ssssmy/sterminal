@@ -23,7 +23,33 @@ export function registerSshHandlers(): void {
     hostId: string
     hostConfig: Host
   }) => {
-    const { hostConfig } = params
+    const raw = params.hostConfig as Record<string, unknown>
+    // 兼容数据库 snake_case 和内存 camelCase 两种字段名
+    const hostConfig: Host = {
+      id: (raw.id as string) || '',
+      label: (raw.label as string) || undefined,
+      address: (raw.address as string) || '',
+      port: (raw.port as number) || 22,
+      protocol: (raw.protocol as Host['protocol']) || 'ssh',
+      username: (raw.username as string) || undefined,
+      authType: (raw.authType || raw.auth_type || 'password') as Host['authType'],
+      password: (raw.password || raw.password_enc || '') as string,
+      keyId: (raw.keyId || raw.key_id || '') as string,
+      keyPassphrase: (raw.keyPassphrase || raw.key_passphrase_enc || '') as string,
+      encoding: (raw.encoding as string) || 'utf-8',
+      keepaliveInterval: (raw.keepaliveInterval ?? raw.keepalive_interval ?? 60) as number,
+      connectTimeout: (raw.connectTimeout ?? raw.connect_timeout ?? 10) as number,
+      heartbeatTimeout: (raw.heartbeatTimeout ?? raw.heartbeat_timeout ?? 30) as number,
+      compression: !!(raw.compression),
+      strictHostKey: !!(raw.strictHostKey ?? raw.strict_host_key),
+      sshVersion: (raw.sshVersion || raw.ssh_version || 'auto') as Host['sshVersion'],
+      proxyJumpId: (raw.proxyJumpId || raw.proxy_jump_id || undefined) as string | undefined,
+      socksProxy: (raw.socksProxy || raw.socks_proxy || undefined) as string | undefined,
+      httpProxy: (raw.httpProxy || raw.http_proxy || undefined) as string | undefined,
+      sortOrder: (raw.sortOrder ?? raw.sort_order ?? 0) as number,
+      tagIds: (raw.tagIds as string[]) || [],
+      connectCount: (raw.connectCount ?? raw.connect_count ?? 0) as number,
+    }
     const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const webContents = event.sender
 

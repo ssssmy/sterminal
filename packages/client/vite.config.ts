@@ -4,9 +4,10 @@ import { resolve } from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import electron from 'vite-plugin-electron'
+import renderer from 'vite-plugin-electron-renderer'
 
 export default defineConfig({
-  // 渲染进程入口（Vite 从此目录寻找 index.html）
   root: resolve(__dirname, '.'),
   plugins: [
     vue(),
@@ -20,12 +21,40 @@ export default defineConfig({
       resolvers: [ElementPlusResolver()],
       dts: resolve(__dirname, 'src/renderer/components.d.ts'),
     }),
+    // Electron 主进程 + preload 脚本
+    electron([
+      {
+        entry: 'src/main/index.ts',
+        vite: {
+          build: {
+            outDir: 'dist-electron/main',
+            rollupOptions: {
+              external: ['electron', 'node-pty', 'better-sqlite3', 'ssh2'],
+            },
+          },
+        },
+      },
+      {
+        entry: 'src/preload/index.ts',
+        onstart(args) {
+          args.reload()
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron/preload',
+            rollupOptions: {
+              external: ['electron'],
+            },
+          },
+        },
+      },
+    ]),
+    // 渲染进程中使用 Node.js API 的支持
+    renderer(),
   ],
   resolve: {
     alias: {
-      // @ 指向 renderer 目录
       '@': resolve(__dirname, 'src/renderer'),
-      // @shared 指向 shared 目录
       '@shared': resolve(__dirname, 'src/shared'),
     },
   },
@@ -36,6 +65,4 @@ export default defineConfig({
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
   },
-  // variables.scss 只定义 CSS 变量（:root {...}），不含 SCSS 变量/混入
-  // CSS 变量在浏览器运行时生效，无需 SCSS additionalData 注入
 })

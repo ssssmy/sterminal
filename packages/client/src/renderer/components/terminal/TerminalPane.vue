@@ -6,15 +6,16 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, ref, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, h, ref, toRaw, onMounted, onBeforeUnmount } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import type { TabSession, SplitNode } from '@shared/types/terminal'
 import { useSessionsStore } from '@/stores/sessions.store'
+import { useHostsStore } from '@/stores/hosts.store'
 import { useIpc } from '@/composables/useIpc'
-import { IPC_PTY } from '@shared/types/ipc-channels'
+import { IPC_PTY, IPC_SSH } from '@shared/types/ipc-channels'
 
 const props = defineProps<{
   tab: TabSession
@@ -32,25 +33,57 @@ const TerminalXterm = defineComponent({
   setup(xtermProps) {
     const containerRef = ref<HTMLElement | null>(null)
     const sessionsStore = useSessionsStore()
+    const hostsStore = useHostsStore()
     const { invoke, on, off } = useIpc()
 
     let terminal: Terminal | null = null
     let fitAddon: FitAddon | null = null
     let resizeObserver: ResizeObserver | null = null
+    // 本地终端用
     let ptyId: string | null = null
+    // SSH 用
+    let sshConnectionId: string | null = null
 
-    // 数据回调引用，用于卸载时移除
-    const dataCallback = (payload: unknown) => {
+    // 获取终端实例信息，判断类型
+    const instance = sessionsStore.terminalInstances.get(xtermProps.terminalId)
+    const isSSH = instance?.type === 'ssh'
+
+    // PTY 数据回调
+    const ptyDataCallback = (payload: unknown) => {
       const { ptyId: id, data } = payload as { ptyId: string; data: string }
       if (id === ptyId && terminal) {
         terminal.write(data)
       }
     }
 
-    const exitCallback = (payload: unknown) => {
+    const ptyExitCallback = (payload: unknown) => {
       const { ptyId: id } = payload as { ptyId: string; exitCode: number }
       if (id === ptyId && terminal) {
         terminal.write('\r\n\x1b[31m[进程已退出]\x1b[0m\r\n')
+      }
+    }
+
+    // SSH 数据回调
+    const sshDataCallback = (payload: unknown) => {
+      const { connectionId, data } = payload as { connectionId: string; data: string }
+      if (connectionId === sshConnectionId && terminal) {
+        terminal.write(data)
+      }
+    }
+
+    const sshStatusCallback = (payload: unknown) => {
+      const { connectionId, status } = payload as { connectionId: string; status: string }
+      if (connectionId === sshConnectionId && terminal) {
+        if (status === 'disconnected') {
+          terminal.write('\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
+        }
+      }
+    }
+
+    const sshErrorCallback = (payload: unknown) => {
+      const { connectionId, error } = payload as { connectionId: string; error: string }
+      if (connectionId === sshConnectionId && terminal) {
+        terminal.write(`\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
       }
     }
 
@@ -98,37 +131,80 @@ const TerminalXterm = defineComponent({
       terminal.open(containerRef.value)
       fitAddon.fit()
 
-      // 获取初始尺寸并启动 PTY
       const cols = terminal.cols
       const rows = terminal.rows
-      const result = await invoke<{ ptyId: string }>(IPC_PTY.SPAWN, { cols, rows })
-      if (result?.ptyId) {
-        ptyId = result.ptyId
-        // 在 store 中记录 ptyId
-        const instance = sessionsStore.terminalInstances.get(xtermProps.terminalId)
-        if (instance) {
-          instance.ptyId = ptyId
+
+      if (isSSH && instance?.hostId) {
+        // ===== SSH 模式 =====
+        const hostConfig = hostsStore.hosts.find(h => h.id === instance.hostId)
+        if (!hostConfig) {
+          terminal.write('\x1b[31m[错误: 未找到主机配置]\x1b[0m\r\n')
+          return
         }
+
+        terminal.write(`正在连接 ${hostConfig.username || 'root'}@${hostConfig.address}:${hostConfig.port || 22} ...\r\n`)
+
+        // 监听 SSH 事件
+        on(IPC_SSH.DATA, sshDataCallback)
+        on(IPC_SSH.STATUS, sshStatusCallback)
+        on(IPC_SSH.ERROR, sshErrorCallback)
+
+        try {
+          const result = await invoke<{ connectionId: string }>(IPC_SSH.CONNECT, {
+            hostId: instance.hostId,
+            hostConfig: JSON.parse(JSON.stringify(toRaw(hostConfig))),
+            cols,
+            rows,
+          })
+          if (result?.connectionId) {
+            sshConnectionId = result.connectionId
+            if (instance) {
+              instance.sshConnectionId = sshConnectionId
+            }
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err)
+          terminal.write(`\r\n\x1b[31m[SSH 连接失败: ${msg}]\x1b[0m\r\n`)
+        }
+
+        // 用户输入转发到 SSH
+        terminal.onData((data: string) => {
+          if (sshConnectionId) {
+            invoke(IPC_SSH.WRITE, { connectionId: sshConnectionId, data })
+          }
+        })
+
+        // 终端尺寸变化同步 SSH
+        terminal.onResize(({ cols, rows }) => {
+          if (sshConnectionId) {
+            invoke(IPC_SSH.RESIZE, { connectionId: sshConnectionId, cols, rows })
+          }
+        })
+      } else {
+        // ===== 本地 PTY 模式 =====
+        const result = await invoke<{ ptyId: string }>(IPC_PTY.SPAWN, { cols, rows })
+        if (result?.ptyId) {
+          ptyId = result.ptyId
+          if (instance) {
+            instance.ptyId = ptyId
+          }
+        }
+
+        on(IPC_PTY.DATA, ptyDataCallback)
+        on(IPC_PTY.EXIT, ptyExitCallback)
+
+        terminal.onData((data: string) => {
+          if (ptyId) {
+            invoke(IPC_PTY.WRITE, { ptyId, data })
+          }
+        })
+
+        terminal.onResize(({ cols, rows }) => {
+          if (ptyId) {
+            invoke(IPC_PTY.RESIZE, { ptyId, cols, rows })
+          }
+        })
       }
-
-      // 监听 PTY 输出数据
-      on(IPC_PTY.DATA, dataCallback)
-      // 监听 PTY 退出
-      on(IPC_PTY.EXIT, exitCallback)
-
-      // 监听用户在终端中的输入，转发到 PTY
-      terminal.onData((data: string) => {
-        if (ptyId) {
-          invoke(IPC_PTY.WRITE, { ptyId, data })
-        }
-      })
-
-      // 终端尺寸变化时同步 PTY
-      terminal.onResize(({ cols, rows }) => {
-        if (ptyId) {
-          invoke(IPC_PTY.RESIZE, { ptyId, cols, rows })
-        }
-      })
 
       // 监听容器尺寸变化自动 fit
       resizeObserver = new ResizeObserver(() => {
@@ -140,23 +216,30 @@ const TerminalXterm = defineComponent({
     })
 
     onBeforeUnmount(() => {
-      // 停止监听容器尺寸
       if (resizeObserver) {
         resizeObserver.disconnect()
         resizeObserver = null
       }
 
-      // 终止 PTY 进程
-      if (ptyId) {
-        invoke(IPC_PTY.KILL, { ptyId })
-        ptyId = null
+      if (isSSH) {
+        // 断开 SSH
+        if (sshConnectionId) {
+          invoke(IPC_SSH.DISCONNECT, { connectionId: sshConnectionId })
+          sshConnectionId = null
+        }
+        off(IPC_SSH.DATA, sshDataCallback)
+        off(IPC_SSH.STATUS, sshStatusCallback)
+        off(IPC_SSH.ERROR, sshErrorCallback)
+      } else {
+        // 终止本地 PTY
+        if (ptyId) {
+          invoke(IPC_PTY.KILL, { ptyId })
+          ptyId = null
+        }
+        off(IPC_PTY.DATA, ptyDataCallback)
+        off(IPC_PTY.EXIT, ptyExitCallback)
       }
 
-      // 移除 IPC 事件监听
-      off(IPC_PTY.DATA, dataCallback)
-      off(IPC_PTY.EXIT, exitCallback)
-
-      // 销毁 xterm 实例
       if (terminal) {
         terminal.dispose()
         terminal = null
@@ -292,22 +375,22 @@ const SplitView = defineComponent({
   flex-shrink: 0;
   z-index: 1;
   transition: background 0.15s;
+}
 
-  &:hover {
-    background: var(--accent);
-  }
+:deep(.split-resizer:hover) {
+  background: var(--accent);
+}
 
-  &--horizontal {
-    height: 3px;
-    cursor: row-resize;
-    width: 100%;
-  }
+:deep(.split-resizer--horizontal) {
+  height: 3px;
+  cursor: row-resize;
+  width: 100%;
+}
 
-  &--vertical {
-    width: 3px;
-    cursor: col-resize;
-    height: 100%;
-  }
+:deep(.split-resizer--vertical) {
+  width: 3px;
+  cursor: col-resize;
+  height: 100%;
 }
 
 :deep(.terminal-xterm) {

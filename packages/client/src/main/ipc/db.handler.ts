@@ -14,6 +14,8 @@ export function registerDbHandlers(): void {
   registerSettingsHandlers()
   registerLocalTerminalsHandlers()
   registerHostsHandlers()
+  registerHostGroupsHandlers()
+  registerTagsHandlers()
 }
 
 // ===== 设置 =====
@@ -134,8 +136,8 @@ function registerHostsHandlers(): void {
   ipcMain.handle(IPC_DB.HOSTS_CREATE, (_event, data: Record<string, unknown>) => {
     const id = uuidv4()
     dbRun(
-      `INSERT INTO hosts (id, label, address, port, protocol, username, auth_type, group_id, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO hosts (id, label, address, port, protocol, username, auth_type, password_enc, key_id, key_passphrase_enc, startup_command, encoding, keepalive_interval, connect_timeout, compression, strict_host_key, ssh_version, notes, group_id, proxy_jump_id, socks_proxy, http_proxy, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.label ?? null,
@@ -144,7 +146,21 @@ function registerHostsHandlers(): void {
         data.protocol ?? 'ssh',
         data.username ?? null,
         data.authType ?? 'password',
+        data.password ?? null,
+        data.keyId ?? null,
+        data.keyPassphrase ?? null,
+        data.startupCommand ?? null,
+        data.encoding ?? 'utf-8',
+        data.keepaliveInterval ?? 60,
+        data.connectTimeout ?? 10,
+        data.compression ? 1 : 0,
+        data.strictHostKey ? 1 : 0,
+        data.sshVersion ?? 'auto',
+        data.notes ?? null,
         data.groupId ?? null,
+        data.proxyJumpId ?? null,
+        data.socksProxy ?? null,
+        data.httpProxy ?? null,
         data.sortOrder ?? 0,
       ]
     )
@@ -161,7 +177,21 @@ function registerHostsHandlers(): void {
         protocol = COALESCE(?, protocol),
         username = COALESCE(?, username),
         auth_type = COALESCE(?, auth_type),
+        password_enc = COALESCE(?, password_enc),
+        key_id = ?,
+        key_passphrase_enc = ?,
+        startup_command = ?,
+        encoding = COALESCE(?, encoding),
+        keepalive_interval = COALESCE(?, keepalive_interval),
+        connect_timeout = COALESCE(?, connect_timeout),
+        compression = COALESCE(?, compression),
+        strict_host_key = COALESCE(?, strict_host_key),
+        ssh_version = COALESCE(?, ssh_version),
+        notes = ?,
         group_id = ?,
+        proxy_jump_id = ?,
+        socks_proxy = ?,
+        http_proxy = ?,
         sort_order = COALESCE(?, sort_order),
         updated_at = datetime('now')
        WHERE id = ?`,
@@ -172,7 +202,21 @@ function registerHostsHandlers(): void {
         data.protocol ?? null,
         data.username ?? null,
         data.authType ?? null,
+        data.password ?? null,
+        data.keyId ?? null,
+        data.keyPassphrase ?? null,
+        data.startupCommand ?? null,
+        data.encoding ?? null,
+        data.keepaliveInterval ?? null,
+        data.connectTimeout ?? null,
+        data.compression !== undefined ? (data.compression ? 1 : 0) : null,
+        data.strictHostKey !== undefined ? (data.strictHostKey ? 1 : 0) : null,
+        data.sshVersion ?? null,
+        data.notes ?? null,
         data.groupId ?? null,
+        data.proxyJumpId ?? null,
+        data.socksProxy ?? null,
+        data.httpProxy ?? null,
         data.sortOrder ?? null,
         id,
       ]
@@ -183,6 +227,75 @@ function registerHostsHandlers(): void {
   // 删除主机
   ipcMain.handle(IPC_DB.HOSTS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM hosts WHERE id = ?', [id])
+    return true
+  })
+}
+
+// ===== 主机分组 =====
+
+function registerHostGroupsHandlers(): void {
+  ipcMain.handle(IPC_DB.HOST_GROUPS_LIST, () => {
+    return dbAll('SELECT * FROM host_groups ORDER BY sort_order ASC')
+  })
+
+  ipcMain.handle(IPC_DB.HOST_GROUPS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO host_groups (id, name, parent_id, icon, color, sort_order, collapsed)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, data.name, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? 0, data.collapsed ? 1 : 0]
+    )
+    return dbGet('SELECT * FROM host_groups WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.HOST_GROUPS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    dbRun(
+      `UPDATE host_groups SET
+        name = COALESCE(?, name),
+        parent_id = ?,
+        icon = ?,
+        color = ?,
+        sort_order = COALESCE(?, sort_order),
+        collapsed = COALESCE(?, collapsed)
+       WHERE id = ?`,
+      [data.name ?? null, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? null, data.collapsed !== undefined ? (data.collapsed ? 1 : 0) : null, id]
+    )
+    return dbGet('SELECT * FROM host_groups WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.HOST_GROUPS_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM host_groups WHERE id = ?', [id])
+    return true
+  })
+}
+
+// ===== 标签 =====
+
+function registerTagsHandlers(): void {
+  ipcMain.handle(IPC_DB.TAGS_LIST, () => {
+    return dbAll('SELECT * FROM tags ORDER BY name ASC')
+  })
+
+  ipcMain.handle(IPC_DB.TAGS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      'INSERT INTO tags (id, name, color) VALUES (?, ?, ?)',
+      [id, data.name, data.color ?? '#6366f1']
+    )
+    return dbGet('SELECT * FROM tags WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.TAGS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    dbRun(
+      'UPDATE tags SET name = COALESCE(?, name), color = COALESCE(?, color) WHERE id = ?',
+      [data.name ?? null, data.color ?? null, id]
+    )
+    return dbGet('SELECT * FROM tags WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.TAGS_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM tags WHERE id = ?', [id])
+    dbRun('DELETE FROM host_tags WHERE tag_id = ?', [id])
     return true
   })
 }

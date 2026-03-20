@@ -5,21 +5,16 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { defineComponent, h, ref, toRaw, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
+<script lang="ts">
+// ===== 模块级代码（所有 TerminalPane 实例共享） =====
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
-import type { TabSession, SplitNode } from '@shared/types/terminal'
+import { IPC_PTY, IPC_SSH, IPC_LOG } from '@shared/types/ipc-channels'
 import { useSessionsStore } from '@/stores/sessions.store'
-import { useHostsStore } from '@/stores/hosts.store'
-import { useTerminalsStore } from '@/stores/terminals.store'
-import { IPC_PTY, IPC_SSH } from '@shared/types/ipc-channels'
-
-const props = defineProps<{
-  tab: TabSession
-}>()
+import { useUiStore } from '@/stores/ui.store'
+import { nextTick } from 'vue'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
 const _ipc = window.electronAPI?.ipc
@@ -35,6 +30,112 @@ function ipcOn(channel: string, callback: (data: unknown) => void): void {
 
 function ipcOff(channel: string, callback: (data: unknown) => void): void {
   _ipc?.removeListener(channel, callback)
+}
+
+// ===== 终端池：让 xterm 实例在组件 mount/unmount 之间存活 =====
+interface PooledTerminal {
+  wrapperEl: HTMLDivElement
+  terminal: Terminal
+  fitAddon: FitAddon
+  searchAddon: SearchAddon
+  ptyId: string | null
+  sshConnectionId: string | null
+  isSSH: boolean
+  ipcCallbacks: { channel: string; callback: (data: unknown) => void }[]
+  /** 标记：终端在隐藏期间收到过数据，切换回来时需要刷新 viewport */
+  dirtyWhileHidden: boolean
+}
+
+const terminalPool = new Map<string, PooledTerminal>()
+
+// ===== 终端搜索 API（供外部组件调用） =====
+
+export interface TerminalSearchOptions {
+  caseSensitive?: boolean
+  wholeWord?: boolean
+  regex?: boolean
+}
+
+/**
+ * 在指定终端中搜索（向下）
+ */
+export function terminalFindNext(
+  terminalIds: string[],
+  query: string,
+  options?: TerminalSearchOptions
+): boolean {
+  if (!query) return false
+  for (const id of terminalIds) {
+    const pooled = terminalPool.get(id)
+    if (pooled?.searchAddon.findNext(query, { ...options, incremental: true })) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * 在指定终端中搜索（向上）
+ */
+export function terminalFindPrevious(
+  terminalIds: string[],
+  query: string,
+  options?: TerminalSearchOptions
+): boolean {
+  if (!query) return false
+  for (const id of terminalIds) {
+    const pooled = terminalPool.get(id)
+    if (pooled?.searchAddon.findPrevious(query, options)) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * 清除指定终端的搜索高亮
+ */
+export function terminalClearSearch(terminalIds: string[]): void {
+  for (const id of terminalIds) {
+    const pooled = terminalPool.get(id)
+    pooled?.searchAddon.clearDecorations()
+  }
+}
+
+let _offscreenHolder: HTMLDivElement | null = null
+function getOffscreenHolder(): HTMLDivElement {
+  if (!_offscreenHolder) {
+    _offscreenHolder = document.createElement('div')
+    _offscreenHolder.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;'
+    document.body.appendChild(_offscreenHolder)
+  }
+  return _offscreenHolder
+}
+
+/** 彻底销毁终端（关闭分屏/关闭标签页时调用） */
+function disposePooledTerminal(terminalId: string): void {
+  const pooled = terminalPool.get(terminalId)
+  if (!pooled) return
+
+  for (const { channel, callback } of pooled.ipcCallbacks) {
+    ipcOff(channel, callback)
+  }
+
+  // 停止录制
+  const terminalKey = pooled.sshConnectionId || pooled.ptyId
+  if (terminalKey) {
+    ipcInvoke(IPC_LOG.STOP, { terminalKey })
+  }
+
+  if (pooled.isSSH && pooled.sshConnectionId) {
+    ipcInvoke(IPC_SSH.DISCONNECT, { connectionId: pooled.sshConnectionId })
+  } else if (pooled.ptyId) {
+    ipcInvoke(IPC_PTY.KILL, { ptyId: pooled.ptyId })
+  }
+
+  pooled.terminal.dispose()
+  pooled.wrapperEl.remove()
+  terminalPool.delete(terminalId)
 }
 
 /**
@@ -53,54 +154,18 @@ function broadcastInput(sourceTerminalId: string, data: string): void {
   }
 }
 
-// ===== 终端池：让 xterm 实例在组件 mount/unmount 之间存活 =====
-interface PooledTerminal {
-  wrapperEl: HTMLDivElement
-  terminal: Terminal
-  fitAddon: FitAddon
-  ptyId: string | null
-  sshConnectionId: string | null
-  isSSH: boolean
-  ipcCallbacks: { channel: string; callback: (data: unknown) => void }[]
-}
-
-const terminalPool = new Map<string, PooledTerminal>()
-
-let _offscreenHolder: HTMLDivElement | null = null
-function getOffscreenHolder(): HTMLDivElement {
-  if (!_offscreenHolder) {
-    _offscreenHolder = document.createElement('div')
-    _offscreenHolder.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;'
-    document.body.appendChild(_offscreenHolder)
+/**
+ * 向终端写入数据，并在终端隐藏时标记 dirty（用于切 tab 时刷新 viewport）
+ */
+function pooledWrite(pooled: PooledTerminal, data: string): void {
+  pooled.terminal.write(data)
+  // wrapperEl.offsetParent === null 表示元素不可见（display:none 或祖先隐藏）
+  if (pooled.wrapperEl.offsetParent === null) {
+    pooled.dirtyWhileHidden = true
   }
-  return _offscreenHolder
-}
-
-/** 彻底销毁终端（关闭分屏/关闭标签页时调用） */
-function disposePooledTerminal(terminalId: string): void {
-  const pooled = terminalPool.get(terminalId)
-  if (!pooled) return
-
-  // 移除 IPC 监听
-  for (const { channel, callback } of pooled.ipcCallbacks) {
-    ipcOff(channel, callback)
-  }
-
-  // 终止 PTY / SSH
-  if (pooled.isSSH && pooled.sshConnectionId) {
-    ipcInvoke(IPC_SSH.DISCONNECT, { connectionId: pooled.sshConnectionId })
-  } else if (pooled.ptyId) {
-    ipcInvoke(IPC_PTY.KILL, { ptyId: pooled.ptyId })
-  }
-
-  pooled.terminal.dispose()
-  pooled.wrapperEl.remove()
-  terminalPool.delete(terminalId)
 }
 
 // ===== xterm 主题配置 =====
-import { useUiStore } from '@/stores/ui.store'
-
 const XTERM_THEME_DARK = {
   background: '#1a1b2e',
   foreground: '#e2e8f0',
@@ -166,8 +231,38 @@ const XTERM_BASE_OPTIONS = {
   allowProposedApi: true,
 }
 
+// 监听系统主题切换（模块级，只注册一次）
+let _systemThemeListenerRegistered = false
+function registerSystemThemeListener(): void {
+  if (_systemThemeListenerRegistered) return
+  _systemThemeListenerRegistered = true
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const uiStore = useUiStore()
+    if (uiStore.theme === 'system') {
+      nextTick(() => {
+        const theme = getXtermTheme()
+        for (const pooled of terminalPool.values()) {
+          pooled.terminal.options.theme = theme
+        }
+      })
+    }
+  })
+}
+</script>
+
+<script setup lang="ts">
+import { defineComponent, h, ref, toRaw, watch, onMounted, onBeforeUnmount } from 'vue'
+import type { TabSession, SplitNode } from '@shared/types/terminal'
+import { useHostsStore } from '@/stores/hosts.store'
+import { useTerminalsStore } from '@/stores/terminals.store'
+
+const props = defineProps<{
+  tab: TabSession
+}>()
+
 // 监听主题变化，更新所有池中终端
 const uiStore = useUiStore()
+const sessionsStore = useSessionsStore()
 watch(
   () => uiStore.theme,
   () => {
@@ -180,19 +275,8 @@ watch(
   },
 )
 
-// 监听系统主题切换（当设置为"跟随系统"时）
-if (typeof window !== 'undefined') {
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (uiStore.theme === 'system') {
-      nextTick(() => {
-        const theme = getXtermTheme()
-        for (const pooled of terminalPool.values()) {
-          pooled.terminal.options.theme = theme
-        }
-      })
-    }
-  })
-}
+// 注册系统主题监听（模块级，仅首次生效）
+registerSystemThemeListener()
 
 // ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
@@ -239,9 +323,10 @@ const TerminalXterm = defineComponent({
 
       const terminal = new Terminal({ ...XTERM_BASE_OPTIONS, theme: getXtermTheme() })
       const fitAddon = new FitAddon()
+      const searchAddon = new SearchAddon()
       terminal.loadAddon(fitAddon)
       terminal.loadAddon(new WebLinksAddon())
-      terminal.loadAddon(new SearchAddon())
+      terminal.loadAddon(searchAddon)
 
       terminal.open(wrapperEl)
       containerRef.value.appendChild(wrapperEl)
@@ -252,10 +337,12 @@ const TerminalXterm = defineComponent({
         wrapperEl,
         terminal,
         fitAddon,
+        searchAddon,
         ptyId: null,
         sshConnectionId: null,
         isSSH,
         ipcCallbacks: [],
+        dirtyWhileHidden: false,
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
@@ -284,7 +371,7 @@ const TerminalXterm = defineComponent({
         const sshDataCallback = (payload: unknown) => {
           const { connectionId, data } = payload as { connectionId: string; data: string }
           if (connectionId === pooled.sshConnectionId && terminal) {
-            terminal.write(data)
+            pooledWrite(pooled, data)
             if (sshPendingStartupCmd) {
               const cmd = sshPendingStartupCmd
               sshPendingStartupCmd = null
@@ -302,7 +389,7 @@ const TerminalXterm = defineComponent({
               instance.sshStatus = 'connected'
             } else if (status === 'disconnected') {
               if (instance) instance.sshStatus = 'disconnected'
-              terminal.write('\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
+              pooledWrite(pooled, '\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
             }
           }
         }
@@ -311,7 +398,7 @@ const TerminalXterm = defineComponent({
           const { connectionId, error } = payload as { connectionId: string; error: string }
           if (connectionId === pooled.sshConnectionId) {
             if (instance) instance.sshStatus = 'error'
-            terminal.write(`\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
+            pooledWrite(pooled, `\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
           }
         }
 
@@ -338,7 +425,7 @@ const TerminalXterm = defineComponent({
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err)
-          terminal.write(`\r\n\x1b[31m[SSH 连接失败: ${msg}]\x1b[0m\r\n`)
+          pooledWrite(pooled, `\r\n\x1b[31m[SSH 连接失败: ${msg}]\x1b[0m\r\n`)
           if (instance) instance.sshStatus = 'error'
         }
 
@@ -373,12 +460,12 @@ const TerminalXterm = defineComponent({
 
         const ptyDataCallback = (payload: unknown) => {
           const { ptyId: id, data } = payload as { ptyId: string; data: string }
-          if (id === pooled.ptyId) terminal.write(data)
+          if (id === pooled.ptyId) pooledWrite(pooled, data)
         }
 
         const ptyExitCallback = (payload: unknown) => {
           const { ptyId: id } = payload as { ptyId: string; exitCode: number }
-          if (id === pooled.ptyId) terminal.write('\r\n\x1b[31m[进程已退出]\x1b[0m\r\n')
+          if (id === pooled.ptyId) pooledWrite(pooled, '\r\n\x1b[31m[进程已退出]\x1b[0m\r\n')
         }
 
         if (localConfig?.startupCommand) {
@@ -415,14 +502,26 @@ const TerminalXterm = defineComponent({
       setupResizeObserver(pooled)
     })
 
-    // 切换 tab 后重新 fit
+    // 切换 tab 后刷新终端
     watch(
       () => sessionsStore.activeTabId,
       () => {
         nextTick(() => {
           const pooled = terminalPool.get(xtermProps.terminalId)
           if (pooled && containerRef.value?.offsetParent !== null) {
-            pooled.fitAddon.fit()
+            requestAnimationFrame(() => {
+              // 隐藏期间收到过数据 → 强制 resize 让 viewport 重算 scrollHeight
+              // xterm.js 对相同 cols/rows 的 resize 会跳过，
+              // 所以先缩一行再恢复来触发 viewport 内部的 syncScrollArea
+              if (pooled.dirtyWhileHidden) {
+                pooled.dirtyWhileHidden = false
+                const { cols, rows } = pooled.terminal
+                if (rows > 1) {
+                  pooled.terminal.resize(cols, rows - 1)
+                }
+              }
+              pooled.fitAddon.fit()
+            })
           }
         })
       }
@@ -651,7 +750,7 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   }
 
   .xterm-viewport {
-    overflow-y: auto;
+    overflow-y: scroll;
   }
 }
 

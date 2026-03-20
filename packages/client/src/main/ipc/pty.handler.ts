@@ -6,6 +6,7 @@ import * as pty from 'node-pty'
 import * as fs from 'fs'
 import * as path from 'path'
 import { IPC_PTY } from '../../shared/types/ipc-channels'
+import { recordData } from '../services/session-recorder'
 
 // PTY 实例映射表（ptyId → 进程实例）
 const ptyProcesses = new Map<string, pty.IPty>()
@@ -57,11 +58,12 @@ export function registerPtyHandlers(): void {
 
     const webContents = event.sender
 
-    // 监听 PTY 输出数据，转发到渲染进程
+    // 监听 PTY 输出数据，转发到渲染进程 + 录制
     ptyProcess.onData((data: string) => {
       if (!webContents.isDestroyed()) {
         webContents.send(IPC_PTY.DATA, { ptyId, data })
       }
+      recordData(ptyId, data)
     })
 
     // 监听 PTY 退出

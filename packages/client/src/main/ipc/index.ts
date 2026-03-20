@@ -5,6 +5,7 @@ import { registerDbHandlers } from './db.handler'
 import { registerPtyHandlers } from './pty.handler'
 import { registerSshHandlers } from './ssh.handler'
 import { registerSystemHandlers } from './system.handler'
+import { registerLogHandlers } from './log.handler'
 
 /**
  * 注册所有 IPC handlers
@@ -15,5 +16,6 @@ export function registerAllHandlers(): void {
   registerPtyHandlers()
   registerSshHandlers()
   registerSystemHandlers()
+  registerLogHandlers()
   console.log('[IPC] 所有 handlers 注册完成')
 }

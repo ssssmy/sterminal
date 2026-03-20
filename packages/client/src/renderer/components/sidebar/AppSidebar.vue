@@ -51,23 +51,27 @@
       <!-- ===== 主机区域 ===== -->
       <div class="app-sidebar__section">
         <!-- 区域标题 -->
-        <div class="app-sidebar__section-header">
+        <div class="app-sidebar__collapse-row" @click="toggleCollapse('hosts')">
           <el-icon :size="13" class="app-sidebar__section-icon"><Monitor /></el-icon>
-          <span class="app-sidebar__section-title">主机</span>
+          <span class="app-sidebar__collapse-label">主机</span>
           <el-tooltip content="新建分组" placement="top">
-            <button class="app-sidebar__add-btn" @click="handleAddGroup">
+            <button class="app-sidebar__add-btn" @click.stop="handleAddGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
           <el-tooltip content="新增主机" placement="top">
-            <button class="app-sidebar__add-btn" @click="uiStore.openHostConfigDialog()">
+            <button class="app-sidebar__add-btn" @click.stop="uiStore.openHostConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
           </el-tooltip>
+          <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('hosts') }">
+            <ArrowRight />
+          </el-icon>
         </div>
 
         <!-- 主机分组树 -->
         <div
+          v-show="!collapsedSections.has('hosts')"
           class="app-sidebar__host-tree"
           @dragover.prevent="onTreeDragOver"
           @drop.prevent="onTreeDrop"
@@ -215,29 +219,30 @@
         </div>
       </div>
 
-      <!-- 分割线 -->
-      <div class="app-sidebar__divider" />
-
       <!-- ===== 本地终端区域 ===== -->
       <div class="app-sidebar__section">
         <!-- 区域标题 -->
-        <div class="app-sidebar__section-header">
+        <div class="app-sidebar__collapse-row" @click="toggleCollapse('terminals')">
           <el-icon :size="13" class="app-sidebar__section-icon"><Cpu /></el-icon>
-          <span class="app-sidebar__section-title">本地终端</span>
+          <span class="app-sidebar__collapse-label">本地终端</span>
           <el-tooltip content="新建分组" placement="top">
-            <button class="app-sidebar__add-btn" @click="handleAddTerminalGroup">
+            <button class="app-sidebar__add-btn" @click.stop="handleAddTerminalGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
           <el-tooltip content="新建终端配置" placement="top">
-            <button class="app-sidebar__add-btn" @click="uiStore.openTerminalConfigDialog()">
+            <button class="app-sidebar__add-btn" @click.stop="uiStore.openTerminalConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
           </el-tooltip>
+          <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('terminals') }">
+            <ArrowRight />
+          </el-icon>
         </div>
 
         <!-- 终端分组树 -->
         <div
+          v-show="!collapsedSections.has('terminals')"
           class="app-sidebar__terminal-list"
           @dragover.prevent="onTerminalTreeDragOver"
           @drop.prevent="onTerminalTreeDrop"
@@ -367,9 +372,6 @@
         </div>
       </div>
 
-      <!-- 分割线 -->
-      <div class="app-sidebar__divider" />
-
       <!-- ===== 功能折叠区 ===== -->
 
       <!-- 命令片段 -->
@@ -379,7 +381,7 @@
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
         <span class="app-sidebar__collapse-label">命令片段</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': collapsedSections.has('snippets') }">
+        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('snippets') }">
           <ArrowRight />
         </el-icon>
       </div>
@@ -391,7 +393,7 @@
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
         <span class="app-sidebar__collapse-label">端口转发</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': collapsedSections.has('portForwards') }">
+        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('portForwards') }">
           <ArrowRight />
         </el-icon>
       </div>
@@ -403,7 +405,7 @@
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><Lock /></el-icon>
         <span class="app-sidebar__collapse-label">密钥库</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': collapsedSections.has('vault') }">
+        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('vault') }">
           <ArrowRight />
         </el-icon>
       </div>
@@ -419,7 +421,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, nextTick, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -432,6 +434,7 @@ import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useAuthStore } from '../../stores/auth.store'
+import { useSettingsStore } from '../../stores/settings.store'
 import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
 
@@ -455,6 +458,7 @@ const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
 const sessionsStore = useSessionsStore()
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
 
 // ===== 右键菜单：关闭已打开的下拉菜单 =====
 function closeOpenDropdowns(): void {
@@ -505,7 +509,8 @@ function toggleTerminalGroup(groupId: string): void {
   }
 }
 
-// ===== 功能区折叠状态 =====
+// ===== 区域折叠状态（主机/本地终端/命令片段/端口转发/密钥库） =====
+const COLLAPSED_SECTIONS_KEY = 'sidebar.collapsedSections'
 const collapsedSections = reactive<Set<string>>(new Set())
 
 function toggleCollapse(section: string): void {
@@ -514,7 +519,17 @@ function toggleCollapse(section: string): void {
   } else {
     collapsedSections.add(section)
   }
+  // 持久化
+  settingsStore.setSetting(COLLAPSED_SECTIONS_KEY, [...collapsedSections])
 }
+
+// 恢复折叠状态
+onMounted(async () => {
+  const saved = await settingsStore.getSetting<string[]>(COLLAPSED_SECTIONS_KEY)
+  if (Array.isArray(saved)) {
+    saved.forEach(s => collapsedSections.add(s))
+  }
+})
 
 // ===== 悬停的主机 =====
 const hoveredHostId = ref<string | null>(null)
@@ -1208,7 +1223,7 @@ onBeforeUnmount(() => {
 
   // ===== 区域 =====
   &__section {
-    padding: 12px 0 0;
+    // collapse-row 自带上下 padding，无需额外间距
   }
 
   &__section-header {

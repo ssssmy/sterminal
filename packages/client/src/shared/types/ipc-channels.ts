@@ -152,7 +152,11 @@ export const IPC_SYNC = {
 export const IPC_LOG = {
   START: 'log:start',
   STOP: 'log:stop',
+  IS_RECORDING: 'log:is-recording',
+  LIST: 'log:list',
+  DELETE: 'log:delete',
   REPLAY: 'log:replay',
+  OPEN_DIRECTORY: 'log:open-directory',
 } as const
 
 // ===== 系统操作 =====
@@ -164,6 +168,7 @@ export const IPC_SYSTEM = {
   GET_SHELL_LIST: 'system:get-shell-list',
   CLIPBOARD_CLEAR: 'system:clipboard-clear',
   OPEN_EXTERNAL: 'system:open-external',
+  OPEN_PATH: 'system:open-path',
   IMPORT_HOSTS: 'system:import-hosts',
   EXPORT_HOSTS: 'system:export-hosts',
   BACKUP: 'system:backup',

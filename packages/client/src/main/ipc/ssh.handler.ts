@@ -5,6 +5,7 @@ import { ipcMain, WebContents } from 'electron'
 import { Client, ClientChannel } from 'ssh2'
 import { IPC_SSH } from '../../shared/types/ipc-channels'
 import type { Host } from '../../shared/types/host'
+import { recordData } from '../services/session-recorder'
 
 interface SshSession {
   client: Client
@@ -84,15 +85,19 @@ export function registerSshHandlers(): void {
           session.stream = stream
 
           stream.on('data', (data: Buffer) => {
+            const str = data.toString('utf-8')
             if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SSH.DATA, { connectionId, data: data.toString('utf-8') })
+              webContents.send(IPC_SSH.DATA, { connectionId, data: str })
             }
+            recordData(connectionId, str)
           })
 
           stream.stderr.on('data', (data: Buffer) => {
+            const str = data.toString('utf-8')
             if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SSH.DATA, { connectionId, data: data.toString('utf-8') })
+              webContents.send(IPC_SSH.DATA, { connectionId, data: str })
             }
+            recordData(connectionId, str)
           })
 
           stream.on('close', () => {

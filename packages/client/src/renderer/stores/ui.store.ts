@@ -19,6 +19,7 @@ export const useUiStore = defineStore('ui', () => {
   const editingHostId = ref<string | null>(null)
   const showTerminalConfigDialog = ref(false)
   const editingTerminalId = ref<string | null>(null)
+  const showTerminalSearch = ref(false)
 
   // ===== 主题操作 =====
 
@@ -138,6 +139,7 @@ export const useUiStore = defineStore('ui', () => {
     closeCommandPalette,
     openHostConfigDialog,
     closeHostConfigDialog,
+    showTerminalSearch,
     openTerminalConfigDialog,
     closeTerminalConfigDialog,
   }

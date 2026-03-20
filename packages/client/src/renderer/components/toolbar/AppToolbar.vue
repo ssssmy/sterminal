@@ -73,13 +73,24 @@
     <!-- 右侧按钮组 -->
     <div class="app-toolbar__btn-group">
       <!-- 录制会话 -->
-      <el-tooltip content="录制会话" placement="bottom">
+      <el-tooltip :content="isRecording ? '停止录制' : '录制会话'" placement="bottom">
         <button
           class="app-toolbar__btn"
           :class="{ 'app-toolbar__btn--recording': isRecording }"
+          :disabled="!sessionsStore.activeTab"
           @click="toggleRecording"
         >
           <el-icon :size="16"><VideoCamera /></el-icon>
+        </button>
+      </el-tooltip>
+
+      <!-- 录制文件夹 -->
+      <el-tooltip content="打开录制文件夹" placement="bottom">
+        <button
+          class="app-toolbar__btn"
+          @click="openLogDirectory"
+        >
+          <el-icon :size="16"><Folder /></el-icon>
         </button>
       </el-tooltip>
 
@@ -114,18 +125,31 @@
 import { ref, computed } from 'vue'
 import {
   FolderOpened, Microphone, VideoCamera,
-  Search, FullScreen, Cpu,
+  Search, FullScreen, Cpu, Folder,
 } from '@element-plus/icons-vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
+import { IPC_LOG } from '@shared/types/ipc-channels'
 
 const isMacOS = window.electronAPI?.platform === 'darwin'
 const isWindows = window.electronAPI?.platform === 'win32'
 const sessionsStore = useSessionsStore()
 const terminalsStore = useTerminalsStore()
+const ipc = window.electronAPI?.ipc
 
 // 广播模式与 store 同步
 const broadcastMode = computed(() => sessionsStore.broadcastMode)
+
+// 当前 tab 下是否有终端在录制
+const isRecording = computed(() => {
+  const tab = sessionsStore.activeTab
+  if (!tab) return false
+  const ids = sessionsStore.getActiveTabTerminalIds()
+  return ids.some(id => {
+    const inst = sessionsStore.terminalInstances.get(id)
+    return inst?.recording
+  })
+})
 
 // ===== emits =====
 const emit = defineEmits<{
@@ -133,22 +157,50 @@ const emit = defineEmits<{
   (e: 'split-horizontal'): void
   (e: 'split-vertical'): void
   (e: 'broadcast', active: boolean): void
-  (e: 'record', active: boolean): void
   (e: 'terminal-search'): void
   (e: 'fullscreen'): void
 }>()
 
 // ===== 本地状态 =====
 const activeTool = ref<string | null>(null)
-const isRecording = ref(false)
 
 function toggleBroadcast(): void {
-  emit('broadcast', !broadcastMode.value)
+  sessionsStore.broadcastMode = !sessionsStore.broadcastMode
 }
 
-function toggleRecording(): void {
-  isRecording.value = !isRecording.value
-  emit('record', isRecording.value)
+async function toggleRecording(): Promise<void> {
+  const tab = sessionsStore.activeTab
+  if (!tab || !ipc) return
+
+  const terminalIds = sessionsStore.getActiveTabTerminalIds()
+  const shouldStart = !isRecording.value
+
+  for (const tid of terminalIds) {
+    const inst = sessionsStore.terminalInstances.get(tid)
+    if (!inst) continue
+
+    const terminalKey = inst.sshConnectionId || inst.ptyId
+    if (!terminalKey) continue
+
+    if (shouldStart && !inst.recording) {
+      await ipc.invoke(IPC_LOG.START, {
+        terminalKey,
+        cols: 80,
+        rows: 24,
+        label: tab.label,
+        hostId: inst.hostId,
+        localTerminalId: inst.localConfigId,
+      })
+      inst.recording = true
+    } else if (!shouldStart && inst.recording) {
+      await ipc.invoke(IPC_LOG.STOP, { terminalKey })
+      inst.recording = false
+    }
+  }
+}
+
+function openLogDirectory(): void {
+  ipc?.invoke(IPC_LOG.OPEN_DIRECTORY)
 }
 
 function openDefaultTerminal(): void {

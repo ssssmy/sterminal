@@ -15,7 +15,6 @@
         @split-horizontal="handleSplitHorizontal"
         @split-vertical="handleSplitVertical"
         @broadcast="handleBroadcast"
-        @record="handleRecord"
         @terminal-search="handleTerminalSearch"
         @fullscreen="handleFullscreen"
       />
@@ -41,6 +40,8 @@
               :tab="tab"
               class="workspace__terminal-instance"
             />
+            <!-- 终端内搜索栏 -->
+            <TerminalSearchBar v-if="uiStore.showTerminalSearch" />
           </div>
         </template>
       </div>
@@ -72,6 +73,7 @@ const TerminalPane = defineAsyncComponent(() => import('../../components/termina
 const CommandPalette = defineAsyncComponent(() => import('../../components/common/CommandPalette.vue'))
 const HostConfigDialog = defineAsyncComponent(() => import('../../components/host/HostConfigDialog.vue'))
 const TerminalConfigDialog = defineAsyncComponent(() => import('../../components/terminal/TerminalConfigDialog.vue'))
+const TerminalSearchBar = defineAsyncComponent(() => import('../../components/terminal/TerminalSearchBar.vue'))
 
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
@@ -109,12 +111,8 @@ function handleBroadcast(active: boolean): void {
   sessionsStore.broadcastMode = active
 }
 
-function handleRecord(_active: boolean): void {
-  // TODO: 开始/停止录制当前会话
-}
-
 function handleTerminalSearch(): void {
-  // TODO: 触发终端内搜索（xterm search addon）
+  uiStore.showTerminalSearch = !uiStore.showTerminalSearch
 }
 
 function handleFullscreen(): void {
@@ -141,6 +139,11 @@ function handleKeydown(e: KeyboardEvent): void {
   if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
     e.preventDefault()
     uiStore.openCommandPalette()
+  }
+  // Ctrl+F / Cmd+F: 终端内搜索
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && sessionsStore.activeTabId) {
+    e.preventDefault()
+    uiStore.showTerminalSearch = true
   }
 }
 

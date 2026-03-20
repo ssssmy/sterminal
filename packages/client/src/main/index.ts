@@ -7,6 +7,7 @@ import { initDatabase, closeDatabase, dbGet, dbRun } from './services/db'
 import { registerAllHandlers } from './ipc/index'
 import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
+import { stopAllRecordings } from './services/session-recorder'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -161,6 +162,7 @@ app.on('window-all-closed', () => {
 // 应用退出前清理资源
 app.on('before-quit', () => {
   saveWindowBounds()
+  stopAllRecordings()
   killAllPty()
   disconnectAllSsh()
   closeDatabase()

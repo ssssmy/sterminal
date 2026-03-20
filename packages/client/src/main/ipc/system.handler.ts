@@ -19,6 +19,11 @@ export function registerSystemHandlers(): void {
     await shell.openExternal(target)
   })
 
+  // 用系统文件管理器打开指定路径（跨平台：Finder / Explorer / Files）
+  ipcMain.handle(IPC_SYSTEM.OPEN_PATH, async (_event, targetPath: string) => {
+    await shell.openPath(targetPath)
+  })
+
   // 延时清除剪贴板（用于密码自动清除功能）
   ipcMain.handle(IPC_SYSTEM.CLIPBOARD_CLEAR, (_event, delayMs: number) => {
     setTimeout(() => {

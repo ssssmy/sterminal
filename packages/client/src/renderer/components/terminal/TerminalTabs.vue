@@ -45,6 +45,9 @@
         </template>
         <span v-else class="terminal-tabs__label">{{ tab.label }}</span>
 
+        <!-- 录制指示器 -->
+        <span v-if="isTabRecording(tab)" class="terminal-tabs__rec-dot" title="录制中" />
+
         <!-- 固定图标 -->
         <el-icon v-if="tab.pinned" :size="11" class="terminal-tabs__pin">
           <Star />
@@ -129,6 +132,18 @@ function commitRename(): void {
 function cancelRename(): void {
   renamingTabId.value = null
   renameValue.value = ''
+}
+
+// ===== 检查标签页是否在录制 =====
+function isTabRecording(tab: TabSession): boolean {
+  function checkNode(node: typeof tab.root): boolean {
+    if (node.type === 'terminal') {
+      const inst = sessionsStore.terminalInstances.get(node.terminalId)
+      return inst?.recording === true
+    }
+    return checkNode(node.children[0]) || checkNode(node.children[1])
+  }
+  return checkNode(tab.root)
 }
 
 // ===== 标签图标：SSH 连接 vs 本地终端 =====
@@ -270,6 +285,20 @@ onMounted(() => {
     font-family: inherit;
     padding: 1px 4px;
     outline: none;
+  }
+
+  &__rec-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--error, #ef4444);
+    flex-shrink: 0;
+    animation: rec-blink 1.2s ease-in-out infinite;
+
+    @keyframes rec-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
   }
 
   &__pin {

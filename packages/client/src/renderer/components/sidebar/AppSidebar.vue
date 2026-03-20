@@ -166,8 +166,8 @@
         <div class="app-sidebar__section-header">
           <el-icon :size="13" class="app-sidebar__section-icon"><Cpu /></el-icon>
           <span class="app-sidebar__section-title">本地终端</span>
-          <el-tooltip content="新建终端" placement="right">
-            <button class="app-sidebar__add-btn" @click="sessionsStore.createTab()">
+          <el-tooltip content="新建终端配置" placement="right">
+            <button class="app-sidebar__add-btn" @click="uiStore.openTerminalConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
           </el-tooltip>
@@ -417,7 +417,7 @@ function handleTerminalCmd(cmd: string, terminal: LocalTerminalConfig): void {
   if (cmd === 'open') {
     openLocalTerminal(terminal)
   } else if (cmd === 'edit') {
-    // TODO: 打开终端配置编辑对话框
+    uiStore.openTerminalConfigDialog(terminal.id)
   } else if (cmd === 'duplicate') {
     terminalsStore.createTerminal({
       ...terminal,

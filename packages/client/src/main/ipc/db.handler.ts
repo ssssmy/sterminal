@@ -66,13 +66,14 @@ function registerLocalTerminalsHandlers(): void {
   ipcMain.handle(IPC_DB.LOCAL_TERMINALS_CREATE, (_event, data: Record<string, unknown>) => {
     const id = uuidv4()
     dbRun(
-      `INSERT INTO local_terminals (id, name, shell, cwd, environment, login_shell, is_default, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO local_terminals (id, name, shell, cwd, startup_command, environment, login_shell, is_default, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.name || '本地终端',
         data.shell ?? null,
         data.cwd ?? null,
+        data.startupCommand ?? null,
         data.environment ? JSON.stringify(data.environment) : null,
         data.loginShell ? 1 : 0,
         data.isDefault ? 1 : 0,
@@ -89,6 +90,7 @@ function registerLocalTerminalsHandlers(): void {
         name = COALESCE(?, name),
         shell = ?,
         cwd = ?,
+        startup_command = ?,
         environment = ?,
         login_shell = COALESCE(?, login_shell),
         is_default = COALESCE(?, is_default),
@@ -99,6 +101,7 @@ function registerLocalTerminalsHandlers(): void {
         data.name ?? null,
         data.shell ?? null,
         data.cwd ?? null,
+        data.startupCommand ?? null,
         data.environment ? JSON.stringify(data.environment) : null,
         data.loginShell !== undefined ? (data.loginShell ? 1 : 0) : null,
         data.isDefault !== undefined ? (data.isDefault ? 1 : 0) : null,

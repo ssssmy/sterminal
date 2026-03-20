@@ -51,6 +51,8 @@
 
     <!-- 主机配置对话框 -->
     <HostConfigDialog v-if="uiStore.showHostConfigDialog" />
+    <!-- 终端配置对话框 -->
+    <TerminalConfigDialog v-if="uiStore.showTerminalConfigDialog" />
   </div>
 </template>
 
@@ -66,6 +68,7 @@ import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
 import TerminalPane from '../../components/terminal/TerminalPane.vue'
 import CommandPalette from '../../components/common/CommandPalette.vue'
 import HostConfigDialog from '../../components/host/HostConfigDialog.vue'
+import TerminalConfigDialog from '../../components/terminal/TerminalConfigDialog.vue'
 
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()

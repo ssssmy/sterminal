@@ -15,6 +15,8 @@ export const useUiStore = defineStore('ui', () => {
   const showCommandPalette = ref(false)
   const showHostConfigDialog = ref(false)
   const editingHostId = ref<string | null>(null)
+  const showTerminalConfigDialog = ref(false)
+  const editingTerminalId = ref<string | null>(null)
 
   // ===== 主题操作 =====
 
@@ -92,6 +94,18 @@ export const useUiStore = defineStore('ui', () => {
     editingHostId.value = null
   }
 
+  // ===== 终端配置对话框 =====
+
+  function openTerminalConfigDialog(terminalId?: string): void {
+    editingTerminalId.value = terminalId || null
+    showTerminalConfigDialog.value = true
+  }
+
+  function closeTerminalConfigDialog(): void {
+    showTerminalConfigDialog.value = false
+    editingTerminalId.value = null
+  }
+
   return {
     sidebarWidth,
     sidebarCollapsed,
@@ -100,6 +114,8 @@ export const useUiStore = defineStore('ui', () => {
     showCommandPalette,
     showHostConfigDialog,
     editingHostId,
+    showTerminalConfigDialog,
+    editingTerminalId,
     setTheme,
     restoreTheme,
     toggleSidebar,
@@ -109,5 +125,7 @@ export const useUiStore = defineStore('ui', () => {
     closeCommandPalette,
     openHostConfigDialog,
     closeHostConfigDialog,
+    openTerminalConfigDialog,
+    closeTerminalConfigDialog,
   }
 })

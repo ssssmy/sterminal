@@ -73,17 +73,21 @@ const TerminalXterm = defineComponent({
 
     const sshStatusCallback = (payload: unknown) => {
       const { connectionId, status } = payload as { connectionId: string; status: string }
-      if (connectionId === sshConnectionId && terminal) {
-        if (status === 'disconnected') {
-          terminal.write('\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
+      if (connectionId === sshConnectionId) {
+        if (status === 'connected' && instance) {
+          instance.sshStatus = 'connected'
+        } else if (status === 'disconnected') {
+          if (instance) instance.sshStatus = 'disconnected'
+          if (terminal) terminal.write('\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
         }
       }
     }
 
     const sshErrorCallback = (payload: unknown) => {
       const { connectionId, error } = payload as { connectionId: string; error: string }
-      if (connectionId === sshConnectionId && terminal) {
-        terminal.write(`\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
+      if (connectionId === sshConnectionId) {
+        if (instance) instance.sshStatus = 'error'
+        if (terminal) terminal.write(`\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
       }
     }
 
@@ -143,6 +147,7 @@ const TerminalXterm = defineComponent({
         }
 
         terminal.write(`正在连接 ${hostConfig.username || 'root'}@${hostConfig.address}:${hostConfig.port || 22} ...\r\n`)
+        if (instance) instance.sshStatus = 'connecting'
 
         // 监听 SSH 事件
         on(IPC_SSH.DATA, sshDataCallback)
@@ -160,11 +165,13 @@ const TerminalXterm = defineComponent({
             sshConnectionId = result.connectionId
             if (instance) {
               instance.sshConnectionId = sshConnectionId
+              instance.sshStatus = 'connected'
             }
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err)
           terminal.write(`\r\n\x1b[31m[SSH 连接失败: ${msg}]\x1b[0m\r\n`)
+          if (instance) instance.sshStatus = 'error'
         }
 
         // 用户输入转发到 SSH

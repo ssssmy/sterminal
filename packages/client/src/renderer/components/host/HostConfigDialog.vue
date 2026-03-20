@@ -3,6 +3,7 @@
     v-model="visible"
     :title="isEditing ? '编辑主机' : '新增主机'"
     width="600px"
+    custom-class="host-dialog-dark"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
     @close="handleClose"
@@ -458,6 +459,197 @@ async function handleSave(): Promise<void> {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+  }
+}
+</style>
+
+<style lang="scss">
+/* 主机配置对话框暗色主题（全局，el-dialog 通过 overlay 挂载） */
+.host-dialog-dark {
+  background: var(--bg-surface, #232438) !important;
+  border: 1px solid var(--border, #2e3048);
+  border-radius: 12px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5) !important;
+
+  /* 标题栏 */
+  .el-dialog__header {
+    padding: 20px 24px 12px;
+    border-bottom: 1px solid var(--divider, #262840);
+    margin-right: 0;
+  }
+
+  .el-dialog__title {
+    color: var(--text-primary, #e4e4e8);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .el-dialog__headerbtn {
+    top: 20px;
+    right: 20px;
+
+    .el-dialog__close {
+      color: var(--text-tertiary, #5c5e72);
+
+      &:hover {
+        color: var(--text-primary, #e4e4e8);
+      }
+    }
+  }
+
+  /* 内容区 */
+  .el-dialog__body {
+    padding: 16px 24px;
+    color: var(--text-primary, #e4e4e8);
+  }
+
+  /* 底部按钮区 */
+  .el-dialog__footer {
+    padding: 12px 24px 20px;
+    border-top: 1px solid var(--divider, #262840);
+  }
+
+  /* Tabs */
+  .el-tabs__header {
+    .el-tabs__nav-wrap::after {
+      background-color: var(--divider, #262840);
+    }
+
+    .el-tabs__item {
+      color: var(--text-tertiary, #5c5e72);
+
+      &.is-active {
+        color: var(--accent, #6366f1);
+      }
+
+      &:hover {
+        color: var(--text-primary, #e4e4e8);
+      }
+    }
+
+    .el-tabs__active-bar {
+      background-color: var(--accent, #6366f1);
+    }
+  }
+
+  /* 表单标签 */
+  .el-form-item__label {
+    color: var(--text-secondary, #8b8d9e) !important;
+    font-size: 13px;
+  }
+
+  /* 输入框 */
+  .el-input__wrapper,
+  .el-textarea__inner {
+    background-color: var(--bg-input, #1e1f34) !important;
+    border-color: var(--border, #2e3048) !important;
+    box-shadow: none !important;
+    color: var(--text-primary, #e4e4e8);
+
+    &:hover {
+      border-color: var(--accent, #6366f1) !important;
+    }
+
+    &.is-focus,
+    &:focus {
+      border-color: var(--accent, #6366f1) !important;
+      box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2) !important;
+    }
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    color: var(--text-primary, #e4e4e8) !important;
+    caret-color: var(--accent, #6366f1);
+
+    &::placeholder {
+      color: var(--text-tertiary, #5c5e72) !important;
+    }
+  }
+
+  /* 数字输入框按钮 */
+  .el-input-number {
+    .el-input-number__increase,
+    .el-input-number__decrease {
+      background-color: var(--bg-hover, #2a2b40);
+      border-color: var(--border, #2e3048);
+      color: var(--text-secondary, #8b8d9e);
+
+      &:hover {
+        color: var(--accent, #6366f1);
+      }
+    }
+  }
+
+  /* Select 下拉 */
+  .el-select .el-input__wrapper {
+    background-color: var(--bg-input, #1e1f34) !important;
+  }
+
+  /* Switch 开关 */
+  .el-switch {
+    --el-switch-off-color: var(--bg-hover, #2a2b40);
+    --el-switch-on-color: var(--accent, #6366f1);
+  }
+
+  /* 按钮 */
+  .el-button--default {
+    background-color: var(--bg-hover, #2a2b40);
+    border-color: var(--border, #2e3048);
+    color: var(--text-secondary, #8b8d9e);
+
+    &:hover {
+      background-color: var(--bg-input, #1e1f34);
+      border-color: var(--text-tertiary, #5c5e72);
+      color: var(--text-primary, #e4e4e8);
+    }
+  }
+
+  .el-button--primary {
+    background-color: var(--accent, #6366f1);
+    border-color: var(--accent, #6366f1);
+
+    &:hover {
+      background-color: #5558e6;
+      border-color: #5558e6;
+    }
+  }
+}
+
+/* Select 下拉面板暗色（popper 挂载在 body） */
+.el-select__popper.el-popper {
+  background: var(--bg-surface, #232438) !important;
+  border: 1px solid var(--border, #2e3048) !important;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  .el-popper__arrow::before {
+    background: var(--bg-surface, #232438) !important;
+    border-color: var(--border, #2e3048) !important;
+  }
+
+  .el-select-dropdown__item {
+    color: var(--text-secondary, #8b8d9e);
+    font-size: 13px;
+
+    &:hover,
+    &.hover {
+      background-color: var(--bg-hover, #2a2b40);
+    }
+
+    &.is-selected,
+    &.selected {
+      color: var(--accent, #6366f1);
+      font-weight: 600;
+    }
+
+    &.is-disabled {
+      color: var(--text-tertiary, #5c5e72);
+    }
+  }
+
+  .el-select-dropdown__empty {
+    color: var(--text-tertiary, #5c5e72);
   }
 }
 </style>

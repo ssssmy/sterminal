@@ -994,49 +994,84 @@ function injectMockData(): void {
 </style>
 
 <style lang="scss">
-/* 右键菜单暗色主题（全局，因为 popper 挂载在 body 上） */
-.sidebar-context-menu {
-  &.el-dropdown__popper {
-    background-color: var(--bg-elevated, #1e1f35);
-    border: 1px solid var(--border, #2a2b40);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    padding: 4px;
+/* 右键菜单暗色主题（全局，popper 挂载在 body） */
+.sidebar-context-menu.el-dropdown__popper {
+  --menu-bg: #1c1d32;
+  --menu-bg-hover: rgba(99, 102, 241, 0.12);
+  --menu-border: rgba(255, 255, 255, 0.06);
+  --menu-text: #c8c9d6;
+  --menu-text-hover: #fff;
+  --menu-divider: rgba(255, 255, 255, 0.06);
+  --menu-danger: #ef4444;
 
-    .el-dropdown-menu {
-      background-color: transparent;
-      border: none;
-      padding: 0;
+  background: var(--menu-bg);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--menu-border);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 16px 40px -4px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  min-width: 140px;
+
+  /* 隐藏默认箭头 */
+  .el-popper__arrow {
+    display: none;
+  }
+
+  .el-dropdown-menu {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .el-dropdown-menu__item {
+    color: var(--menu-text);
+    font-size: 12px;
+    padding: 6px 16px;
+    border-radius: 6px;
+    line-height: 1.5;
+    margin: 1px 0;
+    transition: all 0.12s ease;
+
+    &:not(.is-disabled):hover,
+    &:not(.is-disabled):focus {
+      background: var(--menu-bg-hover);
+      color: var(--menu-text-hover);
     }
 
-    .el-dropdown-menu__item {
-      color: var(--text-secondary, #a1a1b5);
-      font-size: 12px;
-      padding: 6px 12px;
-      border-radius: 4px;
-      line-height: 1.6;
-
-      &:hover,
-      &:focus {
-        background-color: var(--bg-hover, #2a2b40);
-        color: var(--text-primary, #e4e4ed);
-      }
-
-      &.is-disabled {
-        color: var(--text-tertiary, #5a5b70);
-      }
+    &:active {
+      background: rgba(99, 102, 241, 0.2);
     }
 
-    .el-dropdown-menu__item--divided {
-      border-top-color: var(--divider, #2a2b40);
-      margin-top: 4px;
-      padding-top: 10px;
+    &.is-disabled {
+      color: #3d3e54;
+      cursor: not-allowed;
+    }
+  }
+
+  /* "删除" 按钮红色高亮 */
+  .el-dropdown-menu__item--divided {
+    border-top: 1px solid var(--menu-divider);
+    margin-top: 4px;
+    padding-top: 6px;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 8px;
+      right: 8px;
+      height: 0;
     }
 
-    /* 箭头颜色 */
-    .el-popper__arrow::before {
-      background-color: var(--bg-elevated, #1e1f35);
-      border-color: var(--border, #2a2b40);
+    &:not(.is-disabled):hover,
+    &:not(.is-disabled):focus {
+      color: var(--menu-danger);
+      background: rgba(239, 68, 68, 0.1);
     }
   }
 }

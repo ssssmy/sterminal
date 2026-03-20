@@ -55,6 +55,7 @@ export interface TerminalInstance {
   // ssh 类型字段
   hostId?: string
   sshConnectionId?: string
+  sshStatus?: 'connecting' | 'connected' | 'disconnected' | 'error'
   // PTY 进程 ID（本地终端启动后赋值）
   ptyId?: string
   // 共享字段

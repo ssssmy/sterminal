@@ -21,7 +21,7 @@ export const useSessionsStore = defineStore('sessions', () => {
   const connectedHostIds = computed(() => {
     const ids = new Set<string>()
     for (const instance of terminalInstances.value.values()) {
-      if (instance.type === 'ssh' && instance.hostId) {
+      if (instance.type === 'ssh' && instance.hostId && instance.sshStatus === 'connected') {
         ids.add(instance.hostId)
       }
     }

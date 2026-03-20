@@ -3,6 +3,8 @@
   <div class="settings-layout">
     <!-- 左侧导航 -->
     <nav class="settings-layout__nav">
+      <!-- macOS 交通灯占位 -->
+      <div v-if="isMacOS" class="settings-layout__traffic-light" />
       <div class="settings-layout__nav-header">
         <el-button
           :icon="ArrowLeft"
@@ -83,6 +85,7 @@ import TerminalSettings from './TerminalSettings.vue'
 import AppearanceSettings from './AppearanceSettings.vue'
 
 const router = useRouter()
+const isMacOS = window.electronAPI?.platform === 'darwin'
 const activeSection = ref('account')
 
 function handleSelect(key: string): void {
@@ -106,6 +109,12 @@ function handleSelect(key: string): void {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+  }
+
+  &__traffic-light {
+    height: 38px;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
   }
 
   &__nav-header {

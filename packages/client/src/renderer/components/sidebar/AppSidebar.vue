@@ -25,7 +25,7 @@
         </el-tooltip>
         <!-- 设置入口 -->
         <el-tooltip content="设置" placement="bottom">
-          <button class="app-sidebar__icon-btn" @click="router.push('/settings')">
+          <button class="app-sidebar__icon-btn" @click="goToSettings">
             <el-icon :size="15"><Setting /></el-icon>
           </button>
         </el-tooltip>
@@ -452,6 +452,12 @@ function handleTerminalCmd(cmd: string, terminal: LocalTerminalConfig): void {
 // ===== 同步 =====
 function handleSync(): void {
   // TODO: 触发云同步
+}
+
+function goToSettings(): void {
+  // 先让按钮失焦，关闭 tooltip，避免路由切换时 tooltip 闪到左上角
+  ;(document.activeElement as HTMLElement)?.blur()
+  requestAnimationFrame(() => router.push('/settings'))
 }
 
 // ===== 侧边栏宽度拖拽调整 =====

@@ -210,7 +210,7 @@ const TerminalXterm = defineComponent({
               const cmd = sshPendingStartupCmd
               sshPendingStartupCmd = null
               setTimeout(() => {
-                ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId!, data: cmd + '\n' })
+                ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId!, data: cmd + '\r' })
               }, 50)
             }
           }
@@ -311,7 +311,7 @@ const TerminalXterm = defineComponent({
                 const cmd = pendingCmd
                 pendingCmd = null
                 setTimeout(() => {
-                  ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId!, data: cmd + '\n' })
+                  ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId!, data: cmd + '\r' })
                 }, 50)
               }
             }

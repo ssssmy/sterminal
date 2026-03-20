@@ -38,16 +38,13 @@ function ipcOff(channel: string, callback: (data: unknown) => void): void {
 }
 
 /**
- * 广播输入：将数据转发到当前标签页分屏内的其他终端
+ * 广播输入：将数据转发到所有其他终端（跨标签页）
  */
 function broadcastInput(sourceTerminalId: string, data: string): void {
   const store = useSessionsStore()
   if (!store.broadcastMode) return
-  const siblingIds = store.getActiveTabTerminalIds()
-  for (const tid of siblingIds) {
+  for (const [tid, sibling] of terminalPool) {
     if (tid === sourceTerminalId) continue
-    const sibling = terminalPool.get(tid)
-    if (!sibling) continue
     if (sibling.sshConnectionId) {
       ipcInvoke(IPC_SSH.WRITE, { connectionId: sibling.sshConnectionId, data })
     } else if (sibling.ptyId) {

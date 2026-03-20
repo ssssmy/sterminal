@@ -33,10 +33,15 @@
         <!-- 有会话时显示终端 -->
         <template v-else>
           <TerminalTabs />
-          <TerminalPane
-            v-if="activeTab"
-            :tab="activeTab"
-          />
+          <div class="workspace__terminals">
+            <TerminalPane
+              v-for="tab in sessionsStore.tabs"
+              :key="tab.id"
+              v-show="sessionsStore.activeTabId === tab.id"
+              :tab="tab"
+              class="workspace__terminal-instance"
+            />
+          </div>
         </template>
       </div>
     </div>
@@ -50,12 +55,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
-import type { TabSession } from '@shared/types/terminal'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
 import AppToolbar from '../../components/toolbar/AppToolbar.vue'
 import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
@@ -67,9 +71,6 @@ const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
 const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
-
-// 避免 null 传递给 TerminalPane
-const activeTab = computed<TabSession | null>(() => sessionsStore.activeTab)
 
 // ===== 工具栏事件处理 =====
 function handleSftp(): void {
@@ -173,6 +174,18 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  &__terminals {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  &__terminal-instance {
+    position: absolute;
+    inset: 0;
   }
 
   &__empty {

@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, ref, toRaw, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, h, ref, toRaw, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -230,6 +230,18 @@ const TerminalXterm = defineComponent({
       })
       resizeObserver.observe(containerRef.value)
     })
+
+    // 切换 tab 后重新 fit（v-show 隐藏时容器尺寸为 0，需要恢复）
+    watch(
+      () => sessionsStore.activeTabId,
+      () => {
+        nextTick(() => {
+          if (fitAddon && terminal && containerRef.value?.offsetParent !== null) {
+            fitAddon.fit()
+          }
+        })
+      }
+    )
 
     onBeforeUnmount(() => {
       if (resizeObserver) {

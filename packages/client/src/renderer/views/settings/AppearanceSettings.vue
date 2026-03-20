@@ -16,12 +16,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useUiStore } from '../../stores/ui.store'
 import type { AppTheme } from '../../stores/ui.store'
 
 const uiStore = useUiStore()
-const selectedTheme = ref<AppTheme>(uiStore.theme)
+const selectedTheme = computed(() => uiStore.theme)
 
 function handleThemeChange(val: string | number | boolean | undefined): void {
   uiStore.setTheme(val as AppTheme)

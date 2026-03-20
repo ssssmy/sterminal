@@ -947,15 +947,9 @@ onBeforeUnmount(() => {
 </style>
 
 <style lang="scss">
-/* 右键菜单暗色主题（全局，popper 挂载在 body） */
+/* 右键菜单样式（全局，popper 挂载在 body） */
 .sidebar-context-menu.el-dropdown__popper {
-  background: #1c1d32;
-  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.3),
-    0 16px 40px -4px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   padding: 4px;
   min-width: 140px;
   backdrop-filter: blur(20px) saturate(1.4);
@@ -972,13 +966,26 @@ onBeforeUnmount(() => {
   }
 
   .el-dropdown-menu__item {
-    color: #c8c9d6;
     font-size: 12px;
     padding: 6px 16px;
     border-radius: 6px;
     line-height: 1.5;
     margin: 1px 0;
     transition: all 0.12s ease;
+  }
+}
+
+/* 暗色主题 */
+html[data-theme="dark"] .sidebar-context-menu.el-dropdown__popper {
+  background: #1c1d32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 16px 40px -4px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  .el-dropdown-menu__item {
+    color: #c8c9d6;
 
     &:not(.is-disabled):hover,
     &:not(.is-disabled):focus {
@@ -990,13 +997,11 @@ onBeforeUnmount(() => {
       color: #3d3e54;
     }
 
-    /* 分割线 */
     &.el-dropdown-menu__item--divided {
       border-top-color: rgba(255, 255, 255, 0.06);
       margin-top: 4px;
     }
 
-    /* 删除按钮 - 红色 */
     &.ctx-menu-danger {
       color: #f87171;
 
@@ -1004,6 +1009,45 @@ onBeforeUnmount(() => {
       &:not(.is-disabled):focus {
         background: rgba(239, 68, 68, 0.12);
         color: #ef4444;
+      }
+    }
+  }
+}
+
+/* 亮色主题 */
+html[data-theme="light"] .sidebar-context-menu.el-dropdown__popper {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.08),
+    0 16px 40px -4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  .el-dropdown-menu__item {
+    color: #374151;
+
+    &:not(.is-disabled):hover,
+    &:not(.is-disabled):focus {
+      background: rgba(99, 102, 241, 0.08);
+      color: #1a1b2e;
+    }
+
+    &.is-disabled {
+      color: #c0c4cc;
+    }
+
+    &.el-dropdown-menu__item--divided {
+      border-top-color: rgba(0, 0, 0, 0.06);
+      margin-top: 4px;
+    }
+
+    &.ctx-menu-danger {
+      color: #ef4444;
+
+      &:not(.is-disabled):hover,
+      &:not(.is-disabled):focus {
+        background: rgba(239, 68, 68, 0.08);
+        color: #dc2626;
       }
     }
   }

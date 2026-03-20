@@ -4,6 +4,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { TabSession, SplitNode, TerminalInstance } from '@shared/types/terminal'
+import { useTerminalsStore } from './terminals.store'
 
 export const useSessionsStore = defineStore('sessions', () => {
   // ===== 状态 =====
@@ -37,10 +38,22 @@ export const useSessionsStore = defineStore('sessions', () => {
     const terminalId = uuidv4()
     const tabId = uuidv4()
 
+    // 本地终端未指定配置时，使用默认终端配置
+    let resolvedConfigId = configId
+    let resolvedLabel = label
+    if (type === 'local' && !configId) {
+      const terminalsStore = useTerminalsStore()
+      const defaultConfig = terminalsStore.getDefault()
+      if (defaultConfig) {
+        resolvedConfigId = defaultConfig.id
+        resolvedLabel = label || defaultConfig.name
+      }
+    }
+
     const instance: TerminalInstance = {
       id: terminalId,
       type,
-      localConfigId: type === 'local' ? configId : undefined,
+      localConfigId: type === 'local' ? resolvedConfigId : undefined,
       hostId: type === 'ssh' ? configId : undefined,
       recording: false,
     }
@@ -48,7 +61,7 @@ export const useSessionsStore = defineStore('sessions', () => {
 
     const tab: TabSession = {
       id: tabId,
-      label: label || (type === 'local' ? '本地终端' : '远程主机'),
+      label: resolvedLabel || (type === 'local' ? '本地终端' : '远程主机'),
       pinned: false,
       root: { type: 'terminal', terminalId },
     }

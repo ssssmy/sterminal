@@ -52,6 +52,10 @@ export const useTerminalsStore = defineStore('terminals', () => {
    * 创建本地终端配置
    */
   async function createTerminal(data: Partial<LocalTerminalConfig>): Promise<LocalTerminalConfig> {
+    // 设为默认时，先清除本地 store 中其他终端的默认标记
+    if (data.isDefault) {
+      terminals.value.forEach(t => { t.isDefault = false })
+    }
     const row = await invoke<Record<string, unknown>>(IPC_DB.LOCAL_TERMINALS_CREATE, data)
     const terminal = row ? mapDbRow(row) : { id: `t_${Date.now()}`, name: data.name || '本地终端', scriptLineDelay: 0, loginShell: true, isDefault: false, sortOrder: terminals.value.length, ...data } as LocalTerminalConfig
     terminals.value.push(terminal)
@@ -62,6 +66,12 @@ export const useTerminalsStore = defineStore('terminals', () => {
    * 更新本地终端配置
    */
   async function updateTerminal(id: string, data: Partial<LocalTerminalConfig>): Promise<void> {
+    // 设为默认时，先清除本地 store 中其他终端的默认标记
+    if (data.isDefault) {
+      terminals.value.forEach(t => {
+        if (t.id !== id) t.isDefault = false
+      })
+    }
     const row = await invoke<Record<string, unknown>>(IPC_DB.LOCAL_TERMINALS_UPDATE, id, data)
     if (row) {
       const idx = terminals.value.findIndex(t => t.id === id)

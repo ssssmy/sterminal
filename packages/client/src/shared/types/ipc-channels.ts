@@ -170,4 +170,5 @@ export const IPC_SYSTEM = {
 export const IPC_WINDOW = {
   NEW: 'window:new',
   MERGE: 'window:merge',
+  SET_TITLE_BAR_OVERLAY: 'window:set-title-bar-overlay',
 } as const

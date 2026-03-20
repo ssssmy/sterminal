@@ -83,36 +83,99 @@ function disposePooledTerminal(terminalId: string): void {
 }
 
 // ===== xterm 主题配置 =====
-const XTERM_OPTIONS = {
-  theme: {
-    background: '#1a1b2e',
-    foreground: '#e2e8f0',
-    cursor: '#6366f1',
-    cursorAccent: '#1a1b2e',
-    selectionBackground: 'rgba(99, 102, 241, 0.3)',
-    black: '#1a1b2e',
-    red: '#ef4444',
-    green: '#22c55e',
-    yellow: '#eab308',
-    blue: '#3b82f6',
-    magenta: '#a855f7',
-    cyan: '#06b6d4',
-    white: '#e2e8f0',
-    brightBlack: '#64748b',
-    brightRed: '#f87171',
-    brightGreen: '#4ade80',
-    brightYellow: '#facc15',
-    brightBlue: '#60a5fa',
-    brightMagenta: '#c084fc',
-    brightCyan: '#22d3ee',
-    brightWhite: '#f8fafc',
-  },
+import { useUiStore } from '@/stores/ui.store'
+
+const XTERM_THEME_DARK = {
+  background: '#1a1b2e',
+  foreground: '#e2e8f0',
+  cursor: '#6366f1',
+  cursorAccent: '#1a1b2e',
+  selectionBackground: 'rgba(99, 102, 241, 0.3)',
+  black: '#1a1b2e',
+  red: '#ef4444',
+  green: '#22c55e',
+  yellow: '#eab308',
+  blue: '#3b82f6',
+  magenta: '#a855f7',
+  cyan: '#06b6d4',
+  white: '#e2e8f0',
+  brightBlack: '#64748b',
+  brightRed: '#f87171',
+  brightGreen: '#4ade80',
+  brightYellow: '#facc15',
+  brightBlue: '#60a5fa',
+  brightMagenta: '#c084fc',
+  brightCyan: '#22d3ee',
+  brightWhite: '#f8fafc',
+}
+
+const XTERM_THEME_LIGHT = {
+  background: '#f8f9fc',
+  foreground: '#1e293b',
+  cursor: '#6366f1',
+  cursorAccent: '#f8f9fc',
+  selectionBackground: 'rgba(99, 102, 241, 0.2)',
+  black: '#1e293b',
+  red: '#dc2626',
+  green: '#16a34a',
+  yellow: '#ca8a04',
+  blue: '#2563eb',
+  magenta: '#9333ea',
+  cyan: '#0891b2',
+  white: '#f1f5f9',
+  brightBlack: '#94a3b8',
+  brightRed: '#ef4444',
+  brightGreen: '#22c55e',
+  brightYellow: '#eab308',
+  brightBlue: '#3b82f6',
+  brightMagenta: '#a855f7',
+  brightCyan: '#06b6d4',
+  brightWhite: '#ffffff',
+}
+
+function getResolvedTheme(): 'dark' | 'light' {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
+}
+
+function getXtermTheme(): typeof XTERM_THEME_DARK {
+  return getResolvedTheme() === 'light' ? XTERM_THEME_LIGHT : XTERM_THEME_DARK
+}
+
+const XTERM_BASE_OPTIONS = {
   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
   fontSize: 14,
   lineHeight: 1.2,
   cursorBlink: true,
   cursorStyle: 'block' as const,
   allowProposedApi: true,
+}
+
+// 监听主题变化，更新所有池中终端
+const uiStore = useUiStore()
+watch(
+  () => uiStore.theme,
+  () => {
+    nextTick(() => {
+      const theme = getXtermTheme()
+      for (const pooled of terminalPool.values()) {
+        pooled.terminal.options.theme = theme
+      }
+    })
+  },
+)
+
+// 监听系统主题切换（当设置为"跟随系统"时）
+if (typeof window !== 'undefined') {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (uiStore.theme === 'system') {
+      nextTick(() => {
+        const theme = getXtermTheme()
+        for (const pooled of terminalPool.values()) {
+          pooled.terminal.options.theme = theme
+        }
+      })
+    }
+  })
 }
 
 // ===== 单个终端实例组件 =====
@@ -158,7 +221,7 @@ const TerminalXterm = defineComponent({
       const wrapperEl = document.createElement('div')
       wrapperEl.className = 'terminal-xterm'
 
-      const terminal = new Terminal(XTERM_OPTIONS)
+      const terminal = new Terminal({ ...XTERM_BASE_OPTIONS, theme: getXtermTheme() })
       const fitAddon = new FitAddon()
       terminal.loadAddon(fitAddon)
       terminal.loadAddon(new WebLinksAddon())

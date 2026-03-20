@@ -1,12 +1,13 @@
 // Electron 主进程入口
 // 负责创建窗口、注册 IPC handlers、初始化数据库
 
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import { initDatabase, closeDatabase } from './services/db'
 import { registerAllHandlers } from './ipc/index'
 import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
+import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -60,6 +61,18 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  // Windows: 监听主题变更，更新标题栏覆盖层颜色
+  if (isWindows) {
+    ipcMain.handle(IPC_WINDOW.SET_TITLE_BAR_OVERLAY, (_event, overlay: { color: string; symbolColor: string }) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setTitleBarOverlay({
+          color: overlay.color,
+          symbolColor: overlay.symbolColor,
+        })
+      }
+    })
+  }
 }
 
 // ===== 应用生命周期 =====

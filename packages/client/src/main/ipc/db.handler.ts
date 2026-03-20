@@ -65,6 +65,10 @@ function registerLocalTerminalsHandlers(): void {
   // 创建本地终端配置
   ipcMain.handle(IPC_DB.LOCAL_TERMINALS_CREATE, (_event, data: Record<string, unknown>) => {
     const id = uuidv4()
+    // 设为默认时，先清除其他终端的默认标记
+    if (data.isDefault) {
+      dbRun('UPDATE local_terminals SET is_default = 0 WHERE is_default = 1')
+    }
     dbRun(
       `INSERT INTO local_terminals (id, name, shell, cwd, startup_command, environment, login_shell, is_default, sort_order)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -85,6 +89,10 @@ function registerLocalTerminalsHandlers(): void {
 
   // 更新本地终端配置
   ipcMain.handle(IPC_DB.LOCAL_TERMINALS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    // 设为默认时，先清除其他终端的默认标记
+    if (data.isDefault) {
+      dbRun('UPDATE local_terminals SET is_default = 0 WHERE is_default = 1 AND id != ?', [id])
+    }
     dbRun(
       `UPDATE local_terminals SET
         name = COALESCE(?, name),

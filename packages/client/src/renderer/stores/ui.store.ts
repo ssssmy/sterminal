@@ -2,6 +2,8 @@
 
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { useSettingsStore } from './settings.store'
+import { IPC_WINDOW } from '@shared/types/ipc-channels'
 
 export type AppTheme = 'light' | 'dark' | 'system'
 export type SidebarPanel = 'hosts' | 'terminals' | 'snippets' | 'portForwards' | 'vault'
@@ -27,32 +29,42 @@ export const useUiStore = defineStore('ui', () => {
     let resolvedTheme: 'light' | 'dark' = 'dark'
 
     if (newTheme === 'system') {
-      // 跟随系统主题
       resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     } else {
       resolvedTheme = newTheme
     }
 
     document.documentElement.setAttribute('data-theme', resolvedTheme)
-    // Element Plus 暗色主题需要 html.dark class
     document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
+
+    // Windows: 更新标题栏覆盖层颜色以跟随主题
+    if (window.electronAPI?.platform === 'win32') {
+      const overlay = resolvedTheme === 'dark'
+        ? { color: '#1a1b2e', symbolColor: '#e2e8f0' }
+        : { color: '#f0f1f3', symbolColor: '#374151' }
+      window.electronAPI.ipc.invoke(IPC_WINDOW.SET_TITLE_BAR_OVERLAY, overlay)
+    }
   }
 
   /**
-   * 设置主题
+   * 设置主题（持久化到数据库）
    */
   function setTheme(newTheme: AppTheme): void {
     theme.value = newTheme
     applyTheme(newTheme)
-    localStorage.setItem('app_theme', newTheme)
+    const settingsStore = useSettingsStore()
+    settingsStore.setSetting('app.theme', newTheme)
   }
 
   /**
-   * 从本地存储恢复主题设置
+   * 从数据库恢复主题设置
    */
-  function restoreTheme(): void {
-    const saved = localStorage.getItem('app_theme') as AppTheme | null
-    setTheme(saved || 'dark')
+  async function restoreTheme(): Promise<void> {
+    const settingsStore = useSettingsStore()
+    const saved = await settingsStore.getSetting<string>('app.theme')
+    const themeValue = (saved || 'dark') as AppTheme
+    theme.value = themeValue
+    applyTheme(themeValue)
   }
 
   // 监听 theme 变化自动应用

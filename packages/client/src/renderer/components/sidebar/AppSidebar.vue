@@ -88,11 +88,14 @@
                 <div
                   class="app-sidebar__host-item"
                   :class="{
+                    'app-sidebar__host-item--hover': hoveredHostId === host.id,
                     'app-sidebar__host-item--selected': selectedHostId === host.id,
                     'app-sidebar__host-item--connected': isHostConnected(host.id),
                   }"
                   @click="selectHost(host)"
                   @dblclick="connectToHost(host)"
+                  @mouseenter="hoveredHostId = host.id"
+                  @mouseleave="hoveredHostId = null"
                 >
                   <span
                     class="app-sidebar__status-dot"
@@ -127,11 +130,14 @@
             <div
               class="app-sidebar__host-item app-sidebar__host-item--root"
               :class="{
+                'app-sidebar__host-item--hover': hoveredHostId === host.id,
                 'app-sidebar__host-item--selected': selectedHostId === host.id,
                 'app-sidebar__host-item--connected': isHostConnected(host.id),
               }"
               @click="selectHost(host)"
               @dblclick="connectToHost(host)"
+              @mouseenter="hoveredHostId = host.id"
+              @mouseleave="hoveredHostId = null"
             >
               <span
                 class="app-sidebar__status-dot"
@@ -348,8 +354,9 @@ function toggleCollapse(section: string): void {
   }
 }
 
-// ===== 选中的主机 =====
+// ===== 选中和悬停的主机 =====
 const selectedHostId = ref<string | null>(null)
+const hoveredHostId = ref<string | null>(null)
 
 function selectHost(host: Host): void {
   selectedHostId.value = host.id
@@ -732,7 +739,8 @@ onBeforeUnmount(() => {
       padding-left: 12px;  // 根级（未分组）无缩进
     }
 
-    &:hover {
+    // 用 JS 控制的 hover（避免 el-dropdown 右键菜单导致 :hover 卡住）
+    &--hover {
       background-color: var(--bg-hover);
       color: var(--text-primary);
     }

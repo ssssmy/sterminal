@@ -703,6 +703,12 @@ function injectMockData(): void {
   // ===== 主机树 =====
   &__host-tree {
     padding: 0 4px;
+
+    // el-dropdown 默认 inline-flex，需撑满宽度
+    :deep(.el-dropdown) {
+      display: block;
+      width: 100%;
+    }
   }
 
   &__group-row {
@@ -823,6 +829,11 @@ function injectMockData(): void {
   // ===== 本地终端列表 =====
   &__terminal-list {
     padding: 0 4px;
+
+    :deep(.el-dropdown) {
+      display: block;
+      width: 100%;
+    }
   }
 
   &__terminal-item {

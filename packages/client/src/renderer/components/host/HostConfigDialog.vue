@@ -414,36 +414,15 @@ async function handleSave(): Promise<void> {
     }
 
     if (isEditing.value && uiStore.editingHostId) {
-      // 直接更新内存中的主机数据（兼容 mock 和 DB 数据）
+      // 更新内存中的主机数据
       const idx = hostsStore.hosts.findIndex(h => h.id === uiStore.editingHostId)
       if (idx !== -1) {
         hostsStore.hosts[idx] = { ...hostsStore.hosts[idx], ...data }
       }
-      // 如果有数据库支持，同步写入
-      try { await hostsStore.updateHost(uiStore.editingHostId, data) } catch { /* mock 模式忽略 */ }
+      try { await hostsStore.updateHost(uiStore.editingHostId, data) } catch { /* ignore */ }
     } else {
-      // 新增主机：直接写入内存
-      const newHost: Host = {
-        id: `h_${Date.now()}`,
-        address: data.address || '',
-        port: data.port || 22,
-        protocol: 'ssh',
-        authType: data.authType || 'password',
-        encoding: data.encoding || 'utf-8',
-        keepaliveInterval: data.keepaliveInterval ?? 60,
-        connectTimeout: data.connectTimeout ?? 10,
-        heartbeatTimeout: 30,
-        compression: data.compression ?? false,
-        strictHostKey: data.strictHostKey ?? false,
-        sshVersion: data.sshVersion || 'auto',
-        sortOrder: hostsStore.hosts.length,
-        tagIds: [],
-        connectCount: 0,
-        ...data,
-      } as Host
-      hostsStore.hosts.push(newHost)
-      // 如果有数据库支持，同步写入
-      try { await hostsStore.createHost(data) } catch { /* mock 模式忽略 */ }
+      // createHost 内部会 push 到 hosts 数组
+      await hostsStore.createHost(data)
     }
 
     uiStore.closeHostConfigDialog()

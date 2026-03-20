@@ -62,6 +62,11 @@ export const IPC_DB = {
   LOCAL_TERMINALS_CREATE: 'db:local-terminals:create',
   LOCAL_TERMINALS_UPDATE: 'db:local-terminals:update',
   LOCAL_TERMINALS_DELETE: 'db:local-terminals:delete',
+  // 本地终端分组
+  LOCAL_TERMINAL_GROUPS_LIST: 'db:local-terminal-groups:list',
+  LOCAL_TERMINAL_GROUPS_CREATE: 'db:local-terminal-groups:create',
+  LOCAL_TERMINAL_GROUPS_UPDATE: 'db:local-terminal-groups:update',
+  LOCAL_TERMINAL_GROUPS_DELETE: 'db:local-terminal-groups:delete',
   // 命令片段
   SNIPPETS_LIST: 'db:snippets:list',
   SNIPPETS_CREATE: 'db:snippets:create',

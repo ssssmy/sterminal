@@ -149,6 +149,7 @@ onMounted(async () => {
     hostsStore.fetchHosts(),
     hostsStore.fetchGroups(),
     terminalsStore.fetchTerminals(),
+    terminalsStore.fetchGroups(),
   ])
 
   window.addEventListener('keydown', handleKeydown)

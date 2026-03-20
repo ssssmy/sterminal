@@ -2,7 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { LocalTerminalConfig } from '@shared/types/terminal'
+import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
 import { useIpc } from '../composables/useIpc'
 import { IPC_DB } from '@shared/types/ipc-channels'
 
@@ -31,6 +31,7 @@ export const useTerminalsStore = defineStore('terminals', () => {
 
   // ===== 状态 =====
   const terminals = ref<LocalTerminalConfig[]>([])
+  const groups = ref<LocalTerminalGroup[]>([])
   const loading = ref(false)
 
   // ===== 操作 =====
@@ -94,13 +95,76 @@ export const useTerminalsStore = defineStore('terminals', () => {
     return terminals.value.find(t => t.isDefault)
   }
 
+  // ===== 分组操作 =====
+
+  async function fetchGroups(): Promise<void> {
+    const rows = await invoke<LocalTerminalGroup[]>(IPC_DB.LOCAL_TERMINAL_GROUPS_LIST)
+    groups.value = rows || []
+  }
+
+  async function createGroup(data: Partial<LocalTerminalGroup>): Promise<LocalTerminalGroup | null> {
+    const row = await invoke<LocalTerminalGroup>(IPC_DB.LOCAL_TERMINAL_GROUPS_CREATE, data)
+    if (row) {
+      groups.value.push(row)
+      return row
+    }
+    return null
+  }
+
+  async function updateGroup(id: string, data: Partial<LocalTerminalGroup>): Promise<void> {
+    const row = await invoke<LocalTerminalGroup>(IPC_DB.LOCAL_TERMINAL_GROUPS_UPDATE, id, data)
+    if (row) {
+      const idx = groups.value.findIndex(g => g.id === id)
+      if (idx !== -1) groups.value[idx] = row
+    }
+  }
+
+  async function deleteGroup(id: string): Promise<void> {
+    await invoke(IPC_DB.LOCAL_TERMINAL_GROUPS_DELETE, id)
+    groups.value = groups.value.filter(g => g.id !== id)
+    terminals.value.forEach(t => {
+      if (t.groupId === id) t.groupId = undefined
+    })
+  }
+
+  // ===== 拖拽移动 =====
+
+  async function moveTerminal(terminalId: string, targetGroupId: string | null, targetIndex: number): Promise<void> {
+    const terminal = terminals.value.find(t => t.id === terminalId)
+    if (!terminal) return
+
+    const siblings = terminals.value
+      .filter(t => (t.groupId || null) === targetGroupId && t.id !== terminalId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+
+    siblings.splice(targetIndex, 0, terminal)
+
+    const newGroupId = targetGroupId || undefined
+    terminal.groupId = newGroupId
+    siblings.forEach((t, i) => { t.sortOrder = i })
+
+    await invoke(IPC_DB.LOCAL_TERMINALS_UPDATE, terminalId, { groupId: newGroupId, sortOrder: targetIndex })
+
+    for (const t of siblings) {
+      if (t.id !== terminalId) {
+        await invoke(IPC_DB.LOCAL_TERMINALS_UPDATE, t.id, { sortOrder: t.sortOrder })
+      }
+    }
+  }
+
   return {
     terminals,
+    groups,
     loading,
     fetchTerminals,
     createTerminal,
     updateTerminal,
     deleteTerminal,
     getDefault,
+    fetchGroups,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    moveTerminal,
   }
 })

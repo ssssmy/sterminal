@@ -116,6 +116,70 @@ export const useHostsStore = defineStore('hosts', () => {
     hosts.value = hosts.value.filter(h => h.id !== id)
   }
 
+  // ===== 拖拽移动 =====
+
+  /**
+   * 将主机移动到指定分组的指定位置
+   * @param hostId 被移动的主机 ID
+   * @param targetGroupId 目标分组 ID（null = 未分组）
+   * @param targetIndex 在目标分组内的插入位置索引
+   */
+  async function moveHost(hostId: string, targetGroupId: string | null, targetIndex: number): Promise<void> {
+    const host = hosts.value.find(h => h.id === hostId)
+    if (!host) return
+
+    // 获取目标分组的主机列表（排除自身）
+    const siblings = hosts.value
+      .filter(h => (h.groupId || null) === targetGroupId && h.id !== hostId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+
+    // 在目标位置插入
+    siblings.splice(targetIndex, 0, host)
+
+    // 更新内存中的 groupId 和 sortOrder
+    const newGroupId = targetGroupId || undefined
+    host.groupId = newGroupId
+    siblings.forEach((h, i) => { h.sortOrder = i })
+
+    // 持久化被移动主机的 groupId + sortOrder
+    await invoke(IPC_DB.HOSTS_UPDATE, hostId, { groupId: newGroupId, sortOrder: targetIndex })
+
+    // 批量更新受影响的兄弟节点 sortOrder
+    for (const h of siblings) {
+      if (h.id !== hostId) {
+        await invoke(IPC_DB.HOSTS_UPDATE, h.id, { sortOrder: h.sortOrder })
+      }
+    }
+  }
+
+  // ===== 分组操作 =====
+
+  async function createGroup(data: Partial<HostGroup>): Promise<HostGroup | null> {
+    const row = await invoke<HostGroup>(IPC_DB.HOST_GROUPS_CREATE, data)
+    if (row) {
+      groups.value.push(row)
+      return row
+    }
+    return null
+  }
+
+  async function updateGroup(id: string, data: Partial<HostGroup>): Promise<void> {
+    const row = await invoke<HostGroup>(IPC_DB.HOST_GROUPS_UPDATE, id, data)
+    if (row) {
+      const idx = groups.value.findIndex(g => g.id === id)
+      if (idx !== -1) groups.value[idx] = row
+    }
+  }
+
+  async function deleteGroup(id: string): Promise<void> {
+    await invoke(IPC_DB.HOST_GROUPS_DELETE, id)
+    groups.value = groups.value.filter(g => g.id !== id)
+    // 将该分组下的主机移到未分组
+    hosts.value.forEach(h => {
+      if (h.groupId === id) h.groupId = undefined
+    })
+  }
+
   return {
     hosts,
     groups,
@@ -127,5 +191,9 @@ export const useHostsStore = defineStore('hosts', () => {
     createHost,
     updateHost,
     deleteHost,
+    moveHost,
+    createGroup,
+    updateGroup,
+    deleteGroup,
   }
 })

@@ -13,6 +13,7 @@ import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 export function registerDbHandlers(): void {
   registerSettingsHandlers()
   registerLocalTerminalsHandlers()
+  registerLocalTerminalGroupsHandlers()
   registerHostsHandlers()
   registerHostGroupsHandlers()
   registerTagsHandlers()
@@ -70,8 +71,8 @@ function registerLocalTerminalsHandlers(): void {
       dbRun('UPDATE local_terminals SET is_default = 0 WHERE is_default = 1')
     }
     dbRun(
-      `INSERT INTO local_terminals (id, name, shell, cwd, startup_command, environment, login_shell, is_default, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO local_terminals (id, name, shell, cwd, startup_command, environment, login_shell, is_default, sort_order, group_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.name || '本地终端',
@@ -82,6 +83,7 @@ function registerLocalTerminalsHandlers(): void {
         data.loginShell ? 1 : 0,
         data.isDefault ? 1 : 0,
         data.sortOrder ?? 0,
+        data.groupId ?? null,
       ]
     )
     return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
@@ -103,6 +105,7 @@ function registerLocalTerminalsHandlers(): void {
         login_shell = COALESCE(?, login_shell),
         is_default = COALESCE(?, is_default),
         sort_order = COALESCE(?, sort_order),
+        group_id = ?,
         updated_at = datetime('now')
        WHERE id = ?`,
       [
@@ -114,6 +117,7 @@ function registerLocalTerminalsHandlers(): void {
         data.loginShell !== undefined ? (data.loginShell ? 1 : 0) : null,
         data.isDefault !== undefined ? (data.isDefault ? 1 : 0) : null,
         data.sortOrder ?? null,
+        data.groupId ?? null,
         id,
       ]
     )
@@ -123,6 +127,42 @@ function registerLocalTerminalsHandlers(): void {
   // 删除本地终端配置
   ipcMain.handle(IPC_DB.LOCAL_TERMINALS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM local_terminals WHERE id = ?', [id])
+    return true
+  })
+}
+
+// ===== 本地终端分组 =====
+
+function registerLocalTerminalGroupsHandlers(): void {
+  ipcMain.handle(IPC_DB.LOCAL_TERMINAL_GROUPS_LIST, () => {
+    return dbAll('SELECT * FROM local_terminal_groups ORDER BY sort_order ASC')
+  })
+
+  ipcMain.handle(IPC_DB.LOCAL_TERMINAL_GROUPS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      'INSERT INTO local_terminal_groups (id, name, parent_id, sort_order) VALUES (?, ?, ?, ?)',
+      [id, data.name, data.parentId ?? null, data.sortOrder ?? 0]
+    )
+    return dbGet('SELECT * FROM local_terminal_groups WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.LOCAL_TERMINAL_GROUPS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    dbRun(
+      `UPDATE local_terminal_groups SET
+        name = COALESCE(?, name),
+        parent_id = ?,
+        sort_order = COALESCE(?, sort_order)
+       WHERE id = ?`,
+      [data.name ?? null, data.parentId ?? null, data.sortOrder ?? null, id]
+    )
+    return dbGet('SELECT * FROM local_terminal_groups WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.LOCAL_TERMINAL_GROUPS_DELETE, (_event, id: string) => {
+    // 将该分组下的终端移到未分组
+    dbRun('UPDATE local_terminals SET group_id = NULL WHERE group_id = ?', [id])
+    dbRun('DELETE FROM local_terminal_groups WHERE id = ?', [id])
     return true
   })
 }

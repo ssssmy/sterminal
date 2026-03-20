@@ -2,12 +2,17 @@
   "name": "@sterminal/client",
   "version": "0.1.0",
   "description": "STerminal 桌面客户端",
+  "author": "STerminal Team",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "electron:dev": "electron .",
     "electron:build": "electron-builder",
+    "pack:mac": "vue-tsc --noEmit && vite build && electron-builder --mac",
+    "pack:win": "vue-tsc --noEmit && vite build && electron-builder --win",
+    "pack:linux": "vue-tsc --noEmit && vite build && electron-builder --linux",
+    "pack:all": "vue-tsc --noEmit && vite build && electron-builder --mac --win --linux",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit"
   },

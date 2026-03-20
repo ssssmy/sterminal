@@ -10,7 +10,11 @@
     "client:dev": "npm run dev --workspace=packages/client",
     "client:build": "npm run build --workspace=packages/client",
     "server:dev": "npm run dev --workspace=packages/server",
-    "server:build": "npm run build --workspace=packages/server"
+    "server:build": "npm run build --workspace=packages/server",
+    "client:pack:mac": "npm run pack:mac --workspace=packages/client",
+    "client:pack:win": "npm run pack:win --workspace=packages/client",
+    "client:pack:linux": "npm run pack:linux --workspace=packages/client",
+    "client:pack:all": "npm run pack:all --workspace=packages/client"
   },
   "engines": {
     "node": ">=20.0.0"

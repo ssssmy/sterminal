@@ -1,10 +1,11 @@
+electronVersion: "33.4.11"
 appId: app.sterminal.client
 productName: STerminal
 copyright: Copyright © 2026 STerminal
 
 # 构建目录配置
 directories:
-  output: dist-electron/packages
+  output: release
   buildResources: resources
 
 # 打包文件
@@ -14,7 +15,14 @@ files:
   - dist-electron/preload/**/*
   - package.json
 
-# macOS 配置
+# asar 打包（原生模块需要 unpack）
+asar: true
+asarUnpack:
+  - "node_modules/node-pty/**"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/ssh2/**"
+
+# ===== macOS 配置 =====
 mac:
   icon: resources/icon.icns
   category: public.app-category.developer-tools
@@ -23,10 +31,22 @@ mac:
       arch:
         - arm64
         - x64
+  darkModeSupport: true
   hardenedRuntime: true
   gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
 
-# Windows 配置
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# ===== Windows 配置 =====
 win:
   icon: resources/icon.ico
   target:
@@ -34,10 +54,20 @@ win:
       arch:
         - x64
 
-# Linux 配置
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: STerminal
+
+# ===== Linux 配置 =====
 linux:
-  icon: resources/icon.png
+  icon: resources/icons
   category: Development
+  maintainer: STerminal Team
   target:
     - target: AppImage
       arch:
@@ -46,25 +76,11 @@ linux:
       arch:
         - x64
 
-# NSIS 安装包配置 (Windows)
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
+deb:
+  depends:
+    - libnotify4
+    - libxtst6
+    - libnss3
 
-# DMG 配置 (macOS)
-dmg:
-  contents:
-    - x: 410
-      y: 150
-      type: link
-      path: /Applications
-    - x: 130
-      y: 150
-      type: file
-
-# 自动更新配置
-publish:
-  provider: generic
-  url: https://update.sterminal.app
+# 发布配置（暂不自动发布）
+publish: null

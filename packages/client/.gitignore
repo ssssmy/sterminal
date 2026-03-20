@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+*.log
+src/renderer/auto-imports.d.ts
+src/renderer/components.d.ts

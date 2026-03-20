@@ -1,0 +1,379 @@
+# STerminal 开发进展记录
+
+> 更新日期: 2026-03-20 | 当前阶段: P0 MVP 已完成
+
+---
+
+## 一、项目概况
+
+STerminal 是一款面向开发者和运维工程师的跨桌面平台终端管理工具，集成 SSH/SFTP 客户端、本地终端管理、密钥管理、端口转发、命令片段等核心能力，提供免费云同步服务。
+
+- **技术栈**: Electron + Vue 3 + Element Plus + Pinia + xterm.js (前端) / Express + SQLite + WebSocket (后端)
+- **仓库结构**: Monorepo (`packages/client` + `packages/server`)
+- **设计稿**: `untitled.pen` (16 屏 UI 设计)
+- **文档**: `docs/PRD.md` (47K) + `docs/ARCHITECTURE.md` (68K)
+
+---
+
+## 二、分期规划
+
+| 阶段 | 范围 | 状态 |
+|------|------|------|
+| **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
+| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | ⏳ 待开发 |
+| **P2 进阶功能** | SSH密钥管理、已知主机、Vault密钥库、会话录制/回放、日志审计 | ⏳ 待开发 |
+| **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
+
+---
+
+## 三、P0 MVP 已完成功能清单
+
+### 3.1 后端 (packages/server) — 30 个源文件
+
+#### 3.1.1 项目基础设施
+| 文件 | 功能 |
+|------|------|
+| `src/index.ts` | 服务器入口：HTTP Server + WebSocket + 数据库迁移 + 优雅关闭(SIGTERM/SIGINT 10s超时) |
+| `src/app.ts` | Express 应用：CORS、JSON解析、路由挂载、错误处理 |
+| `src/config.ts` | 环境配置：端口、JWT密钥、数据库路径、邮件配置等 |
+| `src/database/connection.ts` | SQLite 连接(better-sqlite3, WAL 模式) |
+| `src/database/migrations/001_initial.ts` | 初始迁移：6 张表(users, sessions, password_resets, login_attempts, sync_entities, sync_cursors) |
+
+#### 3.1.2 认证模块 (完整实现)
+| 文件 | 功能 |
+|------|------|
+| `src/services/auth.service.ts` | 注册(Argon2id哈希)、登录(JWT+会话表)、登出、邮箱验证、忘记密码、重置密码 |
+| `src/controllers/auth.controller.ts` | 6个端点：register(201), login, logout, verifyEmail, forgotPassword, resetPassword, oauthCallback |
+| `src/routes/auth.routes.ts` | POST /api/v1/auth/register, login, logout, forgot-password, reset-password; GET verify-email |
+| `src/validators/auth.schema.ts` | Zod 校验：邮箱格式、密码强度(8位+大小写+数字)、用户名3-32字符 |
+| `src/middleware/auth.middleware.ts` | JWT Bearer Token 提取 + authMiddleware(必需) + optionalAuthMiddleware(可选) |
+
+#### 3.1.3 用户模块
+| 文件 | 功能 |
+|------|------|
+| `src/services/user.service.ts` | 获取用户信息、更新资料、修改密码、删除账号 |
+| `src/controllers/user.controller.ts` | GET /me, PATCH /me, PUT /me/password, DELETE /me |
+| `src/routes/user.routes.ts` | 路由定义 |
+| `src/validators/user.schema.ts` | 请求参数校验 |
+
+#### 3.1.4 同步模块 (完整实现)
+| 文件 | 功能 |
+|------|------|
+| `src/services/sync.service.ts` | pushSync(乐观锁,version+1)、pullSync(游标分页+since)、getSyncCursors、deleteEntity(软删除) |
+| `src/controllers/sync.controller.ts` | POST /sync/push, GET /sync/pull, GET /sync/cursors |
+| `src/routes/sync.routes.ts` | 路由定义 |
+| `src/validators/sync.schema.ts` | 同步数据校验 |
+| `src/websocket/ws-server.ts` | WebSocket 服务(JWT认证握手) |
+| `src/websocket/sync-handler.ts` | 实时同步推送处理 |
+
+#### 3.1.5 通用模块
+| 文件 | 功能 |
+|------|------|
+| `src/services/email.service.ts` | Nodemailer 邮件发送(验证邮件、密码重置邮件) |
+| `src/services/oauth.service.ts` | GitHub/Google OAuth 策略 |
+| `src/middleware/error-handler.ts` | 全局错误处理中间件(AppError类, HTTP状态码映射) |
+| `src/middleware/rate-limit.ts` | API 限流(express-rate-limit) |
+| `src/middleware/validate.ts` | Zod schema 验证中间件 |
+| `src/utils/logger.ts` | Pino 结构化日志 |
+| `src/utils/jwt.ts` | JWT 生成/验证工具 |
+| `src/utils/hash.ts` | SHA256 哈希工具 |
+| `src/controllers/file.controller.ts` | 文件上传控制器(头像等) |
+| `src/routes/file.routes.ts` | 文件路由 |
+
+---
+
+### 3.2 前端 (packages/client) — 43 个源文件
+
+#### 3.2.1 Electron 主进程
+| 文件 | 功能 |
+|------|------|
+| `src/main/index.ts` | 应用入口：BrowserWindow(1440x900, 自定义标题栏), IPC注册, DB初始化, 优雅退出(killAllPty+disconnectAllSsh+closeDatabase) |
+| `src/main/services/db.ts` | 本地 SQLite 数据库服务 |
+| `src/main/database/schema.ts` | 20+ 张表定义：hosts, host_groups, tags, local_terminals, keys, known_hosts, snippets, port_forwards, vault_entries, settings, quick_connect_history, command_history, session_logs, sync_meta, custom_themes, keybindings, sftp_bookmarks 等 |
+| `src/main/ipc/index.ts` | IPC Handler 统一注册入口 |
+| `src/main/ipc/pty.handler.ts` | **node-pty 完整实现**：spawn(xterm-256color, 跨平台shell检测), write, resize, kill, onData转发, onExit通知, killAllPty()清理 |
+| `src/main/ipc/ssh.handler.ts` | **ssh2 完整实现**：5种认证方式(password/key/password_key/agent/keyboard), shell stream, data/stderr转发, resize(setWindow), disconnect, disconnectAllSsh()清理 |
+| `src/main/ipc/db.handler.ts` | 数据库CRUD IPC：settings(UPSERT), local_terminals(CRUD), hosts(CRUD+分组过滤) |
+| `src/main/ipc/system.handler.ts` | 系统操作 IPC 骨架(shell列表、剪贴板等) |
+
+#### 3.2.2 Preload 层
+| 文件 | 功能 |
+|------|------|
+| `src/preload/index.ts` | contextBridge 安全暴露 electronAPI：invoke(请求响应), on(事件监听), removeListener(取消监听) |
+
+#### 3.2.3 共享类型和常量
+| 文件 | 功能 |
+|------|------|
+| `src/shared/types/terminal.ts` | LocalTerminalConfig, TabSession, SplitNode(递归树), TerminalInstance(含ptyId) |
+| `src/shared/types/host.ts` | Host(30+字段含代理/加密/主题), HostGroup, Tag |
+| `src/shared/types/ipc-channels.ts` | 170+ IPC Channel 定义：SSH(7), PTY(6), SFTP(16), DB(40+), Vault(4), Key(5), Sync(4), Log(3), System(13), Window(2) |
+| `src/shared/types/settings.ts` | 设置类型定义 |
+| `src/shared/types/snippet.ts` | 命令片段类型 |
+| `src/shared/constants/defaults.ts` | 60+ 默认设置值(终端外观、快捷键、行为等) |
+
+#### 3.2.4 渲染进程 — Stores (状态管理)
+| 文件 | 功能 |
+|------|------|
+| `src/renderer/stores/auth.store.ts` | 认证状态：login(mock), register(mock), logout, restoreSession, localStorage持久化 |
+| `src/renderer/stores/sessions.store.ts` | 会话管理：tabs[], activeTabId, terminalInstances Map, createTab, closeTab(含清理), switchTab, splitPane(递归树分裂), renameTab, togglePinTab |
+| `src/renderer/stores/hosts.store.ts` | 主机管理：hosts[], groups[], tags[], fetchHosts/Groups/Tags, createHost, updateHost, deleteHost |
+| `src/renderer/stores/terminals.store.ts` | 终端配置：terminals[], fetchTerminals, createTerminal, updateTerminal, deleteTerminal, getDefault |
+| `src/renderer/stores/ui.store.ts` | UI状态：sidebarWidth/Collapsed, theme(dark/light/system), commandPalette, hostConfigDialog |
+| `src/renderer/stores/settings.store.ts` | 设置管理 |
+| `src/renderer/stores/snippets.store.ts` | 命令片段管理 |
+
+#### 3.2.5 渲染进程 — Views (页面)
+| 文件 | 功能 |
+|------|------|
+| `src/renderer/views/auth/LoginView.vue` | 登录页：480px卡片、邮箱/密码/记住我/忘记密码、OAuth(GitHub+Google SVG图标)、注册链接 |
+| `src/renderer/views/auth/RegisterView.vue` | 注册页：用户名/邮箱/密码/确认密码、**密码强度指示器(3级色条)**、密码规则校验(大小写+数字)、OAuth |
+| `src/renderer/views/workspace/WorkspaceView.vue` | 主工作区：Sidebar + Toolbar + TerminalTabs + TerminalPane + CommandPalette + HostConfigDialog、键盘快捷键(Ctrl+T/W/P) |
+| `src/renderer/views/settings/SettingsLayout.vue` | 设置页布局 |
+| `src/renderer/views/settings/AccountSettings.vue` | 账户设置 |
+| `src/renderer/views/settings/TerminalSettings.vue` | 终端设置 |
+| `src/renderer/views/settings/AppearanceSettings.vue` | 外观设置 |
+
+#### 3.2.6 渲染进程 — Components (组件)
+| 文件 | 功能 |
+|------|------|
+| `src/renderer/components/sidebar/AppSidebar.vue` | **完整侧边栏**：用户头像+名称、搜索框(过滤主机/终端)、主机分组树(折叠/展开/右键菜单/双击连接/状态点)、本地终端列表(打开/编辑/复制/删除)、功能折叠区(片段/端口/密钥库badge)、右侧拖拽调整宽度(180-480px) |
+| `src/renderer/components/toolbar/AppToolbar.vue` | 工具栏：SFTP/水平分屏/垂直分屏/广播模式(左), 录制(红色闪烁)/搜索/全屏(右), -webkit-app-region: drag |
+| `src/renderer/components/terminal/TerminalTabs.vue` | 标签栏：滚动溢出箭头、类型图标(SSH连接/本地终端)、**双击内联重命名**、固定/关闭、新建按钮、鼠标滚轮水平滚动 |
+| `src/renderer/components/terminal/TerminalPane.vue` | **终端面板(核心)**：TerminalXterm组件(xterm.js+FitAddon+WebLinksAddon+SearchAddon, PTY spawn/write/resize/kill全流程, ResizeObserver自动fit) + SplitView递归组件(**分屏拖拽调整比例**, mousedown/move/up, ratio 0.1~0.9) |
+| `src/renderer/components/host/HostConfigDialog.vue` | **主机配置对话框**：el-dialog 3-tab(基本:标签/地址/端口/用户名/认证方式/密码/密钥/分组, 高级:启动命令/编码/keepalive/超时/压缩/主机密钥检查/SSH版本/备注, 代理:跳板机/SOCKS/HTTP), 编辑模式自动加载数据 |
+| `src/renderer/components/common/CommandPalette.vue` | 命令面板(骨架) |
+
+#### 3.2.7 渲染进程 — 其他
+| 文件 | 功能 |
+|------|------|
+| `src/renderer/App.vue` | 根组件：RouterView + 主题恢复 |
+| `src/renderer/main.ts` | 渲染进程入口：Vue+Pinia+Router+i18n+ElementPlus |
+| `src/renderer/router/index.ts` | 路由：/login, /register, /(Workspace), /settings, 404→/ |
+| `src/renderer/composables/useIpc.ts` | IPC封装Composable：invoke(类型安全), on(自动清理), off, 非Electron环境降级 |
+| `src/renderer/styles/variables.scss` | CSS变量主题Token：暗色+亮色(bg/text/accent/border/terminal/tab等30+变量) |
+| `src/renderer/styles/global.scss` | 全局样式：reset, xterm.css导入, 滚动条, Element Plus暗色覆盖, 工具类 |
+| `src/renderer/i18n/index.ts` | 国际化配置 |
+| `src/renderer/i18n/zh-CN.json` | 中文语言包 |
+
+#### 3.2.8 xterm.js 终端配色方案
+```
+background: #1a1b2e    foreground: #e2e8f0    cursor: #6366f1
+black: #1a1b2e         red: #ef4444           green: #22c55e
+yellow: #eab308        blue: #3b82f6          magenta: #a855f7
+cyan: #06b6d4          white: #e2e8f0
+brightBlack: #64748b   brightRed: #f87171     brightGreen: #4ade80
+brightYellow: #facc15   brightBlue: #60a5fa    brightMagenta: #c084fc
+brightCyan: #22d3ee     brightWhite: #f8fafc
+字体: JetBrains Mono / Fira Code / Cascadia Code / Menlo, 14px, 1.2行高
+```
+
+---
+
+### 3.3 配置和构建文件
+
+| 文件 | 说明 |
+|------|------|
+| `/package.json` | Monorepo 根配置(workspaces: packages/*) |
+| `packages/server/package.json` | 后端依赖：express, better-sqlite3, argon2, jsonwebtoken, ws, pino, zod, nodemailer 等 |
+| `packages/server/tsconfig.json` | TypeScript 配置 |
+| `packages/server/.env.example` | 环境变量模板 |
+| `packages/client/package.json` | 前端依赖：vue3, element-plus, pinia, vue-router, @xterm/xterm, @xterm/addon-*, node-pty, ssh2, better-sqlite3, libsodium-wrappers 等 |
+| `packages/client/tsconfig.json` | TypeScript 配置 |
+| `packages/client/vite.config.ts` | Vite 构建：vue插件, Element Plus按需导入, @/@shared路径别名 |
+| `packages/client/electron-builder.yml` | Electron 打包配置 |
+| `packages/client/index.html` | HTML 入口 |
+
+---
+
+## 四、P0 已知遗留问题
+
+| 编号 | 问题 | 优先级 | 说明 |
+|------|------|--------|------|
+| 1 | 后端登录锁定参数不符 PRD | 低 | 代码实现10次/10分钟，PRD 要求5次/15分钟 |
+| 2 | 后端错误码粒度不足 | 低 | 直接使用 HTTP 状态码(401/409)，架构文档定义了细粒度码(40100/40900) |
+| 3 | 后端缺少部分同步端点 | 中 | /sync/full、/sync/reset、/sync/encryption 未实现 |
+| 4 | 后端头像上传未完整 | 低 | file.controller 骨架存在但业务逻辑未实现 |
+| 5 | 后端 deleteAccount 未完整 | 低 | user.service 中函数体未实现 |
+| 6 | 前端 auth.store 使用 mock | 中 | login/register 使用 setTimeout 模拟，需对接真实后端 API |
+| 7 | 前端侧边栏使用 mock 数据 | 低 | AppSidebar 中 injectMockData() 仅开发阶段使用 |
+| 8 | 前端 CommandPalette 未实现 | 低 | 仅有骨架组件 |
+| 9 | system.handler 多数为骨架 | 低 | shell列表、剪贴板等系统集成未实现 |
+
+---
+
+## 五、后续阶段工作计划
+
+### P1: 核心增强（预计工作量：中等）
+
+#### 5.1.1 SFTP 文件管理
+- [ ] 基于已有 ssh2 连接实现 SFTP 子系统
+- [ ] `src/main/ipc/sftp.handler.ts` — 实现 16 个 SFTP IPC channel（list/stat/mkdir/rm/rename/chmod/chown/upload/download/readFile/writeFile/transferProgress/transferComplete/transferCancel）
+- [ ] 创建 `SftpFileManager.vue` — 双栏文件浏览器（本地 + 远程）
+- [ ] 文件上传/下载进度条 + 取消 + 队列管理
+- [ ] 文件拖拽上传/下载
+- [ ] SFTP 书签管理
+- [ ] 集成到 WorkspaceView（工具栏 SFTP 按钮触发）
+
+#### 5.1.2 命令片段管理
+- [ ] `SnippetsManager.vue` — 片段列表 + 分组 + 搜索
+- [ ] 片段编辑器（名称、内容、标签、快捷键绑定）
+- [ ] 终端内快速插入（Ctrl+Shift+S 或右键菜单）
+- [ ] 支持变量占位符（`${host}`, `${date}` 等）
+- [ ] 片段导入/导出
+
+#### 5.1.3 端口转发
+- [ ] `PortForwardManager.vue` — 转发列表 + 状态指示
+- [ ] 支持三种类型：Local / Remote / Dynamic (SOCKS)
+- [ ] 基于 ssh2 的 forwardIn/forwardOut/openssh_forwardInStreamLocal
+- [ ] 转发状态实时监控（活跃连接数、流量）
+- [ ] 一键启停
+
+#### 5.1.4 设置页面完善
+- [ ] 终端设置：字体选择器、字号滑块、光标样式、滚动缓冲区大小、选中即复制
+- [ ] 外观设置：主题切换(暗/亮/跟随系统)、自定义主题编辑器、字体预览
+- [ ] 账户设置：修改密码、退出登录、删除账号、头像上传
+- [ ] 同步设置：同步状态、上次同步时间、手动触发同步、冲突查看
+
+#### 5.1.5 云同步对接
+- [ ] 前端 `src/renderer/services/api.ts` — Axios/Fetch HTTP 客户端封装
+- [ ] `auth.store.ts` 对接真实后端 API（替换 mock）
+- [ ] 同步引擎客户端：`src/main/services/sync-engine.ts`
+  - 增量同步（since 游标）
+  - 冲突检测与解决（Last-Write-Wins）
+  - 离线队列（记录离线期间的变更，联网后批量推送）
+- [ ] WebSocket 客户端：接收服务端实时推送
+- [ ] E2EE 加密层：libsodium AES-256-GCM 加密敏感同步数据（密码、密钥内容）
+
+---
+
+### P2: 进阶功能（预计工作量：大）
+
+#### 5.2.1 SSH 密钥管理
+- [ ] `KeyManager.vue` — 密钥列表 + 详情
+- [ ] 密钥生成（RSA/Ed25519/ECDSA，可选密码保护）
+- [ ] 密钥导入（文件选择 + 粘贴）
+- [ ] 密钥部署到远程主机（ssh-copy-id 逻辑）
+- [ ] SSH Agent 集成（加载/卸载密钥到系统 agent）
+- [ ] 实现 `src/main/ipc/key.handler.ts`（5 个 channel：generate/import/deploy/agentLoad/agentUnload）
+
+#### 5.2.2 已知主机管理
+- [ ] `KnownHostsView.vue` — 已知主机指纹列表
+- [ ] SSH 连接时主机密钥验证对话框（首次连接、指纹变更警告）
+- [ ] 添加/删除已知主机
+- [ ] 指纹算法展示（SHA256/MD5）
+
+#### 5.2.3 Vault 密钥库
+- [ ] `VaultManager.vue` — 加密条目列表
+- [ ] 主密码设置与解锁
+- [ ] 条目 CRUD（用户名、密码、备注、关联主机）
+- [ ] 密码生成器（长度、字符集、排除字符）
+- [ ] 自动填充到终端（Ctrl+Shift+V 触发选择）
+- [ ] 实现 `src/main/ipc/vault.handler.ts`（4 个 channel：unlock/lock/setup/generatePassword）
+
+#### 5.2.4 会话录制与回放
+- [ ] 录制：终端输出流 + 时间戳写入文件（asciicast v2 格式）
+- [ ] 回放器组件：播放/暂停/倍速/进度条
+- [ ] 录制文件管理（列表、导出、删除）
+- [ ] 实现 `src/main/ipc/log.handler.ts`（3 个 channel：start/stop/replay）
+
+#### 5.2.5 日志与审计
+- [ ] `LogsAuditView.vue` — 操作日志列表 + 过滤
+- [ ] 记录关键操作（登录、连接、文件传输、配置变更）
+- [ ] 日志导出（CSV/JSON）
+- [ ] 自动清理策略（保留天数可配置）
+
+---
+
+### P3: 体验优化（预计工作量：中等）
+
+#### 5.3.1 终端自动补全
+- [ ] 命令历史补全（上下箭头 + Ctrl+R 搜索）
+- [ ] 路径补全（Tab 触发 SFTP ls 查询远程路径）
+- [ ] 命令片段内联建议（输入时模糊匹配已保存片段）
+
+#### 5.3.2 命令面板完善
+- [ ] `CommandPalette.vue` 完整实现
+- [ ] 模糊搜索所有命令/主机/片段/设置项
+- [ ] 快捷键展示
+- [ ] 最近使用排序
+
+#### 5.3.3 主题自定义
+- [ ] 主题编辑器 UI（实时预览）
+- [ ] 导入/导出自定义主题（JSON 格式）
+- [ ] 终端配色方案独立配置
+- [ ] 预设主题库（Dracula, Monokai, Solarized, Nord, One Dark 等）
+
+#### 5.3.4 快捷键自定义
+- [ ] 快捷键设置页面
+- [ ] 冲突检测
+- [ ] 恢复默认
+- [ ] 快捷键方案导入/导出
+
+#### 5.3.5 数据管理
+- [ ] 数据导入（从 Termius / PuTTY / SecureCRT / OpenSSH config 导入）
+- [ ] 数据导出（JSON/加密压缩包）
+- [ ] 本地备份/恢复
+- [ ] 数据清理（缓存、日志、历史）
+
+#### 5.3.6 应用更新
+- [ ] 自动检查更新（electron-updater）
+- [ ] 更新提示对话框（版本号、更新日志）
+- [ ] 后台下载 + 安装重启
+- [ ] 更新频道（稳定版/测试版）
+
+#### 5.3.7 系统集成
+- [ ] 系统托盘（最小化到托盘、快速连接菜单）
+- [ ] URI Scheme（`sterminal://connect?host=xxx`）
+- [ ] CLI 集成（`sterminal ssh user@host`）
+- [ ] 深色/浅色模式跟随系统
+
+---
+
+## 六、技术债务清单
+
+| 类别 | 项目 | 优先级 |
+|------|------|--------|
+| 测试 | 后端 API 单元测试（Vitest） | 高 |
+| 测试 | 前端组件测试（Vitest + Vue Test Utils） | 高 |
+| 测试 | E2E 测试（Playwright） | 中 |
+| 安全 | 后端自定义错误码体系（40100 等） | 中 |
+| 安全 | 后端登录锁定参数对齐 PRD（5次/15分钟） | 低 |
+| 安全 | CSP (Content Security Policy) 配置 | 中 |
+| 安全 | Electron sandbox 模式完善 | 中 |
+| 性能 | xterm.js WebGL Addon 启用（GPU加速渲染） | 中 |
+| 性能 | 虚拟滚动优化（大量主机/片段列表） | 低 |
+| 构建 | Electron 主进程 TypeScript 编译配置 | 高 |
+| 构建 | electron-builder 多平台打包 CI/CD | 高 |
+| 构建 | node-pty 原生模块预编译（electron-rebuild） | 高 |
+| 代码 | 前端 mock 数据替换为真实 IPC 调用 | 中 |
+| 代码 | TypeScript strict 模式全量启用 | 低 |
+| 文档 | API 接口文档（Swagger/OpenAPI） | 中 |
+| 文档 | 开发者贡献指南 | 低 |
+
+---
+
+## 七、依赖清单
+
+### 后端 (packages/server)
+```
+express, better-sqlite3, argon2, jsonwebtoken, passport, passport-github2,
+passport-google-oauth20, ws, nodemailer, pino, pino-pretty, zod, cors,
+express-rate-limit, multer, uuid
+```
+
+### 前端 (packages/client)
+```
+vue, vue-router, pinia, element-plus, @element-plus/icons-vue,
+@xterm/xterm, @xterm/addon-fit, @xterm/addon-search, @xterm/addon-web-links, @xterm/addon-webgl,
+node-pty, ssh2, better-sqlite3, libsodium-wrappers,
+uuid, vue-i18n
+```
+
+### 开发依赖
+```
+typescript, vite, @vitejs/plugin-vue, vue-tsc, sass,
+electron, electron-builder,
+unplugin-auto-import, unplugin-vue-components,
+@types/better-sqlite3, @types/ssh2, @types/uuid, @types/node,
+@types/libsodium-wrappers
+```

@@ -1,0 +1,70 @@
+appId: app.sterminal.client
+productName: STerminal
+copyright: Copyright © 2026 STerminal
+
+# 构建目录配置
+directories:
+  output: dist-electron/packages
+  buildResources: resources
+
+# 打包文件
+files:
+  - dist/**/*
+  - dist-electron/main/**/*
+  - dist-electron/preload/**/*
+  - package.json
+
+# macOS 配置
+mac:
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+# Windows 配置
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+# Linux 配置
+linux:
+  icon: resources/icon.png
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+
+# NSIS 安装包配置 (Windows)
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+# DMG 配置 (macOS)
+dmg:
+  contents:
+    - x: 410
+      y: 150
+      type: link
+      path: /Applications
+    - x: 130
+      y: 150
+      type: file
+
+# 自动更新配置
+publish:
+  provider: generic
+  url: https://update.sterminal.app

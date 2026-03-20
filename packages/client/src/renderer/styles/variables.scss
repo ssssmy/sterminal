@@ -1,0 +1,94 @@
+// CSS 变量定义 - 暗色/亮色主题 token
+// 通过切换 :root[data-theme] 属性实现主题切换
+
+:root[data-theme="dark"] {
+  --bg-primary:     #1a1b2e;
+  --bg-surface:     #232438;
+  --bg-inset:       #16172a;
+  --bg-hover:       #2a2b40;
+  --bg-input:       #1e1f34;
+  --text-primary:   #e4e4e8;
+  --text-secondary: #8b8d9e;
+  --text-tertiary:  #5c5e72;
+  --accent:         #6366f1;
+  --border:         #2e3048;
+  --divider:        #262840;
+  --warning:        #f59e0b;
+  --error:          #ef4444;
+  --success:        #22c55e;
+
+  // 侧边栏
+  --sidebar-bg:     #16172a;
+  --sidebar-width:  260px;
+
+  // 标签栏
+  --tab-bg:         #1e1f34;
+  --tab-active-bg:  #232438;
+  --tab-height:     36px;
+
+  // 终端
+  --terminal-bg:    #0f1023;
+
+  // 滚动条
+  --scrollbar-thumb: #2e3048;
+  --scrollbar-track: transparent;
+}
+
+:root[data-theme="light"] {
+  --bg-primary:     #ffffff;
+  --bg-surface:     #f8f9fa;
+  --bg-inset:       #f0f1f3;
+  --bg-hover:       #e9ecef;
+  --bg-input:       #ffffff;
+  --text-primary:   #1a1b2e;
+  --text-secondary: #6c6e82;
+  --text-tertiary:  #9ca0b0;
+  --accent:         #6366f1;
+  --border:         #dee2e6;
+  --divider:        #e9ecef;
+  --warning:        #f59e0b;
+  --error:          #ef4444;
+  --success:        #22c55e;
+
+  // 侧边栏
+  --sidebar-bg:     #f0f1f3;
+  --sidebar-width:  260px;
+
+  // 标签栏
+  --tab-bg:         #f8f9fa;
+  --tab-active-bg:  #ffffff;
+  --tab-height:     36px;
+
+  // 终端
+  --terminal-bg:    #1a1b2e;
+
+  // 滚动条
+  --scrollbar-thumb: #dee2e6;
+  --scrollbar-track: transparent;
+}
+
+// 默认使用暗色主题
+:root {
+  --bg-primary:     #1a1b2e;
+  --bg-surface:     #232438;
+  --bg-inset:       #16172a;
+  --bg-hover:       #2a2b40;
+  --bg-input:       #1e1f34;
+  --text-primary:   #e4e4e8;
+  --text-secondary: #8b8d9e;
+  --text-tertiary:  #5c5e72;
+  --accent:         #6366f1;
+  --border:         #2e3048;
+  --divider:        #262840;
+  --warning:        #f59e0b;
+  --error:          #ef4444;
+  --success:        #22c55e;
+  --sidebar-bg:     #16172a;
+  --sidebar-width:  260px;
+  --tab-bg:         #1e1f34;
+  --tab-active-bg:  #232438;
+  --tab-height:     36px;
+  --terminal-bg:    #0f1023;
+  --scrollbar-thumb: #2e3048;
+  --scrollbar-track: transparent;
+}

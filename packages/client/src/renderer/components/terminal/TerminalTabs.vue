@@ -34,7 +34,7 @@
         <!-- 标签名：正常显示或内联编辑 -->
         <template v-if="renamingTabId === tab.id">
           <input
-            :ref="(el) => { if (el) renameInputRef = el as HTMLInputElement }"
+            ref="renameInputRef"
             v-model="renameValue"
             class="terminal-tabs__rename-input"
             @keyup.enter="commitRename"
@@ -108,13 +108,13 @@ function handleWheel(e: WheelEvent): void {
 // ===== 内联重命名 =====
 const renamingTabId = ref<string | null>(null)
 const renameValue = ref('')
-let renameInputRef: HTMLInputElement | null = null
+const renameInputRef = ref<HTMLInputElement | null>(null)
 
 function startRename(tabId: string, currentLabel: string): void {
   renamingTabId.value = tabId
   renameValue.value = currentLabel
   nextTick(() => {
-    renameInputRef?.select()
+    renameInputRef.value?.select()
   })
 }
 

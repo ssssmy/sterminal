@@ -415,7 +415,7 @@ const TerminalWrapper = defineComponent({
 })
 
 // ===== 递归分屏视图组件 =====
-const SplitView = defineComponent({
+const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   name: 'SplitView',
   props: {
     node: {

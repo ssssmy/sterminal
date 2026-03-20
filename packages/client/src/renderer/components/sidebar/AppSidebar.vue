@@ -131,10 +131,8 @@
               class="app-sidebar__host-item app-sidebar__host-item--root"
               :class="{
                 'app-sidebar__host-item--hover': hoveredHostId === host.id,
-                'app-sidebar__host-item--selected': selectedHostId === host.id,
                 'app-sidebar__host-item--connected': isHostConnected(host.id),
               }"
-              @click="selectHost(host)"
               @dblclick="connectToHost(host)"
               @mouseenter="hoveredHostId = host.id"
               @mouseleave="hoveredHostId = null"

@@ -23,8 +23,8 @@ import type { AppTheme } from '../../stores/ui.store'
 const uiStore = useUiStore()
 const selectedTheme = ref<AppTheme>(uiStore.theme)
 
-function handleThemeChange(theme: AppTheme): void {
-  uiStore.setTheme(theme)
+function handleThemeChange(val: string | number | boolean | undefined): void {
+  uiStore.setTheme(val as AppTheme)
 }
 </script>
 

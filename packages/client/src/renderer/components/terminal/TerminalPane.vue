@@ -43,6 +43,8 @@ const TerminalXterm = defineComponent({
     let resizeObserver: ResizeObserver | null = null
     // 本地终端用
     let ptyId: string | null = null
+    // 实际注册到 IPC 的 PTY data 回调（可能是包装后的）
+    let activePtyDataCallback: ((payload: unknown) => void) | null = null
     // SSH 用
     let sshConnectionId: string | null = null
 
@@ -65,11 +67,19 @@ const TerminalXterm = defineComponent({
       }
     }
 
-    // SSH 数据回调
+    // SSH 数据回调（支持首次数据后执行启动命令）
+    let sshPendingStartupCmd: string | null = null
     const sshDataCallback = (payload: unknown) => {
       const { connectionId, data } = payload as { connectionId: string; data: string }
       if (connectionId === sshConnectionId && terminal) {
         terminal.write(data)
+        if (sshPendingStartupCmd) {
+          const cmd = sshPendingStartupCmd
+          sshPendingStartupCmd = null
+          setTimeout(() => {
+            invoke(IPC_SSH.WRITE, { connectionId: sshConnectionId!, data: cmd + '\n' })
+          }, 50)
+        }
       }
     }
 
@@ -169,14 +179,9 @@ const TerminalXterm = defineComponent({
               instance.sshConnectionId = sshConnectionId
               instance.sshStatus = 'connected'
             }
-            // 执行启动命令
+            // 标记启动命令，等首次数据到达后执行
             if (hostConfig.startupCommand) {
-              setTimeout(() => {
-                invoke(IPC_SSH.WRITE, {
-                  connectionId: sshConnectionId!,
-                  data: hostConfig.startupCommand + '\n',
-                })
-              }, 300)
+              sshPendingStartupCmd = hostConfig.startupCommand
             }
           }
         } catch (err: unknown) {
@@ -218,15 +223,28 @@ const TerminalXterm = defineComponent({
           }
         }
 
-        on(IPC_PTY.DATA, ptyDataCallback)
-        on(IPC_PTY.EXIT, ptyExitCallback)
-
-        // 执行启动命令
-        if (localConfig?.startupCommand && ptyId) {
-          setTimeout(() => {
-            invoke(IPC_PTY.WRITE, { ptyId, data: localConfig.startupCommand + '\n' })
-          }, 300)
+        // 启动命令：等 shell 首次输出（prompt 就绪）后发送
+        if (localConfig?.startupCommand) {
+          let pendingCmd: string | null = localConfig.startupCommand
+          activePtyDataCallback = (payload: unknown) => {
+            ptyDataCallback(payload)
+            if (pendingCmd) {
+              const { ptyId: id } = payload as { ptyId: string; data: string }
+              if (id === ptyId) {
+                const cmd = pendingCmd
+                pendingCmd = null
+                setTimeout(() => {
+                  invoke(IPC_PTY.WRITE, { ptyId, data: cmd + '\n' })
+                }, 50)
+              }
+            }
+          }
+        } else {
+          activePtyDataCallback = ptyDataCallback
         }
+
+        on(IPC_PTY.DATA, activePtyDataCallback)
+        on(IPC_PTY.EXIT, ptyExitCallback)
 
         terminal.onData((data: string) => {
           if (ptyId) {
@@ -283,7 +301,7 @@ const TerminalXterm = defineComponent({
           invoke(IPC_PTY.KILL, { ptyId })
           ptyId = null
         }
-        off(IPC_PTY.DATA, ptyDataCallback)
+        if (activePtyDataCallback) off(IPC_PTY.DATA, activePtyDataCallback)
         off(IPC_PTY.EXIT, ptyExitCallback)
       }
 

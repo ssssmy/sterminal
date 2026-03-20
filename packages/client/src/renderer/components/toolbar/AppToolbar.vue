@@ -12,7 +12,7 @@
           class="app-toolbar__btn"
           @click="openDefaultTerminal"
         >
-          <el-icon :size="16"><Monitor /></el-icon>
+          <el-icon :size="16"><Cpu /></el-icon>
         </button>
       </el-tooltip>
 
@@ -114,7 +114,7 @@
 import { ref } from 'vue'
 import {
   FolderOpened, Microphone, VideoCamera,
-  Search, FullScreen, Monitor,
+  Search, FullScreen, Cpu,
 } from '@element-plus/icons-vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useTerminalsStore } from '../../stores/terminals.store'

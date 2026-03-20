@@ -43,7 +43,7 @@
     </div>
 
     <!-- ===== 可滚动内容区 ===== -->
-    <div class="app-sidebar__body">
+    <div class="app-sidebar__body" @contextmenu.capture="closeOpenDropdowns">
 
       <!-- ===== 主机区域 ===== -->
       <div class="app-sidebar__section">
@@ -295,6 +295,19 @@ const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
 const sessionsStore = useSessionsStore()
 const authStore = useAuthStore()
+
+// ===== 右键菜单：关闭已打开的下拉菜单 =====
+function closeOpenDropdowns(): void {
+  // 关闭所有已打开的 el-dropdown popper
+  document.querySelectorAll('.sidebar-context-menu').forEach(el => {
+    const popperEl = el as HTMLElement
+    if (popperEl.style.display !== 'none') {
+      popperEl.style.display = 'none'
+    }
+  })
+  // 触发 body click 让 Element Plus 内部清理状态
+  document.body.click()
+}
 
 // ===== 搜索 =====
 const searchQuery = ref('')

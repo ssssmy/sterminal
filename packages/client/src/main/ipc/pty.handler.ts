@@ -3,6 +3,8 @@
 
 import { ipcMain } from 'electron'
 import * as pty from 'node-pty'
+import * as fs from 'fs'
+import * as path from 'path'
 import { IPC_PTY } from '../../shared/types/ipc-channels'
 
 // PTY 实例映射表（ptyId → 进程实例）
@@ -28,6 +30,17 @@ export function registerPtyHandlers(): void {
       ? 'powershell.exe'
       : process.env.SHELL || '/bin/zsh'
 
+    // 解析 cwd：展开 ~ 并验证路径
+    const home = process.env.HOME || '/'
+    let cwd = params.cwd || home
+    if (cwd.startsWith('~')) {
+      cwd = path.join(home, cwd.slice(1))
+    }
+    // 路径不存在时回退到 home
+    if (!fs.existsSync(cwd)) {
+      cwd = home
+    }
+
     const ptyProcess = pty.spawn(
       params.shell || defaultShell,
       params.args || [],
@@ -35,7 +48,7 @@ export function registerPtyHandlers(): void {
         name: 'xterm-256color',
         cols: params.cols || 80,
         rows: params.rows || 24,
-        cwd: params.cwd || process.env.HOME || '/',
+        cwd,
         env: { ...process.env, ...params.env } as Record<string, string>,
       }
     )

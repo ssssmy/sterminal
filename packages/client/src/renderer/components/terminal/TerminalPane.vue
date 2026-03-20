@@ -1,12 +1,12 @@
 <template>
   <!-- 终端面板：渲染分屏树 -->
   <div class="terminal-pane">
-    <SplitView :node="tab.root" />
+    <SplitView :node="tab.root" :in-split="tab.root.type === 'split'" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, ref, toRaw, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, h, ref, toRaw, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -15,137 +15,176 @@ import type { TabSession, SplitNode } from '@shared/types/terminal'
 import { useSessionsStore } from '@/stores/sessions.store'
 import { useHostsStore } from '@/stores/hosts.store'
 import { useTerminalsStore } from '@/stores/terminals.store'
-import { useIpc } from '@/composables/useIpc'
 import { IPC_PTY, IPC_SSH } from '@shared/types/ipc-channels'
 
 const props = defineProps<{
   tab: TabSession
 }>()
 
-// ===== 单个终端实例组件（xterm.js 集成）=====
+// ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
+const _ipc = window.electronAPI?.ipc
+
+function ipcInvoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
+  if (!_ipc) return Promise.resolve(undefined as T)
+  return _ipc.invoke(channel, ...args) as Promise<T>
+}
+
+function ipcOn(channel: string, callback: (data: unknown) => void): void {
+  _ipc?.on(channel, callback)
+}
+
+function ipcOff(channel: string, callback: (data: unknown) => void): void {
+  _ipc?.removeListener(channel, callback)
+}
+
+// ===== 终端池：让 xterm 实例在组件 mount/unmount 之间存活 =====
+interface PooledTerminal {
+  wrapperEl: HTMLDivElement
+  terminal: Terminal
+  fitAddon: FitAddon
+  ptyId: string | null
+  sshConnectionId: string | null
+  isSSH: boolean
+  ipcCallbacks: { channel: string; callback: (data: unknown) => void }[]
+}
+
+const terminalPool = new Map<string, PooledTerminal>()
+
+let _offscreenHolder: HTMLDivElement | null = null
+function getOffscreenHolder(): HTMLDivElement {
+  if (!_offscreenHolder) {
+    _offscreenHolder = document.createElement('div')
+    _offscreenHolder.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;'
+    document.body.appendChild(_offscreenHolder)
+  }
+  return _offscreenHolder
+}
+
+/** 彻底销毁终端（关闭分屏/关闭标签页时调用） */
+function disposePooledTerminal(terminalId: string): void {
+  const pooled = terminalPool.get(terminalId)
+  if (!pooled) return
+
+  // 移除 IPC 监听
+  for (const { channel, callback } of pooled.ipcCallbacks) {
+    ipcOff(channel, callback)
+  }
+
+  // 终止 PTY / SSH
+  if (pooled.isSSH && pooled.sshConnectionId) {
+    ipcInvoke(IPC_SSH.DISCONNECT, { connectionId: pooled.sshConnectionId })
+  } else if (pooled.ptyId) {
+    ipcInvoke(IPC_PTY.KILL, { ptyId: pooled.ptyId })
+  }
+
+  pooled.terminal.dispose()
+  pooled.wrapperEl.remove()
+  terminalPool.delete(terminalId)
+}
+
+// ===== xterm 主题配置 =====
+const XTERM_OPTIONS = {
+  theme: {
+    background: '#1a1b2e',
+    foreground: '#e2e8f0',
+    cursor: '#6366f1',
+    cursorAccent: '#1a1b2e',
+    selectionBackground: 'rgba(99, 102, 241, 0.3)',
+    black: '#1a1b2e',
+    red: '#ef4444',
+    green: '#22c55e',
+    yellow: '#eab308',
+    blue: '#3b82f6',
+    magenta: '#a855f7',
+    cyan: '#06b6d4',
+    white: '#e2e8f0',
+    brightBlack: '#64748b',
+    brightRed: '#f87171',
+    brightGreen: '#4ade80',
+    brightYellow: '#facc15',
+    brightBlue: '#60a5fa',
+    brightMagenta: '#c084fc',
+    brightCyan: '#22d3ee',
+    brightWhite: '#f8fafc',
+  },
+  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
+  fontSize: 14,
+  lineHeight: 1.2,
+  cursorBlink: true,
+  cursorStyle: 'block' as const,
+  allowProposedApi: true,
+}
+
+// ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
   name: 'TerminalXterm',
   props: {
-    terminalId: {
-      type: String,
-      required: true,
-    },
+    terminalId: { type: String, required: true },
   },
   setup(xtermProps) {
     const containerRef = ref<HTMLElement | null>(null)
     const sessionsStore = useSessionsStore()
     const hostsStore = useHostsStore()
     const terminalsStore = useTerminalsStore()
-    const { invoke, on, off } = useIpc()
 
-    let terminal: Terminal | null = null
-    let fitAddon: FitAddon | null = null
     let resizeObserver: ResizeObserver | null = null
-    // 本地终端用
-    let ptyId: string | null = null
-    // 实际注册到 IPC 的 PTY data 回调（可能是包装后的）
-    let activePtyDataCallback: ((payload: unknown) => void) | null = null
-    // SSH 用
-    let sshConnectionId: string | null = null
 
-    // 获取终端实例信息，判断类型
-    const instance = sessionsStore.terminalInstances.get(xtermProps.terminalId)
-    const isSSH = instance?.type === 'ssh'
-
-    // PTY 数据回调
-    const ptyDataCallback = (payload: unknown) => {
-      const { ptyId: id, data } = payload as { ptyId: string; data: string }
-      if (id === ptyId && terminal) {
-        terminal.write(data)
-      }
-    }
-
-    const ptyExitCallback = (payload: unknown) => {
-      const { ptyId: id } = payload as { ptyId: string; exitCode: number }
-      if (id === ptyId && terminal) {
-        terminal.write('\r\n\x1b[31m[进程已退出]\x1b[0m\r\n')
-      }
-    }
-
-    // SSH 数据回调（支持首次数据后执行启动命令）
-    let sshPendingStartupCmd: string | null = null
-    const sshDataCallback = (payload: unknown) => {
-      const { connectionId, data } = payload as { connectionId: string; data: string }
-      if (connectionId === sshConnectionId && terminal) {
-        terminal.write(data)
-        if (sshPendingStartupCmd) {
-          const cmd = sshPendingStartupCmd
-          sshPendingStartupCmd = null
-          setTimeout(() => {
-            invoke(IPC_SSH.WRITE, { connectionId: sshConnectionId!, data: cmd + '\n' })
-          }, 50)
-        }
-      }
-    }
-
-    const sshStatusCallback = (payload: unknown) => {
-      const { connectionId, status } = payload as { connectionId: string; status: string }
-      if (connectionId === sshConnectionId) {
-        if (status === 'connected' && instance) {
-          instance.sshStatus = 'connected'
-        } else if (status === 'disconnected') {
-          if (instance) instance.sshStatus = 'disconnected'
-          if (terminal) terminal.write('\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
-        }
-      }
-    }
-
-    const sshErrorCallback = (payload: unknown) => {
-      const { connectionId, error } = payload as { connectionId: string; error: string }
-      if (connectionId === sshConnectionId) {
-        if (instance) instance.sshStatus = 'error'
-        if (terminal) terminal.write(`\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
+    function setupResizeObserver(pooled: PooledTerminal): void {
+      resizeObserver = new ResizeObserver(() => {
+        pooled.fitAddon.fit()
+      })
+      if (containerRef.value) {
+        resizeObserver.observe(containerRef.value)
       }
     }
 
     onMounted(async () => {
       if (!containerRef.value) return
 
-      // 创建 xterm 实例
-      terminal = new Terminal({
-        theme: {
-          background: '#1a1b2e',
-          foreground: '#e2e8f0',
-          cursor: '#6366f1',
-          cursorAccent: '#1a1b2e',
-          selectionBackground: 'rgba(99, 102, 241, 0.3)',
-          black: '#1a1b2e',
-          red: '#ef4444',
-          green: '#22c55e',
-          yellow: '#eab308',
-          blue: '#3b82f6',
-          magenta: '#a855f7',
-          cyan: '#06b6d4',
-          white: '#e2e8f0',
-          brightBlack: '#64748b',
-          brightRed: '#f87171',
-          brightGreen: '#4ade80',
-          brightYellow: '#facc15',
-          brightBlue: '#60a5fa',
-          brightMagenta: '#c084fc',
-          brightCyan: '#22d3ee',
-          brightWhite: '#f8fafc',
-        },
-        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
-        fontSize: 14,
-        lineHeight: 1.2,
-        cursorBlink: true,
-        cursorStyle: 'block',
-        allowProposedApi: true,
-      })
+      // ===== 已存在于池中：只需移动 DOM 并 re-fit =====
+      const existing = terminalPool.get(xtermProps.terminalId)
+      if (existing) {
+        containerRef.value.appendChild(existing.wrapperEl)
+        nextTick(() => existing.fitAddon.fit())
+        setupResizeObserver(existing)
+        return
+      }
 
-      fitAddon = new FitAddon()
+      // ===== 首次创建 =====
+      const instance = sessionsStore.terminalInstances.get(xtermProps.terminalId)
+      const isSSH = instance?.type === 'ssh'
+
+      // 创建独立 wrapper div（在池中持久存在，随组件移动）
+      const wrapperEl = document.createElement('div')
+      wrapperEl.className = 'terminal-xterm'
+
+      const terminal = new Terminal(XTERM_OPTIONS)
+      const fitAddon = new FitAddon()
       terminal.loadAddon(fitAddon)
       terminal.loadAddon(new WebLinksAddon())
       terminal.loadAddon(new SearchAddon())
 
-      terminal.open(containerRef.value)
+      terminal.open(wrapperEl)
+      containerRef.value.appendChild(wrapperEl)
       fitAddon.fit()
+
+      // 注册到池
+      const pooled: PooledTerminal = {
+        wrapperEl,
+        terminal,
+        fitAddon,
+        ptyId: null,
+        sshConnectionId: null,
+        isSSH,
+        ipcCallbacks: [],
+      }
+      terminalPool.set(xtermProps.terminalId, pooled)
+
+      // 注册 IPC 监听的辅助函数（自动记录以便清理）
+      function trackOn(channel: string, callback: (data: unknown) => void): void {
+        ipcOn(channel, callback)
+        pooled.ipcCallbacks.push({ channel, callback })
+      }
 
       const cols = terminal.cols
       const rows = terminal.rows
@@ -161,25 +200,59 @@ const TerminalXterm = defineComponent({
         terminal.write(`正在连接 ${hostConfig.username || 'root'}@${hostConfig.address}:${hostConfig.port || 22} ...\r\n`)
         if (instance) instance.sshStatus = 'connecting'
 
-        // 监听 SSH 事件
-        on(IPC_SSH.DATA, sshDataCallback)
-        on(IPC_SSH.STATUS, sshStatusCallback)
-        on(IPC_SSH.ERROR, sshErrorCallback)
+        let sshPendingStartupCmd: string | null = null
+
+        const sshDataCallback = (payload: unknown) => {
+          const { connectionId, data } = payload as { connectionId: string; data: string }
+          if (connectionId === pooled.sshConnectionId && terminal) {
+            terminal.write(data)
+            if (sshPendingStartupCmd) {
+              const cmd = sshPendingStartupCmd
+              sshPendingStartupCmd = null
+              setTimeout(() => {
+                ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId!, data: cmd + '\n' })
+              }, 50)
+            }
+          }
+        }
+
+        const sshStatusCallback = (payload: unknown) => {
+          const { connectionId, status } = payload as { connectionId: string; status: string }
+          if (connectionId === pooled.sshConnectionId) {
+            if (status === 'connected' && instance) {
+              instance.sshStatus = 'connected'
+            } else if (status === 'disconnected') {
+              if (instance) instance.sshStatus = 'disconnected'
+              terminal.write('\r\n\x1b[31m[SSH 连接已断开]\x1b[0m\r\n')
+            }
+          }
+        }
+
+        const sshErrorCallback = (payload: unknown) => {
+          const { connectionId, error } = payload as { connectionId: string; error: string }
+          if (connectionId === pooled.sshConnectionId) {
+            if (instance) instance.sshStatus = 'error'
+            terminal.write(`\r\n\x1b[31m[SSH 错误: ${error}]\x1b[0m\r\n`)
+          }
+        }
+
+        trackOn(IPC_SSH.DATA, sshDataCallback)
+        trackOn(IPC_SSH.STATUS, sshStatusCallback)
+        trackOn(IPC_SSH.ERROR, sshErrorCallback)
 
         try {
-          const result = await invoke<{ connectionId: string }>(IPC_SSH.CONNECT, {
+          const result = await ipcInvoke<{ connectionId: string }>(IPC_SSH.CONNECT, {
             hostId: instance.hostId,
             hostConfig: JSON.parse(JSON.stringify(toRaw(hostConfig))),
             cols,
             rows,
           })
           if (result?.connectionId) {
-            sshConnectionId = result.connectionId
+            pooled.sshConnectionId = result.connectionId
             if (instance) {
-              instance.sshConnectionId = sshConnectionId
+              instance.sshConnectionId = result.connectionId
               instance.sshStatus = 'connected'
             }
-            // 标记启动命令，等首次数据到达后执行
             if (hostConfig.startupCommand) {
               sshPendingStartupCmd = hostConfig.startupCommand
             }
@@ -190,22 +263,19 @@ const TerminalXterm = defineComponent({
           if (instance) instance.sshStatus = 'error'
         }
 
-        // 用户输入转发到 SSH
         terminal.onData((data: string) => {
-          if (sshConnectionId) {
-            invoke(IPC_SSH.WRITE, { connectionId: sshConnectionId, data })
+          if (pooled.sshConnectionId) {
+            ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
           }
         })
 
-        // 终端尺寸变化同步 SSH
         terminal.onResize(({ cols, rows }) => {
-          if (sshConnectionId) {
-            invoke(IPC_SSH.RESIZE, { connectionId: sshConnectionId, cols, rows })
+          if (pooled.sshConnectionId) {
+            ipcInvoke(IPC_SSH.RESIZE, { connectionId: pooled.sshConnectionId, cols, rows })
           }
         })
       } else {
         // ===== 本地 PTY 模式 =====
-        // 读取终端配置
         const localConfig = instance?.localConfigId
           ? terminalsStore.terminals.find(t => t.id === instance.localConfigId)
           : undefined
@@ -215,66 +285,63 @@ const TerminalXterm = defineComponent({
         if (localConfig?.cwd) spawnParams.cwd = localConfig.cwd
         if (localConfig?.environment) spawnParams.env = localConfig.environment
 
-        const result = await invoke<{ ptyId: string }>(IPC_PTY.SPAWN, spawnParams)
+        const result = await ipcInvoke<{ ptyId: string }>(IPC_PTY.SPAWN, spawnParams)
         if (result?.ptyId) {
-          ptyId = result.ptyId
-          if (instance) {
-            instance.ptyId = ptyId
-          }
+          pooled.ptyId = result.ptyId
+          if (instance) instance.ptyId = result.ptyId
         }
 
-        // 启动命令：等 shell 首次输出（prompt 就绪）后发送
+        const ptyDataCallback = (payload: unknown) => {
+          const { ptyId: id, data } = payload as { ptyId: string; data: string }
+          if (id === pooled.ptyId) terminal.write(data)
+        }
+
+        const ptyExitCallback = (payload: unknown) => {
+          const { ptyId: id } = payload as { ptyId: string; exitCode: number }
+          if (id === pooled.ptyId) terminal.write('\r\n\x1b[31m[进程已退出]\x1b[0m\r\n')
+        }
+
         if (localConfig?.startupCommand) {
           let pendingCmd: string | null = localConfig.startupCommand
-          activePtyDataCallback = (payload: unknown) => {
+          const wrappedCallback = (payload: unknown) => {
             ptyDataCallback(payload)
             if (pendingCmd) {
               const { ptyId: id } = payload as { ptyId: string; data: string }
-              if (id === ptyId) {
+              if (id === pooled.ptyId) {
                 const cmd = pendingCmd
                 pendingCmd = null
                 setTimeout(() => {
-                  invoke(IPC_PTY.WRITE, { ptyId, data: cmd + '\n' })
+                  ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId!, data: cmd + '\n' })
                 }, 50)
               }
             }
           }
+          trackOn(IPC_PTY.DATA, wrappedCallback)
         } else {
-          activePtyDataCallback = ptyDataCallback
+          trackOn(IPC_PTY.DATA, ptyDataCallback)
         }
-
-        on(IPC_PTY.DATA, activePtyDataCallback)
-        on(IPC_PTY.EXIT, ptyExitCallback)
+        trackOn(IPC_PTY.EXIT, ptyExitCallback)
 
         terminal.onData((data: string) => {
-          if (ptyId) {
-            invoke(IPC_PTY.WRITE, { ptyId, data })
-          }
+          if (pooled.ptyId) ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
         })
 
         terminal.onResize(({ cols, rows }) => {
-          if (ptyId) {
-            invoke(IPC_PTY.RESIZE, { ptyId, cols, rows })
-          }
+          if (pooled.ptyId) ipcInvoke(IPC_PTY.RESIZE, { ptyId: pooled.ptyId, cols, rows })
         })
       }
 
-      // 监听容器尺寸变化自动 fit
-      resizeObserver = new ResizeObserver(() => {
-        if (fitAddon && terminal) {
-          fitAddon.fit()
-        }
-      })
-      resizeObserver.observe(containerRef.value)
+      setupResizeObserver(pooled)
     })
 
-    // 切换 tab 后重新 fit（v-show 隐藏时容器尺寸为 0，需要恢复）
+    // 切换 tab 后重新 fit
     watch(
       () => sessionsStore.activeTabId,
       () => {
         nextTick(() => {
-          if (fitAddon && terminal && containerRef.value?.offsetParent !== null) {
-            fitAddon.fit()
+          const pooled = terminalPool.get(xtermProps.terminalId)
+          if (pooled && containerRef.value?.offsetParent !== null) {
+            pooled.fitAddon.fit()
           }
         })
       }
@@ -286,38 +353,64 @@ const TerminalXterm = defineComponent({
         resizeObserver = null
       }
 
-      if (isSSH) {
-        // 断开 SSH
-        if (sshConnectionId) {
-          invoke(IPC_SSH.DISCONNECT, { connectionId: sshConnectionId })
-          sshConnectionId = null
+      // 判断是"分屏重组"还是"真正关闭"
+      const stillActive = sessionsStore.terminalInstances.has(xtermProps.terminalId)
+      if (stillActive) {
+        // 分屏重组：将 DOM 移到屏幕外暂存，保留 PTY/SSH 连接
+        const pooled = terminalPool.get(xtermProps.terminalId)
+        if (pooled) {
+          getOffscreenHolder().appendChild(pooled.wrapperEl)
         }
-        off(IPC_SSH.DATA, sshDataCallback)
-        off(IPC_SSH.STATUS, sshStatusCallback)
-        off(IPC_SSH.ERROR, sshErrorCallback)
       } else {
-        // 终止本地 PTY
-        if (ptyId) {
-          invoke(IPC_PTY.KILL, { ptyId })
-          ptyId = null
-        }
-        if (activePtyDataCallback) off(IPC_PTY.DATA, activePtyDataCallback)
-        off(IPC_PTY.EXIT, ptyExitCallback)
+        // 真正关闭：彻底销毁
+        disposePooledTerminal(xtermProps.terminalId)
       }
-
-      if (terminal) {
-        terminal.dispose()
-        terminal = null
-      }
-      fitAddon = null
     })
 
     return () =>
       h('div', {
         ref: containerRef,
-        class: 'terminal-xterm',
-        style: { flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0 },
+        class: 'terminal-container',
+        style: { flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0, display: 'flex' },
       })
+  },
+})
+
+// ===== 包含关闭按钮的终端容器 =====
+const TerminalWrapper = defineComponent({
+  name: 'TerminalWrapper',
+  props: {
+    terminalId: { type: String, required: true },
+    showClose: { type: Boolean, default: false },
+  },
+  setup(wrapperProps) {
+    const sessionsStore = useSessionsStore()
+    const hovered = ref(false)
+
+    function handleClose() {
+      sessionsStore.closeSplitPane(props.tab.id, wrapperProps.terminalId)
+    }
+
+    return () =>
+      h(
+        'div',
+        {
+          class: 'terminal-wrapper',
+          style: { position: 'relative', flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0, minHeight: 0 },
+          onMouseenter: () => { hovered.value = true },
+          onMouseleave: () => { hovered.value = false },
+        },
+        [
+          h(TerminalXterm, { key: wrapperProps.terminalId, terminalId: wrapperProps.terminalId }),
+          wrapperProps.showClose && hovered.value
+            ? h('button', {
+                class: 'split-close-btn',
+                onClick: handleClose,
+                title: '关闭此面板',
+              }, '\u00d7')
+            : null,
+        ]
+      )
   },
 })
 
@@ -329,19 +422,25 @@ const SplitView = defineComponent({
       type: Object as () => SplitNode,
       required: true,
     },
+    inSplit: {
+      type: Boolean,
+      default: false,
+    },
   },
   setup(splitProps) {
     return () => {
       const node = splitProps.node
 
       if (node.type === 'terminal') {
-        return h(TerminalXterm, { terminalId: node.terminalId })
+        return h(TerminalWrapper, {
+          terminalId: node.terminalId,
+          showClose: splitProps.inSplit,
+        })
       }
 
       // 分屏容器节点
       const isHorizontal = node.direction === 'horizontal'
 
-      // 拖拽状态（本地，直接 mutate node.ratio 因为 Tab.root 是响应式的）
       let dragging = false
       let startPos = 0
       let startRatio = node.ratio
@@ -399,7 +498,7 @@ const SplitView = defineComponent({
                 display: 'flex',
               },
             },
-            [h(SplitView, { node: node.children[0] })]
+            [h(SplitView, { node: node.children[0], inSplit: true })]
           ),
           h('div', {
             class: `split-resizer split-resizer--${node.direction}`,
@@ -416,7 +515,7 @@ const SplitView = defineComponent({
                 display: 'flex',
               },
             },
-            [h(SplitView, { node: node.children[1] })]
+            [h(SplitView, { node: node.children[1], inSplit: true })]
           ),
         ]
       )
@@ -459,6 +558,10 @@ const SplitView = defineComponent({
 }
 
 :deep(.terminal-xterm) {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
   display: flex;
 
   .xterm {
@@ -468,6 +571,32 @@ const SplitView = defineComponent({
 
   .xterm-viewport {
     overflow-y: auto;
+  }
+}
+
+:deep(.split-close-btn) {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.15s, background 0.15s;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 1);
   }
 }
 </style>

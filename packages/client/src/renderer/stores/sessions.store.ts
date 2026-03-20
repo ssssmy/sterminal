@@ -92,7 +92,7 @@ export const useSessionsStore = defineStore('sessions', () => {
   }
 
   /**
-   * 水平或垂直分屏
+   * 水平或垂直分屏（继承源终端的类型和配置）
    */
   function splitPane(
     tabId: string,
@@ -102,18 +102,44 @@ export const useSessionsStore = defineStore('sessions', () => {
     const tab = tabs.value.find(t => t.id === tabId)
     if (!tab) return ''
 
+    const sourceInstance = terminalInstances.value.get(terminalId)
     const newTerminalId = uuidv4()
     const instance: TerminalInstance = {
       id: newTerminalId,
-      type: 'local',
+      type: sourceInstance?.type || 'local',
+      localConfigId: sourceInstance?.localConfigId,
+      hostId: sourceInstance?.hostId,
       recording: false,
     }
     terminalInstances.value.set(newTerminalId, instance)
 
-    // 找到目标节点并替换为分屏节点
-    tab.root = splitNodeInTree(tab.root, terminalId, direction, newTerminalId)
+    // 根节点是目标终端时需要替换 root；否则原地修改子树
+    const newRoot = splitNodeInTree(tab.root, terminalId, direction, newTerminalId)
+    if (newRoot !== tab.root) {
+      tab.root = newRoot
+    }
 
     return newTerminalId
+  }
+
+  /**
+   * 关闭分屏中的某个终端面板，将其兄弟节点提升
+   */
+  function closeSplitPane(tabId: string, terminalId: string): void {
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (!tab) return
+
+    // 如果根节点就是这个终端，不处理（整个标签页只有一个终端时用 closeTab）
+    if (tab.root.type === 'terminal' && tab.root.terminalId === terminalId) return
+
+    // 先删除实例记录，这样组件 unmount 时能判断出是"真正关闭"而非"分屏重组"
+    terminalInstances.value.delete(terminalId)
+
+    // 再修改树，触发 Vue 卸载组件
+    const newRoot = removeNodeFromTree(tab.root, terminalId)
+    if (newRoot) {
+      tab.root = newRoot
+    }
   }
 
   /**
@@ -148,6 +174,7 @@ export const useSessionsStore = defineStore('sessions', () => {
 
   /**
    * 在分屏树中找到目标节点并分裂
+   * 使用原地修改 split 节点的方式，避免重建整棵树导致已有终端组件被销毁
    */
   function splitNodeInTree(
     node: SplitNode,
@@ -167,14 +194,50 @@ export const useSessionsStore = defineStore('sessions', () => {
       }
     }
     if (node.type === 'split') {
-      return {
-        ...node,
-        children: [
-          splitNodeInTree(node.children[0], targetId, direction, newTerminalId),
-          splitNodeInTree(node.children[1], targetId, direction, newTerminalId),
-        ],
-      }
+      // 原地修改 children，不创建新的 split 节点
+      node.children[0] = splitNodeInTree(node.children[0], targetId, direction, newTerminalId)
+      node.children[1] = splitNodeInTree(node.children[1], targetId, direction, newTerminalId)
+      return node
     }
+    return node
+  }
+
+  /**
+   * 从分屏树中移除指定终端节点，返回修剪后的树
+   */
+  function removeNodeFromTree(node: SplitNode, targetId: string): SplitNode | null {
+    if (node.type === 'terminal') {
+      return node.terminalId === targetId ? null : node
+    }
+    // split 节点：检查两个子节点
+    const left = node.children[0]
+    const right = node.children[1]
+
+    // 检查直接子节点是否是要移除的终端
+    if (left.type === 'terminal' && left.terminalId === targetId) {
+      return right // 提升右子节点
+    }
+    if (right.type === 'terminal' && right.terminalId === targetId) {
+      return left // 提升左子节点
+    }
+
+    // 递归处理子树
+    const newLeft = removeNodeFromTree(left, targetId)
+    if (newLeft !== left) {
+      // 目标在左子树中
+      if (!newLeft) return right
+      node.children[0] = newLeft
+      return node
+    }
+
+    const newRight = removeNodeFromTree(right, targetId)
+    if (newRight !== right) {
+      // 目标在右子树中
+      if (!newRight) return left
+      node.children[1] = newRight
+      return node
+    }
+
     return node
   }
 
@@ -213,6 +276,7 @@ export const useSessionsStore = defineStore('sessions', () => {
     createTab,
     closeTab,
     closeTabsByHostId,
+    closeSplitPane,
     switchTab,
     renameTab,
     splitPane,

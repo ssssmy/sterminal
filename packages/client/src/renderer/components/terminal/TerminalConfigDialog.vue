@@ -40,6 +40,22 @@
         />
       </el-form-item>
 
+      <el-form-item label="分组" prop="groupId">
+        <el-select
+          v-model="form.groupId"
+          placeholder="无分组"
+          clearable
+          style="width: 100%"
+        >
+          <el-option
+            v-for="group in terminalsStore.groups"
+            :key="group.id"
+            :label="group.name"
+            :value="group.id"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="启动命令" prop="startupCommand">
         <el-input
           v-model="form.startupCommand"
@@ -95,6 +111,7 @@ interface FormData {
   name: string
   shell: string
   cwd: string
+  groupId: string
   startupCommand: string
   loginShell: boolean
   isDefault: boolean
@@ -105,6 +122,7 @@ function defaultForm(): FormData {
     name: '',
     shell: '',
     cwd: '',
+    groupId: '',
     startupCommand: '',
     loginShell: true,
     isDefault: false,
@@ -134,6 +152,7 @@ watch(
       name: terminal.name,
       shell: terminal.shell || '',
       cwd: terminal.cwd || '',
+      groupId: terminal.groupId || '',
       startupCommand: terminal.startupCommand || '',
       loginShell: terminal.loginShell,
       isDefault: terminal.isDefault,
@@ -158,6 +177,7 @@ async function handleSave(): Promise<void> {
       name: form.value.name,
       shell: form.value.shell || undefined,
       cwd: form.value.cwd || undefined,
+      groupId: form.value.groupId || undefined,
       startupCommand: form.value.startupCommand || undefined,
       loginShell: form.value.loginShell,
       isDefault: form.value.isDefault,

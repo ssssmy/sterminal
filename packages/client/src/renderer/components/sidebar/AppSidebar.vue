@@ -89,10 +89,10 @@
                   class="app-sidebar__host-item"
                   :class="{
                     'app-sidebar__host-item--hover': hoveredHostId === host.id,
-                    'app-sidebar__host-item--selected': selectedHostId === host.id,
+
                     'app-sidebar__host-item--connected': isHostConnected(host.id),
                   }"
-                  @click="selectHost(host)"
+
                   @dblclick="connectToHost(host)"
                   @mouseenter="hoveredHostId = host.id"
                   @mouseleave="hoveredHostId = null"
@@ -354,13 +354,8 @@ function toggleCollapse(section: string): void {
   }
 }
 
-// ===== 选中和悬停的主机 =====
-const selectedHostId = ref<string | null>(null)
+// ===== 悬停的主机 =====
 const hoveredHostId = ref<string | null>(null)
-
-function selectHost(host: Host): void {
-  selectedHostId.value = host.id
-}
 
 // ===== 过滤后的主机数据 =====
 const filteredGroups = computed(() => {
@@ -741,11 +736,6 @@ onBeforeUnmount(() => {
 
     // 用 JS 控制的 hover（避免 el-dropdown 右键菜单导致 :hover 卡住）
     &--hover {
-      background-color: var(--bg-hover);
-      color: var(--text-primary);
-    }
-
-    &--selected {
       background-color: var(--bg-hover);
       color: var(--text-primary);
     }

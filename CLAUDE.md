@@ -92,8 +92,19 @@ xterm 实例的生命周期独立于 Vue 组件树，通过模块级 `terminalPo
 npm install
 
 # 开发模式
-cd packages/client && npm run dev
+npm run client:dev          # 或 cd packages/client && npm run dev
 
-# 类型检查（忽略 .vue 文件找不到模块的错误，需要 vue-tsc）
-npx tsc --noEmit --project packages/client/tsconfig.json
+# 类型检查
+cd packages/client && npm run typecheck   # vue-tsc --noEmit
+
+# 生产构建（仅编译，不打安装包）
+npm run client:build
+
+# 打安装包（electron-builder）
+npm run client:pack:mac     # macOS .dmg (arm64 + x64)
+npm run client:pack:win     # Windows .exe (NSIS)
+npm run client:pack:linux   # Linux .AppImage + .deb
+npm run client:pack:all     # 三平台一起构建
+
+# 安装包输出到 packages/client/release/
 ```

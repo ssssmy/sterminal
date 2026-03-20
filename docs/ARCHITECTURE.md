@@ -25,7 +25,7 @@
 
 | 层面 | 技术 | 版本 | 说明 |
 |------|------|------|------|
-| 桌面框架 | ElectronBun | latest | Electron + Bun 运行时，启动更快、包体积更小 |
+| 桌面框架 | Electron | 33.x | 跨平台桌面应用框架 |
 | UI 框架 | Vue 3 | 3.5+ | Composition API + `<script setup>` |
 | 组件库 | Element Plus | 2.x | 基于 Vue 3 的企业级组件库 |
 | 状态管理 | Pinia | 2.x | Vue 官方推荐状态管理 |
@@ -127,33 +127,34 @@ Main Process 与 Renderer Process 通过 Electron IPC 通信，按领域划分 C
 ```
 src/
 ├── main/                          # Electron Main Process
-│   ├── index.ts                   # 入口，创建窗口
+│   ├── index.ts                   # 入口，创建窗口，平台适配
 │   ├── ipc/                       # IPC Handler 注册
-│   │   ├── ssh.handler.ts
-│   │   ├── pty.handler.ts
-│   │   ├── sftp.handler.ts
-│   │   ├── db.handler.ts
-│   │   ├── sync.handler.ts
-│   │   ├── vault.handler.ts
-│   │   ├── key.handler.ts
-│   │   ├── system.handler.ts
-│   │   ├── window.handler.ts
-│   │   └── log.handler.ts
+│   │   ├── index.ts               # registerAllHandlers 汇总
+│   │   ├── ssh.handler.ts         # ✅ SSH 连接（connect/data/resize/disconnect）
+│   │   ├── pty.handler.ts         # ✅ 本地 PTY（spawn/data/resize/kill）
+│   │   ├── db.handler.ts          # ✅ 数据库 CRUD
+│   │   ├── system.handler.ts      # ✅ 系统操作
+│   │   ├── sftp.handler.ts        # 🔲 待实现
+│   │   ├── sync.handler.ts        # 🔲 待实现
+│   │   ├── vault.handler.ts       # 🔲 待实现
+│   │   ├── key.handler.ts         # 🔲 待实现
+│   │   ├── window.handler.ts      # 🔲 待实现
+│   │   └── log.handler.ts         # 🔲 待实现
 │   ├── services/                  # 主进程核心服务
-│   │   ├── ssh-manager.ts         # SSH 连接池管理
-│   │   ├── pty-manager.ts         # 本地 PTY 进程管理
-│   │   ├── sftp-manager.ts        # SFTP 会话管理
-│   │   ├── db.ts                  # SQLite 数据库访问层
-│   │   ├── sync-engine.ts         # 同步引擎
-│   │   ├── crypto.ts              # 加密/解密工具
-│   │   ├── vault-service.ts       # Vault 服务
-│   │   ├── key-manager.ts         # SSH 密钥管理
-│   │   ├── ssh-agent.ts           # 内置 SSH Agent
-│   │   ├── known-hosts.ts         # Known Hosts 管理
-│   │   ├── logger.ts              # 会话日志录制
-│   │   ├── auto-complete.ts       # 命令补全引擎
-│   │   ├── backup.ts              # 备份/恢复
-│   │   ├── updater.ts             # 自动更新
+│   │   ├── db.ts                  # ✅ SQLite 数据库访问层
+│   │   ├── ssh-manager.ts         # 🔲 SSH 连接池管理
+│   │   ├── pty-manager.ts         # 🔲 本地 PTY 进程管理
+│   │   ├── sftp-manager.ts        # 🔲 SFTP 会话管理
+│   │   ├── sync-engine.ts         # 🔲 同步引擎
+│   │   ├── crypto.ts              # 🔲 加密/解密工具
+│   │   ├── vault-service.ts       # 🔲 Vault 服务
+│   │   ├── key-manager.ts         # 🔲 SSH 密钥管理
+│   │   ├── ssh-agent.ts           # 🔲 内置 SSH Agent
+│   │   ├── known-hosts.ts         # 🔲 Known Hosts 管理
+│   │   ├── logger.ts              # 🔲 会话日志录制
+│   │   ├── auto-complete.ts       # 🔲 命令补全引擎
+│   │   ├── backup.ts              # 🔲 备份/恢复
+│   │   ├── updater.ts             # 🔲 自动更新
 │   │   └── tray.ts                # 系统托盘
 │   ├── database/
 │   │   ├── migrations/            # 数据库迁移脚本
@@ -168,20 +169,20 @@ src/
 │   ├── router/
 │   │   └── index.ts
 │   ├── stores/                    # Pinia Stores
-│   │   ├── auth.store.ts          # 登录/注册/OAuth 状态
-│   │   ├── hosts.store.ts         # 主机列表/分组/标签
-│   │   ├── terminals.store.ts     # 本地终端配置
-│   │   ├── sessions.store.ts      # 活跃终端会话（标签页/分屏）
-│   │   ├── snippets.store.ts      # 命令片段
-│   │   ├── port-forward.store.ts  # 端口转发规则
-│   │   ├── vault.store.ts         # Vault 凭据
-│   │   ├── keys.store.ts          # SSH 密钥
-│   │   ├── known-hosts.store.ts   # 已知主机
-│   │   ├── settings.store.ts      # 全局设置
-│   │   ├── sync.store.ts          # 同步状态
-│   │   ├── logs.store.ts          # 日志管理
-│   │   ├── transfer.store.ts      # SFTP 传输队列
-│   │   └── ui.store.ts            # UI 状态（侧边栏/主题/布局）
+│   │   ├── auth.store.ts          # ✅ 登录/注册/OAuth 状态
+│   │   ├── hosts.store.ts         # ✅ 主机列表/分组/标签
+│   │   ├── terminals.store.ts     # ✅ 本地终端配置
+│   │   ├── sessions.store.ts      # ✅ 活跃终端会话（标签页/分屏/终端池）
+│   │   ├── snippets.store.ts      # ✅ 命令片段
+│   │   ├── settings.store.ts      # ✅ 全局设置
+│   │   ├── ui.store.ts            # ✅ UI 状态（侧边栏/主题/布局）
+│   │   ├── port-forward.store.ts  # 🔲 端口转发规则
+│   │   ├── vault.store.ts         # 🔲 Vault 凭据
+│   │   ├── keys.store.ts          # 🔲 SSH 密钥
+│   │   ├── known-hosts.store.ts   # 🔲 已知主机
+│   │   ├── sync.store.ts          # 🔲 同步状态
+│   │   ├── logs.store.ts          # 🔲 日志管理
+│   │   └── transfer.store.ts      # 🔲 SFTP 传输队列
 │   ├── views/                     # 页面级组件
 │   │   ├── workspace/             # 01-主工作区
 │   │   │   └── WorkspaceView.vue
@@ -200,47 +201,26 @@ src/
 │   │       └── DataManagement.vue
 │   ├── components/                # 可复用组件
 │   │   ├── sidebar/               # 侧边栏相关
-│   │   │   ├── AppSidebar.vue
-│   │   │   ├── HostTree.vue
-│   │   │   ├── LocalTerminalList.vue
-│   │   │   ├── SnippetPanel.vue
-│   │   │   ├── PortForwardPanel.vue
-│   │   │   └── VaultPanel.vue
+│   │   │   └── AppSidebar.vue     # ✅ 主机列表+本地终端+分组（合一组件）
 │   │   ├── terminal/              # 终端相关
-│   │   │   ├── TerminalTabs.vue
-│   │   │   ├── TerminalPane.vue
-│   │   │   ├── SplitContainer.vue
-│   │   │   ├── TerminalSearch.vue
-│   │   │   └── BroadcastIndicator.vue
+│   │   │   ├── TerminalTabs.vue   # ✅ 标签栏（滚动/重命名/固定）
+│   │   │   ├── TerminalPane.vue   # ✅ 终端池+分屏树+关闭按钮（核心）
+│   │   │   ├── TerminalConfigDialog.vue  # ✅ 本地终端配置弹窗
+│   │   │   ├── TerminalSearch.vue # 🔲 待实现
+│   │   │   └── BroadcastIndicator.vue    # 🔲 待实现
 │   │   ├── host/                  # 主机相关
-│   │   │   ├── HostConfigDialog.vue
-│   │   │   ├── QuickConnect.vue
-│   │   │   └── HostImportExport.vue
-│   │   ├── sftp/                  # SFTP 相关
-│   │   │   ├── SftpPanel.vue
-│   │   │   ├── FileList.vue
-│   │   │   ├── DirTree.vue
-│   │   │   ├── TransferQueue.vue
-│   │   │   ├── PermissionEditor.vue
-│   │   │   └── FileEditor.vue
-│   │   ├── snippets/              # 片段相关
-│   │   │   ├── SnippetEditor.vue
-│   │   │   ├── SnippetQuickPanel.vue
-│   │   │   └── VariableForm.vue
+│   │   │   └── HostConfigDialog.vue  # ✅ 主机配置弹窗
 │   │   ├── common/                # 通用组件
-│   │   │   ├── CommandPalette.vue
-│   │   │   ├── TagManager.vue
-│   │   │   ├── PasswordGenerator.vue
-│   │   │   └── NotificationToast.vue
+│   │   │   └── CommandPalette.vue # ✅ 命令面板
 │   │   └── toolbar/
-│   │       └── AppToolbar.vue
+│   │       └── AppToolbar.vue     # ✅ 工具栏（分屏/平台适配）
 │   ├── composables/               # Vue Composables
-│   │   ├── useIpc.ts              # IPC 调用封装
-│   │   ├── useTerminal.ts         # xterm.js 实例管理
-│   │   ├── useSsh.ts              # SSH 连接生命周期
-│   │   ├── useSftp.ts             # SFTP 操作
-│   │   ├── useShortcuts.ts        # 快捷键注册
-│   │   ├── useTheme.ts            # 主题切换
+│   │   ├── useIpc.ts              # ✅ IPC 调用封装（invoke/on/off + 自动清理）
+│   │   ├── useTerminal.ts         # 🔲 xterm.js 实例管理
+│   │   ├── useSsh.ts              # 🔲 SSH 连接生命周期
+│   │   ├── useSftp.ts             # 🔲 SFTP 操作
+│   │   ├── useShortcuts.ts        # 🔲 快捷键注册
+│   │   ├── useTheme.ts            # 🔲 主题切换
 │   │   ├── useDragSort.ts         # 拖拽排序
 │   │   └── usePing.ts             # 主机 Ping 检测
 │   ├── themes/                    # 终端主题定义
@@ -354,11 +334,49 @@ interface TerminalInstance {
 }
 ```
 
-### 3.5 主题系统
+### 3.5 终端池模式（Terminal Pool）
+
+xterm.js 实例的生命周期独立于 Vue 组件树，通过模块级 `terminalPool` Map 管理，解决分屏重组和路由切换时终端被销毁的问题：
+
+```
+terminalPool: Map<terminalId, PooledTerminal>
+
+PooledTerminal {
+  xterm: Terminal          // xterm.js 实例
+  fitAddon: FitAddon       // 自适应插件
+  container: HTMLElement   // 终端 DOM 容器
+  ipcCleanup: Function     // IPC 监听器清理函数
+}
+```
+
+**生命周期：**
+- **组件 mount**：检查 pool → 有则移动 DOM 元素到当前位置；无则创建新终端并连接 PTY/SSH
+- **组件 unmount**：检查 `terminalInstances.has(id)` 判断操作类型
+  - `true` = 分屏重组 → DOM 移到 offscreen holder，PTY/SSH 保持连接
+  - `false` = 真正关闭 → `disposePooledTerminal()` 彻底销毁
+- **closeSplitPane 顺序**：先从 `terminalInstances` 删除，再修改分屏树，确保 unmount 走销毁路径
+- IPC 监听器直接用 `window.electronAPI.ipc`，不经过 useIpc（避免自动清理干扰）
+
+### 3.6 打包构建
+
+使用 electron-builder 构建三平台安装包：
+
+| 平台 | 格式 | 架构 | 命令 |
+|------|------|------|------|
+| macOS | .dmg | arm64 + x64 | `npm run client:pack:mac` |
+| Windows | .exe (NSIS) | x64 | `npm run client:pack:win` |
+| Linux | .AppImage + .deb | x64 | `npm run client:pack:linux` |
+
+配置文件：`packages/client/electron-builder.yml`
+
+原生模块（node-pty、better-sqlite3、ssh2）通过 `asarUnpack` 解包到 asar 外部，确保运行时正常加载。macOS 需要 `entitlements.mac.plist` 授权 JIT 和网络访问。
+
+### 3.7 主题系统
 
 ```scss
-// CSS 变量驱动，暗色/亮色通过切换 :root class 实现
-:root[data-theme="dark"] {
+// CSS 变量驱动，暗色/亮色通过切换 html class 实现
+// 配合 Element Plus 的 dark/css-vars.css
+html.dark {
   --bg-primary:   #1a1b2e;
   --bg-surface:   #232438;
   --bg-inset:     #16172a;

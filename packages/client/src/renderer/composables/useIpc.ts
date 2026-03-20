@@ -38,8 +38,10 @@ export function useIpc() {
     return ipc.invoke(channel, ...args) as Promise<T>
   }
 
-  // 存储注册的监听器，用于组件卸载时自动清理
-  const listeners: Array<{ channel: string; callback: (data: unknown) => void }> = []
+  // 原始回调 → preload 注册的 wrapper 映射，确保 off() 能正确移除
+  const callbackMap = new Map<(data: unknown) => void, (data: unknown) => void>()
+  // 自动清理列表
+  const listeners: Array<{ channel: string; wrapper: (data: unknown) => void }> = []
 
   /**
    * 监听主进程推送的事件
@@ -50,9 +52,11 @@ export function useIpc() {
       console.warn(`[IPC] on ${channel} - 非 Electron 环境，跳过`)
       return
     }
-    const handler = (data: unknown) => callback(data as T)
-    ipc.on(channel, handler)
-    listeners.push({ channel, callback: handler })
+    // 直接传入 callback（不再额外包装），让 preload 的 _handler 机制正常工作
+    const wrapper = callback as (data: unknown) => void
+    ipc.on(channel, wrapper)
+    callbackMap.set(wrapper, wrapper)
+    listeners.push({ channel, wrapper })
   }
 
   /**
@@ -61,15 +65,20 @@ export function useIpc() {
   function off(channel: string, callback: (data: unknown) => void): void {
     if (!ipc) return
     ipc.removeListener(channel, callback)
+    callbackMap.delete(callback)
+    // 同时从自动清理列表中移除，避免 onUnmounted 重复移除
+    const idx = listeners.findIndex(l => l.channel === channel && l.wrapper === callback)
+    if (idx !== -1) listeners.splice(idx, 1)
   }
 
   // 组件卸载时自动清理所有监听器
   onUnmounted(() => {
     if (!ipc) return
-    listeners.forEach(({ channel, callback }) => {
-      ipc.removeListener(channel, callback)
+    listeners.forEach(({ channel, wrapper }) => {
+      ipc.removeListener(channel, wrapper)
     })
     listeners.length = 0
+    callbackMap.clear()
   })
 
   return { invoke, on, off }

@@ -178,6 +178,32 @@ export const useSessionsStore = defineStore('sessions', () => {
     return node
   }
 
+  /**
+   * 关闭所有连接到指定主机的标签页
+   */
+  function closeTabsByHostId(hostId: string): void {
+    const tabsToClose: string[] = []
+    for (const tab of tabs.value) {
+      const terminalIds = collectTerminalIds(tab.root)
+      for (const tid of terminalIds) {
+        const inst = terminalInstances.value.get(tid)
+        if (inst?.type === 'ssh' && inst.hostId === hostId) {
+          tabsToClose.push(tab.id)
+          break
+        }
+      }
+    }
+    tabsToClose.forEach(id => closeTab(id))
+  }
+
+  /**
+   * 递归收集分屏树中所有终端 ID
+   */
+  function collectTerminalIds(node: SplitNode): string[] {
+    if (node.type === 'terminal') return [node.terminalId]
+    return [...collectTerminalIds(node.children[0]), ...collectTerminalIds(node.children[1])]
+  }
+
   return {
     tabs,
     activeTabId,
@@ -186,6 +212,7 @@ export const useSessionsStore = defineStore('sessions', () => {
     terminalInstances,
     createTab,
     closeTab,
+    closeTabsByHostId,
     switchTab,
     renameTab,
     splitPane,

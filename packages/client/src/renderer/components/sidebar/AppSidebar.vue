@@ -221,7 +221,6 @@
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
         <span class="app-sidebar__collapse-label">命令片段</span>
-        <span class="app-sidebar__collapse-badge">12</span>
         <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': collapsedSections.has('snippets') }">
           <ArrowRight />
         </el-icon>
@@ -234,7 +233,6 @@
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
         <span class="app-sidebar__collapse-label">端口转发</span>
-        <span class="app-sidebar__collapse-badge">3</span>
         <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': collapsedSections.has('portForwards') }">
           <ArrowRight />
         </el-icon>
@@ -247,7 +245,6 @@
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><Lock /></el-icon>
         <span class="app-sidebar__collapse-label">密钥库</span>
-        <span class="app-sidebar__collapse-badge">5</span>
         <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': collapsedSections.has('vault') }">
           <ArrowRight />
         </el-icon>
@@ -264,7 +261,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Monitor, Plus, Search, Setting, Refresh,
@@ -417,6 +414,7 @@ function handleHostCmd(cmd: string, host: Host): void {
   } else if (cmd === 'edit') {
     uiStore.openHostConfigDialog(host.id)
   } else if (cmd === 'delete') {
+    sessionsStore.closeTabsByHostId(host.id)
     hostsStore.deleteHost(host.id)
   }
 }
@@ -477,85 +475,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('mouseup', stopResize)
 })
 
-// ===== 初始化 =====
-onMounted(async () => {
-  // 主机数据由 WorkspaceView 统一加载，此处仅注入模拟数据（开发用）
-  if (hostsStore.hosts.length === 0) {
-    injectMockData()
-  }
-})
-
-/**
- * 注入模拟数据，用于 UI 验证（开发阶段）
- * 生产环境将由数据库驱动
- */
-function injectMockData(): void {
-  // 注入分组（直接操作 store 的内部数组，避免 IPC 调用）
-  hostsStore.groups.push(
-    { id: 'g1', name: '生产服务器', sortOrder: 0, collapsed: false },
-    { id: 'g2', name: '开发环境', sortOrder: 1, collapsed: false },
-  )
-
-  hostsStore.hosts.push(
-    {
-      id: 'h1', label: 'Web 服务器', address: '192.168.1.100', port: 22,
-      protocol: 'ssh', username: 'root', authType: 'key',
-      encoding: 'utf-8', keepaliveInterval: 60, connectTimeout: 10,
-      heartbeatTimeout: 30, compression: false, strictHostKey: false,
-      sshVersion: 'auto', sortOrder: 0, tagIds: [], connectCount: 5,
-      groupId: 'g1', lastConnected: '2026-03-01',
-    },
-    {
-      id: 'h2', label: 'DB 主库', address: '192.168.1.101', port: 22,
-      protocol: 'ssh', username: 'admin', authType: 'password',
-      encoding: 'utf-8', keepaliveInterval: 60, connectTimeout: 10,
-      heartbeatTimeout: 30, compression: false, strictHostKey: false,
-      sshVersion: 'auto', sortOrder: 1, tagIds: [], connectCount: 2,
-      groupId: 'g1',
-    },
-    {
-      id: 'h3', label: '开发机 A', address: '10.0.0.50', port: 22,
-      protocol: 'ssh', username: 'dev', authType: 'key',
-      encoding: 'utf-8', keepaliveInterval: 60, connectTimeout: 10,
-      heartbeatTimeout: 30, compression: false, strictHostKey: false,
-      sshVersion: 'auto', sortOrder: 0, tagIds: [], connectCount: 10,
-      groupId: 'g2', lastConnected: '2026-03-18',
-    },
-    {
-      id: 'h4', label: '测试服务器', address: '10.0.0.51', port: 2222,
-      protocol: 'ssh', username: 'test', authType: 'password',
-      encoding: 'utf-8', keepaliveInterval: 60, connectTimeout: 10,
-      heartbeatTimeout: 30, compression: false, strictHostKey: false,
-      sshVersion: 'auto', sortOrder: 1, tagIds: [], connectCount: 1,
-      groupId: 'g2',
-    },
-    {
-      id: 'h5', label: '跳板机', address: 'jump.example.com', port: 22,
-      protocol: 'ssh', username: 'user', authType: 'key',
-      encoding: 'utf-8', keepaliveInterval: 30, connectTimeout: 15,
-      heartbeatTimeout: 30, compression: true, strictHostKey: true,
-      sshVersion: 'auto', sortOrder: 0, tagIds: [], connectCount: 0,
-    },
-  )
-
-  terminalsStore.terminals.push(
-    {
-      id: 't1', name: '默认终端', shell: '/bin/zsh',
-      cwd: '~', scriptLineDelay: 0, loginShell: true,
-      sortOrder: 0, isDefault: true,
-    },
-    {
-      id: 't2', name: 'Bash', shell: '/bin/bash',
-      cwd: '/tmp', scriptLineDelay: 0, loginShell: false,
-      sortOrder: 1, isDefault: false,
-    },
-    {
-      id: 't3', name: '项目根目录', shell: '/bin/zsh',
-      cwd: '~/workspace/sterminal', scriptLineDelay: 0, loginShell: true,
-      sortOrder: 2, isDefault: false,
-    },
-  )
-}
 </script>
 
 <style lang="scss" scoped>

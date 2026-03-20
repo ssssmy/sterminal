@@ -161,13 +161,13 @@ async function handleSave(): Promise<void> {
       startupCommand: form.value.startupCommand || undefined,
       loginShell: form.value.loginShell,
       isDefault: form.value.isDefault,
-      scriptLineDelay: 0,
-      sortOrder: terminalsStore.terminals.length,
     }
 
     if (isEditing.value && uiStore.editingTerminalId) {
       await terminalsStore.updateTerminal(uiStore.editingTerminalId, data)
     } else {
+      data.scriptLineDelay = 0
+      data.sortOrder = terminalsStore.terminals.length
       await terminalsStore.createTerminal(data)
     }
 

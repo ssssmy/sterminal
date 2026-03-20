@@ -22,8 +22,10 @@ export function registerSshHandlers(): void {
   ipcMain.handle(IPC_SSH.CONNECT, async (event, params: {
     hostId: string
     hostConfig: Host
+    cols?: number
+    rows?: number
   }) => {
-    const raw = params.hostConfig as Record<string, unknown>
+    const raw = params.hostConfig as unknown as Record<string, unknown>
     // 兼容数据库 snake_case 和内存 camelCase 两种字段名
     const hostConfig: Host = {
       id: (raw.id as string) || '',
@@ -53,8 +55,12 @@ export function registerSshHandlers(): void {
     const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const webContents = event.sender
 
+    const cols = params.cols || 80
+    const rows = params.rows || 24
+
     return new Promise<{ connectionId: string }>((resolve, reject) => {
       const conn = new Client()
+      let settled = false
 
       const session: SshSession = {
         client: conn,
@@ -66,12 +72,12 @@ export function registerSshHandlers(): void {
       conn.on('ready', () => {
         webContents.send(IPC_SSH.STATUS, { connectionId, status: 'connected' })
 
-        conn.shell({ term: 'xterm-256color' }, (err, stream) => {
+        conn.shell({ term: 'xterm-256color', cols, rows }, (err, stream) => {
           if (err) {
             webContents.send(IPC_SSH.ERROR, { connectionId, error: err.message })
             conn.end()
             sshSessions.delete(connectionId)
-            reject(err)
+            if (!settled) { settled = true; reject(err) }
             return
           }
 
@@ -97,7 +103,7 @@ export function registerSshHandlers(): void {
             sshSessions.delete(connectionId)
           })
 
-          resolve({ connectionId })
+          if (!settled) { settled = true; resolve({ connectionId }) }
         })
       })
 
@@ -106,7 +112,7 @@ export function registerSshHandlers(): void {
           webContents.send(IPC_SSH.ERROR, { connectionId, error: err.message })
         }
         sshSessions.delete(connectionId)
-        reject(err)
+        if (!settled) { settled = true; reject(err) }
       })
 
       conn.on('close', () => {
@@ -114,6 +120,7 @@ export function registerSshHandlers(): void {
           webContents.send(IPC_SSH.STATUS, { connectionId, status: 'disconnected' })
         }
         sshSessions.delete(connectionId)
+        if (!settled) { settled = true; reject(new Error('SSH connection closed unexpectedly')) }
       })
 
       // 构建连接配置

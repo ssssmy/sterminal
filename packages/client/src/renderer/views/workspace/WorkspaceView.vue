@@ -105,8 +105,8 @@ function handleSplitVertical(): void {
   }
 }
 
-function handleBroadcast(_active: boolean): void {
-  // TODO: 广播模式：同步输入到所有终端
+function handleBroadcast(active: boolean): void {
+  sessionsStore.broadcastMode = active
 }
 
 function handleRecord(_active: boolean): void {

@@ -37,6 +37,25 @@ function ipcOff(channel: string, callback: (data: unknown) => void): void {
   _ipc?.removeListener(channel, callback)
 }
 
+/**
+ * 广播输入：将数据转发到同 tab 下的其他终端
+ */
+function broadcastInput(sourceTerminalId: string, data: string): void {
+  const store = useSessionsStore()
+  if (!store.broadcastMode) return
+  const siblingIds = store.getActiveTabTerminalIds()
+  for (const tid of siblingIds) {
+    if (tid === sourceTerminalId) continue
+    const sibling = terminalPool.get(tid)
+    if (!sibling) continue
+    if (sibling.sshConnectionId) {
+      ipcInvoke(IPC_SSH.WRITE, { connectionId: sibling.sshConnectionId, data })
+    } else if (sibling.ptyId) {
+      ipcInvoke(IPC_PTY.WRITE, { ptyId: sibling.ptyId, data })
+    }
+  }
+}
+
 // ===== 终端池：让 xterm 实例在组件 mount/unmount 之间存活 =====
 interface PooledTerminal {
   wrapperEl: HTMLDivElement
@@ -330,6 +349,7 @@ const TerminalXterm = defineComponent({
           if (pooled.sshConnectionId) {
             ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
           }
+          broadcastInput(xtermProps.terminalId, data)
         })
 
         terminal.onResize(({ cols, rows }) => {
@@ -387,6 +407,7 @@ const TerminalXterm = defineComponent({
 
         terminal.onData((data: string) => {
           if (pooled.ptyId) ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
+          broadcastInput(xtermProps.terminalId, data)
         })
 
         terminal.onResize(({ cols, rows }) => {

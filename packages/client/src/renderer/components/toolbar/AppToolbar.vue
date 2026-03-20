@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import {
   FolderOpened, Microphone, VideoCamera,
   Search, FullScreen, Cpu,
@@ -123,6 +123,9 @@ const isMacOS = window.electronAPI?.platform === 'darwin'
 const isWindows = window.electronAPI?.platform === 'win32'
 const sessionsStore = useSessionsStore()
 const terminalsStore = useTerminalsStore()
+
+// 广播模式与 store 同步
+const broadcastMode = computed(() => sessionsStore.broadcastMode)
 
 // ===== emits =====
 const emit = defineEmits<{
@@ -137,12 +140,10 @@ const emit = defineEmits<{
 
 // ===== 本地状态 =====
 const activeTool = ref<string | null>(null)
-const broadcastMode = ref(false)
 const isRecording = ref(false)
 
 function toggleBroadcast(): void {
-  broadcastMode.value = !broadcastMode.value
-  emit('broadcast', broadcastMode.value)
+  emit('broadcast', !broadcastMode.value)
 }
 
 function toggleRecording(): void {

@@ -12,6 +12,8 @@ export const useSessionsStore = defineStore('sessions', () => {
   const activeTabId = ref<string | null>(null)
   // 运行时终端实例（不持久化）
   const terminalInstances = ref<Map<string, TerminalInstance>>(new Map())
+  // 广播模式：输入同步到当前 tab 下所有终端
+  const broadcastMode = ref(false)
 
   // ===== 计算属性 =====
   const activeTab = computed(() =>
@@ -280,12 +282,22 @@ export const useSessionsStore = defineStore('sessions', () => {
     return [...collectTerminalIds(node.children[0]), ...collectTerminalIds(node.children[1])]
   }
 
+  /**
+   * 获取当前活跃 tab 下所有终端 ID
+   */
+  function getActiveTabTerminalIds(): string[] {
+    const tab = activeTab.value
+    if (!tab) return []
+    return collectTerminalIds(tab.root)
+  }
+
   return {
     tabs,
     activeTabId,
     activeTab,
     connectedHostIds,
     terminalInstances,
+    broadcastMode,
     createTab,
     closeTab,
     closeTabsByHostId,
@@ -294,5 +306,6 @@ export const useSessionsStore = defineStore('sessions', () => {
     renameTab,
     splitPane,
     togglePinTab,
+    getActiveTabTerminalIds,
   }
 })

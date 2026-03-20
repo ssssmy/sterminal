@@ -57,6 +57,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'WorkspaceView' })
+
 import { onMounted, onBeforeUnmount } from 'vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'

@@ -1,6 +1,10 @@
 <template>
-  <!-- 根组件：只负责路由视图渲染 -->
-  <RouterView />
+  <!-- 根组件：路由视图渲染，缓存工作区避免切换设置时终端被销毁 -->
+  <RouterView v-slot="{ Component, route }">
+    <KeepAlive include="WorkspaceView">
+      <component :is="Component" :key="route.name" />
+    </KeepAlive>
+  </RouterView>
 </template>
 
 <script setup lang="ts">

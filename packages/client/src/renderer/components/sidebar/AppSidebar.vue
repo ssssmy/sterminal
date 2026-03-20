@@ -24,7 +24,7 @@
           </button>
         </el-tooltip>
         <!-- 设置入口 -->
-        <el-tooltip content="设置" placement="bottom">
+        <el-tooltip content="设置" placement="bottom" :disabled="settingsTooltipDisabled">
           <button class="app-sidebar__icon-btn" @click="goToSettings">
             <el-icon :size="15"><Setting /></el-icon>
           </button>
@@ -270,7 +270,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Monitor, Plus, Search, Setting, Refresh,
@@ -454,10 +454,16 @@ function handleSync(): void {
   // TODO: 触发云同步
 }
 
+const settingsTooltipDisabled = ref(false)
+
 function goToSettings(): void {
-  // 先让按钮失焦，关闭 tooltip，避免路由切换时 tooltip 闪到左上角
-  ;(document.activeElement as HTMLElement)?.blur()
-  requestAnimationFrame(() => router.push('/settings'))
+  // 先禁用 tooltip 使其立即消失，再跳转路由
+  settingsTooltipDisabled.value = true
+  nextTick(() => {
+    router.push('/settings')
+    // 路由切换后恢复，以便返回时 tooltip 正常工作
+    setTimeout(() => { settingsTooltipDisabled.value = false }, 300)
+  })
 }
 
 // ===== 侧边栏宽度拖拽调整 =====

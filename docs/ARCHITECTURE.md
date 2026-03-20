@@ -115,7 +115,7 @@ Main Process 与 Renderer Process 通过 Electron IPC 通信，按领域划分 C
 | `vault:*` | Vault 加解密操作 |
 | `key:*` | SSH 密钥管理 |
 | `system:*` | 系统操作（托盘 / 更新 / 深度链接 / 剪贴板） |
-| `window:*` | 窗口管理（新窗口 / 合并 / 全屏） |
+| `window:*` | 窗口管理（新窗口 / 合并 / 全屏 / 标题栏样式） |
 | `log:*` | 会话日志录制控制 |
 
 ---
@@ -356,8 +356,17 @@ PooledTerminal {
   - `false` = 真正关闭 → `disposePooledTerminal()` 彻底销毁
 - **closeSplitPane 顺序**：先从 `terminalInstances` 删除，再修改分屏树，确保 unmount 走销毁路径
 - IPC 监听器直接用 `window.electronAPI.ipc`，不经过 useIpc（避免自动清理干扰）
+- 主题变更时通过 `watch(uiStore.theme)` 遍历池中所有终端更新 `terminal.options.theme`
 
-### 3.6 打包构建
+### 3.6 默认终端配置 ✅
+
+`createTab()` 创建本地终端标签页时，若未指定 `configId`，自动使用 `terminalsStore.getDefault()` 获取默认终端配置：
+
+- 新标签继承默认配置的 shell、工作目录、启动脚本等参数
+- 标签名称显示为默认终端配置的名称
+- 默认终端互斥：DB 层（`db.handler.ts`）和 Store 层（`terminals.store.ts`）在设置新默认时均先清除其他终端的 `is_default` 标记
+
+### 3.7 打包构建 ✅
 
 使用 electron-builder 构建三平台安装包：
 
@@ -371,36 +380,67 @@ PooledTerminal {
 
 原生模块（node-pty、better-sqlite3、ssh2）通过 `asarUnpack` 解包到 asar 外部，确保运行时正常加载。macOS 需要 `entitlements.mac.plist` 授权 JIT 和网络访问。
 
-### 3.7 主题系统
+### 3.8 主题系统 ✅
+
+#### 3.7.1 CSS 变量驱动
+
+通过 `html[data-theme]` 属性 + `html.dark` class 切换主题，配合 Element Plus 的暗色模式：
 
 ```scss
-// CSS 变量驱动，暗色/亮色通过切换 html class 实现
-// 配合 Element Plus 的 dark/css-vars.css
-html.dark {
+:root[data-theme="dark"] {
   --bg-primary:   #1a1b2e;
   --bg-surface:   #232438;
-  --bg-inset:     #16172a;
-  --bg-hover:     #2a2b40;
-  --bg-input:     #1e1f34;
   --text-primary: #e4e4e8;
-  --text-secondary: #8b8d9e;
-  --text-tertiary:  #5c5e72;
   --accent:       #6366f1;
-  --border:       #2e3048;
-  --divider:      #262840;
-  --warning:      #f59e0b;
-  --error:        #ef4444;
-  --success:      #22c55e;
+  // ...
 }
 
 :root[data-theme="light"] {
   --bg-primary:   #ffffff;
   --bg-surface:   #f8f9fa;
+  --text-primary: #1a1b2e;
   // ...
 }
 ```
 
-终端配色主题与应用 UI 主题独立，终端主题仅影响 xterm.js 的 `ITheme` 配置。
+#### 3.7.2 主题持久化 ✅
+
+主题设置持久化到 SQLite 数据库（而非 localStorage），确保 Electron 环境下可靠存储：
+
+| 项目 | 说明 |
+|------|------|
+| 存储位置 | `settings` 表，`key = 'app.theme'` |
+| 可选值 | `'light'` / `'dark'` / `'system'` |
+| 保存 | `ui.store.ts` → `settingsStore.setSetting('app.theme', theme)` |
+| 恢复 | `App.vue` 的 `onMounted` 中调用 `uiStore.restoreTheme()` 从数据库加载 |
+
+#### 3.7.3 xterm.js 终端颜色跟随应用主题 ✅
+
+终端配色跟随应用 UI 主题动态切换，定义在 `TerminalPane.vue` 中：
+
+| 主题 | 背景色 | 前景色 | 光标色 |
+|------|--------|--------|--------|
+| 暗色 `XTERM_THEME_DARK` | `#1a1b2e` | `#e2e8f0` | `#6366f1` |
+| 亮色 `XTERM_THEME_LIGHT` | `#f8f9fc` | `#1e293b` | `#6366f1` |
+
+- 监听 `uiStore.theme` 变化，实时更新所有终端池中的 `terminal.options.theme`
+- 当主题设为"跟随系统"时，额外监听 `window.matchMedia('(prefers-color-scheme: dark)')` 事件
+
+#### 3.7.4 Windows 标题栏按钮跟随主题 ✅
+
+Windows 下使用 `titleBarOverlay` 显示原生最小化/最大化/关闭按钮，通过 IPC 动态更新颜色：
+
+| 主题 | 背景色 | 图标色 |
+|------|--------|--------|
+| 暗色 | `#1a1b2e` | `#e2e8f0` |
+| 亮色 | `#f0f1f3` | `#374151` |
+
+- IPC Channel: `window:set-title-bar-overlay`（R→M）
+- 触发点: `ui.store.ts` 的 `applyTheme()` 中检测 `window.electronAPI.platform === 'win32'`
+
+#### 3.7.5 右键菜单主题适配 ✅
+
+侧边栏右键菜单（`el-dropdown` popper）通过 `html[data-theme]` 选择器适配暗色/亮色。
 
 ---
 
@@ -679,7 +719,7 @@ CREATE TABLE local_terminals (
     -- 元数据
     group_id        TEXT REFERENCES local_terminal_groups(id),
     sort_order      INTEGER DEFAULT 0,
-    is_default      INTEGER DEFAULT 0,              -- 是否为默认终端
+    is_default      INTEGER DEFAULT 0,              -- 是否为默认终端（互斥，同时只有一个）
     sync_version    INTEGER DEFAULT 1,
     sync_updated_at TEXT DEFAULT (datetime('now')),
     created_at      TEXT DEFAULT (datetime('now')),
@@ -1680,6 +1720,7 @@ Query: ?platform=darwin&arch=arm64&currentVersion=1.0.0
 | `system:open-external` | R→M | 打开外部链接/文件 |
 | `window:new` | R→M | 打开新窗口 |
 | `window:merge` | R→M | 合并窗口 |
+| `window:set-title-bar-overlay` | R→M | Windows 标题栏覆盖层颜色（跟随主题切换） |
 | `system:import-hosts` | R→M | 导入主机配置文件 |
 | `system:export-hosts` | R→M | 导出主机配置文件 |
 | `system:backup` | R→M | 创建完整备份 |

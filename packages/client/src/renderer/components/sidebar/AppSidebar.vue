@@ -106,7 +106,7 @@
                     <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
                     <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
                     <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -145,7 +145,7 @@
                 <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
                 <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
                 <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -197,7 +197,7 @@
                 <el-dropdown-item command="open">打开</el-dropdown-item>
                 <el-dropdown-item command="edit">编辑</el-dropdown-item>
                 <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -996,17 +996,8 @@ function injectMockData(): void {
 <style lang="scss">
 /* 右键菜单暗色主题（全局，popper 挂载在 body） */
 .sidebar-context-menu.el-dropdown__popper {
-  --menu-bg: #1c1d32;
-  --menu-bg-hover: rgba(99, 102, 241, 0.12);
-  --menu-border: rgba(255, 255, 255, 0.06);
-  --menu-text: #c8c9d6;
-  --menu-text-hover: #fff;
-  --menu-divider: rgba(255, 255, 255, 0.06);
-  --menu-danger: #ef4444;
-
-  background: var(--menu-bg);
-  backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid var(--menu-border);
+  background: #1c1d32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.3),
@@ -1014,8 +1005,8 @@ function injectMockData(): void {
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   padding: 4px;
   min-width: 140px;
+  backdrop-filter: blur(20px) saturate(1.4);
 
-  /* 隐藏默认箭头 */
   .el-popper__arrow {
     display: none;
   }
@@ -1028,7 +1019,7 @@ function injectMockData(): void {
   }
 
   .el-dropdown-menu__item {
-    color: var(--menu-text);
+    color: #c8c9d6;
     font-size: 12px;
     padding: 6px 16px;
     border-radius: 6px;
@@ -1038,40 +1029,29 @@ function injectMockData(): void {
 
     &:not(.is-disabled):hover,
     &:not(.is-disabled):focus {
-      background: var(--menu-bg-hover);
-      color: var(--menu-text-hover);
-    }
-
-    &:active {
-      background: rgba(99, 102, 241, 0.2);
+      background: rgba(99, 102, 241, 0.12);
+      color: #fff;
     }
 
     &.is-disabled {
       color: #3d3e54;
-      cursor: not-allowed;
-    }
-  }
-
-  /* "删除" 按钮红色高亮 */
-  .el-dropdown-menu__item--divided {
-    border-top: 1px solid var(--menu-divider);
-    margin-top: 4px;
-    padding-top: 6px;
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 8px;
-      right: 8px;
-      height: 0;
     }
 
-    &:not(.is-disabled):hover,
-    &:not(.is-disabled):focus {
-      color: var(--menu-danger);
-      background: rgba(239, 68, 68, 0.1);
+    /* 分割线 */
+    &.el-dropdown-menu__item--divided {
+      border-top-color: rgba(255, 255, 255, 0.06);
+      margin-top: 4px;
+    }
+
+    /* 删除按钮 - 红色 */
+    &.ctx-menu-danger {
+      color: #f87171;
+
+      &:not(.is-disabled):hover,
+      &:not(.is-disabled):focus {
+        background: rgba(239, 68, 68, 0.12);
+        color: #ef4444;
+      }
     }
   }
 }

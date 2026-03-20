@@ -143,9 +143,9 @@ function handleKeydown(e: KeyboardEvent): void {
   }
 }
 
-onMounted(async () => {
-  // 加载主机列表和本地终端配置
-  await Promise.all([
+onMounted(() => {
+  // 加载主机列表和本地终端配置（不阻塞 UI 渲染）
+  Promise.all([
     hostsStore.fetchHosts(),
     hostsStore.fetchGroups(),
     terminalsStore.fetchTerminals(),

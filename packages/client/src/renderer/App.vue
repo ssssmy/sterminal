@@ -13,8 +13,8 @@ import { useUiStore } from './stores/ui.store'
 
 const uiStore = useUiStore()
 
-onMounted(async () => {
-  // 从数据库恢复保存的主题设置
-  await uiStore.restoreTheme()
+onMounted(() => {
+  // 从数据库恢复保存的主题设置（不阻塞渲染）
+  uiStore.restoreTheme()
 })
 </script>

@@ -1,6 +1,7 @@
 // Vue Router 路由定义
 
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
+import WorkspaceView from '../views/workspace/WorkspaceView.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -18,7 +19,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Workspace',
-    component: () => import('../views/workspace/WorkspaceView.vue'),
+    component: WorkspaceView,
     meta: { requiresAuth: false }, // 支持离线模式，暂不强制登录
   },
   {

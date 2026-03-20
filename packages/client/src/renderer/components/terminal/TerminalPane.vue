@@ -14,6 +14,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import type { TabSession, SplitNode } from '@shared/types/terminal'
 import { useSessionsStore } from '@/stores/sessions.store'
 import { useHostsStore } from '@/stores/hosts.store'
+import { useTerminalsStore } from '@/stores/terminals.store'
 import { useIpc } from '@/composables/useIpc'
 import { IPC_PTY, IPC_SSH } from '@shared/types/ipc-channels'
 
@@ -34,6 +35,7 @@ const TerminalXterm = defineComponent({
     const containerRef = ref<HTMLElement | null>(null)
     const sessionsStore = useSessionsStore()
     const hostsStore = useHostsStore()
+    const terminalsStore = useTerminalsStore()
     const { invoke, on, off } = useIpc()
 
     let terminal: Terminal | null = null
@@ -198,7 +200,17 @@ const TerminalXterm = defineComponent({
         })
       } else {
         // ===== 本地 PTY 模式 =====
-        const result = await invoke<{ ptyId: string }>(IPC_PTY.SPAWN, { cols, rows })
+        // 读取终端配置
+        const localConfig = instance?.localConfigId
+          ? terminalsStore.terminals.find(t => t.id === instance.localConfigId)
+          : undefined
+
+        const spawnParams: Record<string, unknown> = { cols, rows }
+        if (localConfig?.shell) spawnParams.shell = localConfig.shell
+        if (localConfig?.cwd) spawnParams.cwd = localConfig.cwd
+        if (localConfig?.environment) spawnParams.env = localConfig.environment
+
+        const result = await invoke<{ ptyId: string }>(IPC_PTY.SPAWN, spawnParams)
         if (result?.ptyId) {
           ptyId = result.ptyId
           if (instance) {
@@ -208,6 +220,13 @@ const TerminalXterm = defineComponent({
 
         on(IPC_PTY.DATA, ptyDataCallback)
         on(IPC_PTY.EXIT, ptyExitCallback)
+
+        // 执行启动命令
+        if (localConfig?.startupCommand && ptyId) {
+          setTimeout(() => {
+            invoke(IPC_PTY.WRITE, { ptyId, data: localConfig.startupCommand + '\n' })
+          }, 300)
+        }
 
         terminal.onData((data: string) => {
           if (ptyId) {

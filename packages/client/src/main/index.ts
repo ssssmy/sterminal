@@ -61,18 +61,6 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
-
-  // Windows: 监听主题变更，更新标题栏覆盖层颜色
-  if (isWindows) {
-    ipcMain.handle(IPC_WINDOW.SET_TITLE_BAR_OVERLAY, (_event, overlay: { color: string; symbolColor: string }) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.setTitleBarOverlay({
-          color: overlay.color,
-          symbolColor: overlay.symbolColor,
-        })
-      }
-    })
-  }
 }
 
 // ===== 应用生命周期 =====
@@ -83,6 +71,18 @@ app.whenReady().then(() => {
 
   // 2. 注册所有 IPC handlers
   registerAllHandlers()
+
+  // Windows: 监听主题变更，更新标题栏覆盖层颜色
+  if (process.platform === 'win32') {
+    ipcMain.handle(IPC_WINDOW.SET_TITLE_BAR_OVERLAY, (_event, overlay: { color: string; symbolColor: string }) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setTitleBarOverlay({
+          color: overlay.color,
+          symbolColor: overlay.symbolColor,
+        })
+      }
+    })
+  }
 
   // 3. 创建主窗口
   createWindow()

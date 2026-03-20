@@ -51,7 +51,7 @@ export const useUiStore = defineStore('ui', () => {
    */
   function setTheme(newTheme: AppTheme): void {
     theme.value = newTheme
-    applyTheme(newTheme)
+    // applyTheme 由 watch(theme) 自动触发，无需手动调用
     const settingsStore = useSettingsStore()
     settingsStore.setSetting('app.theme', newTheme)
   }
@@ -64,6 +64,7 @@ export const useUiStore = defineStore('ui', () => {
     const saved = await settingsStore.getSetting<string>('app.theme')
     const themeValue = (saved || 'dark') as AppTheme
     theme.value = themeValue
+    // watch(theme) 仅在值变化时触发，初始化时需手动应用
     applyTheme(themeValue)
   }
 

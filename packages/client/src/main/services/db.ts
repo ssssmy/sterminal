@@ -65,7 +65,6 @@ export function closeDatabase(): void {
   if (db) {
     db.close()
     db = null
-    console.log('[DB] 数据库连接已关闭')
   }
 }
 

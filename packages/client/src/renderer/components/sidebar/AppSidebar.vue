@@ -187,7 +187,7 @@
           >
             <div
               class="app-sidebar__terminal-item"
-              @click="openLocalTerminal(terminal)"
+              @dblclick="openLocalTerminal(terminal)"
             >
               <el-icon :size="14" class="app-sidebar__terminal-icon"><Cpu /></el-icon>
               <div class="app-sidebar__terminal-info">

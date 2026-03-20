@@ -90,37 +90,42 @@ function registerLocalTerminalsHandlers(): void {
   })
 
   // 更新本地终端配置
+  // 同主机 UPDATE：只更新显式传入的字段，避免意外清空 group_id 等
   ipcMain.handle(IPC_DB.LOCAL_TERMINALS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     // 设为默认时，先清除其他终端的默认标记
     if (data.isDefault) {
       dbRun('UPDATE local_terminals SET is_default = 0 WHERE is_default = 1 AND id != ?', [id])
     }
-    dbRun(
-      `UPDATE local_terminals SET
-        name = COALESCE(?, name),
-        shell = ?,
-        cwd = ?,
-        startup_command = ?,
-        environment = ?,
-        login_shell = COALESCE(?, login_shell),
-        is_default = COALESCE(?, is_default),
-        sort_order = COALESCE(?, sort_order),
-        group_id = ?,
-        updated_at = datetime('now')
-       WHERE id = ?`,
-      [
-        data.name ?? null,
-        data.shell ?? null,
-        data.cwd ?? null,
-        data.startupCommand ?? null,
-        data.environment ? JSON.stringify(data.environment) : null,
-        data.loginShell !== undefined ? (data.loginShell ? 1 : 0) : null,
-        data.isDefault !== undefined ? (data.isDefault ? 1 : 0) : null,
-        data.sortOrder ?? null,
-        data.groupId ?? null,
-        id,
-      ]
-    )
+
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    if ('name' in data) { sets.push('name = COALESCE(?, name)'); params.push(data.name ?? null) }
+    if ('sortOrder' in data) { sets.push('sort_order = COALESCE(?, sort_order)'); params.push(data.sortOrder ?? null) }
+    if ('loginShell' in data) { sets.push('login_shell = ?'); params.push(data.loginShell ? 1 : 0) }
+    if ('isDefault' in data) { sets.push('is_default = ?'); params.push(data.isDefault ? 1 : 0) }
+
+    // 可为 null 的字段
+    const nullableFields: [string, string][] = [
+      ['shell', 'shell'], ['cwd', 'cwd'],
+      ['startup_command', 'startupCommand'], ['group_id', 'groupId'],
+    ]
+    for (const [col, key] of nullableFields) {
+      if (key in data) {
+        sets.push(`${col} = ?`)
+        params.push(data[key] ?? null)
+      }
+    }
+    if ('environment' in data) {
+      sets.push('environment = ?')
+      params.push(data.environment ? JSON.stringify(data.environment) : null)
+    }
+
+    if (sets.length === 0) return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
+
+    sets.push("updated_at = datetime('now')")
+    params.push(id)
+    dbRun(`UPDATE local_terminals SET ${sets.join(', ')} WHERE id = ?`, params)
     return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
   })
 
@@ -219,59 +224,51 @@ function registerHostsHandlers(): void {
   })
 
   // 更新主机
+  // 注意：group_id 等可为 null 的字段，只有显式传入时才更新，
+  // 避免只更新 sortOrder 时意外清空 group_id
   ipcMain.handle(IPC_DB.HOSTS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
-    dbRun(
-      `UPDATE hosts SET
-        label = COALESCE(?, label),
-        address = COALESCE(?, address),
-        port = COALESCE(?, port),
-        protocol = COALESCE(?, protocol),
-        username = COALESCE(?, username),
-        auth_type = COALESCE(?, auth_type),
-        password_enc = COALESCE(?, password_enc),
-        key_id = ?,
-        key_passphrase_enc = ?,
-        startup_command = ?,
-        encoding = COALESCE(?, encoding),
-        keepalive_interval = COALESCE(?, keepalive_interval),
-        connect_timeout = COALESCE(?, connect_timeout),
-        compression = COALESCE(?, compression),
-        strict_host_key = COALESCE(?, strict_host_key),
-        ssh_version = COALESCE(?, ssh_version),
-        notes = ?,
-        group_id = ?,
-        proxy_jump_id = ?,
-        socks_proxy = ?,
-        http_proxy = ?,
-        sort_order = COALESCE(?, sort_order),
-        updated_at = datetime('now')
-       WHERE id = ?`,
-      [
-        data.label ?? null,
-        data.address ?? null,
-        data.port ?? null,
-        data.protocol ?? null,
-        data.username ?? null,
-        data.authType ?? null,
-        data.password ?? null,
-        data.keyId ?? null,
-        data.keyPassphrase ?? null,
-        data.startupCommand ?? null,
-        data.encoding ?? null,
-        data.keepaliveInterval ?? null,
-        data.connectTimeout ?? null,
-        data.compression !== undefined ? (data.compression ? 1 : 0) : null,
-        data.strictHostKey !== undefined ? (data.strictHostKey ? 1 : 0) : null,
-        data.sshVersion ?? null,
-        data.notes ?? null,
-        data.groupId ?? null,
-        data.proxyJumpId ?? null,
-        data.socksProxy ?? null,
-        data.httpProxy ?? null,
-        data.sortOrder ?? null,
-        id,
-      ]
-    )
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    // COALESCE 字段：未传时保持原值
+    const coalesceFields: [string, string][] = [
+      ['label', 'label'], ['address', 'address'], ['port', 'port'],
+      ['protocol', 'protocol'], ['username', 'username'],
+      ['auth_type', 'authType'], ['password_enc', 'password'],
+      ['encoding', 'encoding'], ['keepalive_interval', 'keepaliveInterval'],
+      ['connect_timeout', 'connectTimeout'], ['ssh_version', 'sshVersion'],
+      ['sort_order', 'sortOrder'],
+    ]
+    for (const [col, key] of coalesceFields) {
+      if (key in data) {
+        sets.push(`${col} = COALESCE(?, ${col})`)
+        params.push(data[key] ?? null)
+      }
+    }
+
+    // 布尔字段
+    if ('compression' in data) { sets.push('compression = ?'); params.push(data.compression ? 1 : 0) }
+    if ('strictHostKey' in data) { sets.push('strict_host_key = ?'); params.push(data.strictHostKey ? 1 : 0) }
+
+    // 可为 null 的字段：只有显式传入时才更新（允许设为 null）
+    const nullableFields: [string, string][] = [
+      ['key_id', 'keyId'], ['key_passphrase_enc', 'keyPassphrase'],
+      ['startup_command', 'startupCommand'], ['notes', 'notes'],
+      ['group_id', 'groupId'], ['proxy_jump_id', 'proxyJumpId'],
+      ['socks_proxy', 'socksProxy'], ['http_proxy', 'httpProxy'],
+    ]
+    for (const [col, key] of nullableFields) {
+      if (key in data) {
+        sets.push(`${col} = ?`)
+        params.push(data[key] ?? null)
+      }
+    }
+
+    if (sets.length === 0) return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
+
+    sets.push("updated_at = datetime('now')")
+    params.push(id)
+    dbRun(`UPDATE hosts SET ${sets.join(', ')} WHERE id = ?`, params)
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
   })
 

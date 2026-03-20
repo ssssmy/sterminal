@@ -32,6 +32,8 @@ export const useUiStore = defineStore('ui', () => {
     }
 
     document.documentElement.setAttribute('data-theme', resolvedTheme)
+    // Element Plus 暗色主题需要 html.dark class
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
   }
 
   /**

@@ -17,7 +17,7 @@ interface ActiveRecording {
 // 活跃录制：key 为 ptyId 或 sshConnectionId
 const activeRecordings = new Map<string, ActiveRecording>()
 
-function getLogDirectory(): string {
+export function getLogDirectory(): string {
   const row = dbGet<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['log.directory'])
   if (row?.value) {
     try {
@@ -53,7 +53,7 @@ export function startRecording(params: {
   const logId = uuidv4()
   const now = new Date()
   const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const safeLabel = (params.label || 'session').replace(/[^a-zA-Z0-9_\u4e00-\u9fff-]/g, '_')
+  const safeLabel = (params.label || 'session').replace(/[^a-zA-Z0-9_\u4e00-\u9fff-]/g, '_').slice(0, 50)
   const fileName = `${safeLabel}_${dateStr}.cast`
   const filePath = path.join(logDir, fileName)
 
@@ -66,7 +66,7 @@ export function startRecording(params: {
     height: params.rows,
     timestamp: Math.floor(now.getTime() / 1000),
     title: params.label || 'STerminal Recording',
-    env: { TERM: 'xterm-256color', SHELL: process.env.SHELL || '/bin/zsh' },
+    env: { TERM: 'xterm-256color', SHELL: process.env.SHELL || (process.platform === 'win32' ? 'powershell.exe' : '/bin/zsh') },
   }
   stream.write(JSON.stringify(header) + '\n')
 
@@ -104,22 +104,25 @@ export function stopRecording(terminalKey: string): { logId: string } | null {
   const rec = activeRecordings.get(terminalKey)
   if (!rec) return null
 
-  rec.stream.end()
   activeRecordings.delete(terminalKey)
 
-  // 更新 DB
-  const endedAt = new Date().toISOString()
-  let fileSize = 0
-  try {
-    fileSize = fs.statSync(rec.filePath).size
-  } catch { /* ignore */ }
+  const logId = rec.logId
+  const filePath = rec.filePath
 
-  dbRun(
-    'UPDATE session_logs SET ended_at = ?, file_size = ? WHERE id = ?',
-    [endedAt, fileSize, rec.logId]
-  )
+  // 等待流完全写完再读取文件大小
+  rec.stream.end(() => {
+    const endedAt = new Date().toISOString()
+    let fileSize = 0
+    try {
+      fileSize = fs.statSync(filePath).size
+    } catch { /* ignore */ }
+    dbRun(
+      'UPDATE session_logs SET ended_at = ?, file_size = ? WHERE id = ?',
+      [endedAt, fileSize, logId]
+    )
+  })
 
-  return { logId: rec.logId }
+  return { logId }
 }
 
 /**
@@ -165,7 +168,12 @@ export function getReplayData(logId: string): string | null {
  * 停止所有录制（应用退出时调用）
  */
 export function stopAllRecordings(): void {
-  for (const [key] of activeRecordings) {
-    stopRecording(key)
+  const keys = [...activeRecordings.keys()]
+  for (const key of keys) {
+    try {
+      stopRecording(key)
+    } catch (e) {
+      console.error('[Recorder] stop failed:', key, e)
+    }
   }
 }

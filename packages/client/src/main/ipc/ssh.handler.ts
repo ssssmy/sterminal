@@ -110,12 +110,15 @@ export function registerSshHandlers(): void {
 
           if (!settled) { settled = true; resolve({ connectionId }) }
 
-          // 检测远端操作系统
+          // 检测远端操作系统（带超时，不影响主连接）
           conn.exec('uname', (execErr, execStream) => {
             if (execErr) return
             let output = ''
+            const timeout = setTimeout(() => { try { execStream.destroy() } catch {} }, 5000)
             execStream.on('data', (data: Buffer) => { output += data.toString() })
+            execStream.on('error', () => { clearTimeout(timeout) })
             execStream.on('close', () => {
+              clearTimeout(timeout)
               const uname = output.trim().toLowerCase()
               let os: 'darwin' | 'windows' | 'linux' = 'linux'
               if (uname.includes('darwin')) os = 'darwin'

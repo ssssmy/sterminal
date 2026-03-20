@@ -1,8 +1,9 @@
 // 系统操作 IPC Handler
 // 处理剪贴板、外部链接、Shell 列表等系统级操作
 
-import { ipcMain, shell, clipboard } from 'electron'
+import { ipcMain, shell, clipboard, app } from 'electron'
 import { execSync } from 'child_process'
+import * as path from 'path'
 import { IPC_SYSTEM } from '../../shared/types/ipc-channels'
 
 /**
@@ -21,7 +22,12 @@ export function registerSystemHandlers(): void {
 
   // 用系统文件管理器打开指定路径（跨平台：Finder / Explorer / Files）
   ipcMain.handle(IPC_SYSTEM.OPEN_PATH, async (_event, targetPath: string) => {
-    await shell.openPath(targetPath)
+    const resolved = path.resolve(targetPath)
+    const homeDir = app.getPath('home')
+    if (!resolved.startsWith(homeDir)) {
+      throw new Error('Access denied: path outside home directory')
+    }
+    await shell.openPath(resolved)
   })
 
   // 延时清除剪贴板（用于密码自动清除功能）

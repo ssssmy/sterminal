@@ -17,8 +17,9 @@ Monorepo 结构：
 | 阶段 | 范围 | 状态 |
 |------|------|------|
 | **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
+| **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
 | **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | ⏳ 待开发 |
-| **P2 进阶功能** | SSH密钥管理、已知主机、Vault密钥库、会话录制/回放、日志审计 | ⏳ 待开发 |
+| **P2 进阶功能** | SSH密钥管理、已知主机、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
 | **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
 
 详细进展和待办项见 `docs/PROGRESS.md`。PRD 见 `docs/PRD.md`。技术架构见 `docs/ARCHITECTURE.md`。
@@ -29,17 +30,20 @@ packages/client/src/
   main/                    # Electron 主进程
     index.ts                 窗口创建，平台特定配置
     database/schema.ts       SQLite 建表语句（20+ 张表）
-    ipc/                     IPC handlers (pty, ssh, db, system)
+    ipc/                     IPC handlers (pty, ssh, db, system, log)
     services/db.ts           better-sqlite3 封装
+    services/session-recorder.ts  asciicast v2 会话录制服务
   preload/index.ts         # contextBridge，暴露 ipc + platform
   renderer/                # Vue 渲染进程
     components/
-      sidebar/AppSidebar.vue       主机列表、本地终端列表、分组
-      toolbar/AppToolbar.vue       分屏、广播、录制等工具按钮
-      terminal/TerminalPane.vue    终端池 + 分屏树渲染（核心文件）
-      terminal/TerminalTabs.vue    标签栏
+      sidebar/AppSidebar.vue       主机列表、本地终端列表、五区域折叠持久化
+      toolbar/AppToolbar.vue       分屏、广播、录制、搜索等工具按钮
+      terminal/TerminalPane.vue    模块级终端池 + 分屏树渲染（核心文件）
+      terminal/TerminalTabs.vue    标签栏（含OS图标、录制指示器）
+      terminal/TerminalSearchBar.vue 终端内搜索栏
       terminal/TerminalConfigDialog.vue
       host/HostConfigDialog.vue
+      icons/Icon{MacOS,Windows,Linux}.vue  OS图标SVG组件
     composables/useIpc.ts          IPC 封装（invoke/on/off + 自动清理）
     stores/
       sessions.store.ts    标签页、分屏树、terminalInstances Map
@@ -58,9 +62,9 @@ packages/client/src/
     styles/global.scss             全局主题变量
     i18n/                          国际化（zh-CN/en/zh-TW/ja）
   shared/types/            # 前后端共享类型定义
-    terminal.ts    TabSession, SplitNode, TerminalInstance, LocalTerminalConfig
+    terminal.ts    TabSession, SplitNode, TerminalInstance(含remoteOS/recording), LocalTerminalConfig
     host.ts        Host, HostGroup, Tag（Host 含 30+ 字段）
-    ipc-channels.ts IPC 频道常量（170+ channel 定义）
+    ipc-channels.ts IPC 频道常量（180+ channel 定义，含 SSH.OS_DETECTED、LOG 全流程）
     settings.ts    设置类型
     snippet.ts     命令片段类型
   shared/constants/
@@ -103,16 +107,33 @@ UI 设计稿 `untitled.pen` 共 16 屏（使用 pencil MCP 工具读取）：
 数据流：`用户操作 → Vue Component → Pinia Store → IPC invoke → Main Process → SQLite/远程 → IPC reply → Store → UI`
 
 ### IPC Channel 划分
-`ssh:*`（连接）、`pty:*`（本地终端）、`sftp:*`（文件操作）、`db:*`（数据库 CRUD）、`sync:*`（同步）、`vault:*`（凭据）、`key:*`（密钥）、`system:*`（系统操作）、`window:*`（窗口）、`log:*`（日志）
+`ssh:*`（连接+OS检测）、`pty:*`（本地终端）、`sftp:*`（文件操作）、`db:*`（数据库 CRUD）、`sync:*`（同步）、`vault:*`（凭据）、`key:*`（密钥）、`system:*`（系统操作）、`window:*`（窗口）、`log:*`（会话录制全流程）
 
 ### 终端池模式（TerminalPane.vue）
-xterm 实例的生命周期独立于 Vue 组件树，通过模块级 `terminalPool` Map 管理：
+xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<script lang="ts">` 中的 `terminalPool` Map 管理（非 `<script setup>`，确保跨实例共享）：
 - 组件 mount：检查池→有则移动 DOM 元素；无则创建新终端
 - 组件 unmount：检查 `terminalInstances.has(id)` 判断是分屏重组还是真正关闭
   - 分屏重组：DOM 移到 offscreen holder，PTY/SSH 保持连接
-  - 真正关闭：disposePooledTerminal 彻底销毁
+  - 真正关闭：disposePooledTerminal 彻底销毁（含停止录制）
 - IPC 监听器直接用 `window.electronAPI.ipc`，不经过 useIpc（避免自动清理干扰）
 - 主题变更时通过 `watch(uiStore.theme)` 遍历池中所有终端更新 `terminal.options.theme`
+- `dirtyWhileHidden` 标记：隐藏 tab 接收数据时标记脏，切回时 force resize 修复 xterm viewport 滚动
+- 广播模式：`broadcastInput()` 遍历当前 tab 所有终端发送输入
+
+### 终端搜索
+- `TerminalSearchBar.vue` 通过从 `TerminalPane.vue` 的 `<script lang="ts">` 导出的 `terminalFindNext/Previous/ClearSearch` 函数操作终端池中的 `SearchAddon`
+- 搜索在当前活跃 tab 的所有分屏终端上执行
+
+### 会话录制（session-recorder.ts）
+- asciicast v2 格式（NDJSON：header + `[elapsed, "o", data]` 事件行）
+- PTY/SSH data handler 中调用 `recordData()` 记录输出
+- `stream.end()` 回调中更新文件大小到 DB，避免竞态
+- `stopAllRecordings()` 先收集 keys 再逐个停止，带 try-catch 容错
+
+### 远端 OS 检测
+- SSH shell 就绪后通过 `conn.exec('uname')` 检测，带 5s 超时
+- 结果通过 `IPC_SSH.OS_DETECTED` 事件发送到渲染进程
+- `TerminalInstance.remoteOS` 存储检测结果，标签页图标据此显示对应 OS SVG
 
 ### 分屏树（SplitNode）
 - 递归类型：`terminal`（叶子）| `split`（direction + ratio + children[2]）

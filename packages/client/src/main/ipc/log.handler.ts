@@ -1,7 +1,6 @@
 // 会话日志录制 IPC Handler
 
-import { ipcMain, shell } from 'electron'
-import { app } from 'electron'
+import { ipcMain, shell, app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 import { IPC_LOG } from '../../shared/types/ipc-channels'
@@ -12,8 +11,8 @@ import {
   listRecordings,
   deleteRecording,
   getReplayData,
+  getLogDirectory,
 } from '../services/session-recorder'
-import { dbGet } from '../services/db'
 
 export function registerLogHandlers(): void {
   ipcMain.handle(IPC_LOG.START, (_event, params: {
@@ -48,22 +47,18 @@ export function registerLogHandlers(): void {
   })
 
   // 打开录制文件夹（跨平台：Finder / Explorer / Files）
-  ipcMain.handle(IPC_LOG.OPEN_DIRECTORY, (_event, customDir?: string) => {
-    let dir = customDir || ''
-    if (!dir) {
-      // 从设置读取
-      const row = dbGet<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['log.directory'])
-      if (row?.value) {
-        try { dir = JSON.parse(row.value) as string } catch { /* ignore */ }
-      }
-    }
-    if (!dir) {
-      dir = path.join(app.getPath('home'), 'STerminal', 'logs')
-    }
+  ipcMain.handle(IPC_LOG.OPEN_DIRECTORY, () => {
+    const dir = getLogDirectory()
     // 确保目录存在
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
-    return shell.openPath(dir)
+    // 路径校验：仅允许打开用户目录下的路径
+    const resolved = path.resolve(dir)
+    const homeDir = app.getPath('home')
+    if (!resolved.startsWith(homeDir)) {
+      throw new Error('Access denied: path outside home directory')
+    }
+    return shell.openPath(resolved)
   })
 }

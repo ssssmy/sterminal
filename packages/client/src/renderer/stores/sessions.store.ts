@@ -17,6 +17,17 @@ export const useSessionsStore = defineStore('sessions', () => {
     tabs.value.find(t => t.id === activeTabId.value) ?? null
   )
 
+  /** 当前已连接的主机 ID 集合 */
+  const connectedHostIds = computed(() => {
+    const ids = new Set<string>()
+    for (const instance of terminalInstances.value.values()) {
+      if (instance.type === 'ssh' && instance.hostId) {
+        ids.add(instance.hostId)
+      }
+    }
+    return ids
+  })
+
   // ===== 操作 =====
 
   /**
@@ -171,6 +182,7 @@ export const useSessionsStore = defineStore('sessions', () => {
     tabs,
     activeTabId,
     activeTab,
+    connectedHostIds,
     terminalInstances,
     createTab,
     closeTab,

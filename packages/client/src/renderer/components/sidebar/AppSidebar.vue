@@ -79,17 +79,21 @@
                 v-for="host in getGroupHosts(group.id)"
                 :key="host.id"
                 trigger="contextmenu"
+                popper-class="sidebar-context-menu"
                 @command="(cmd: string) => handleHostCmd(cmd, host)"
               >
                 <div
                   class="app-sidebar__host-item"
-                  :class="{ 'app-sidebar__host-item--selected': selectedHostId === host.id }"
+                  :class="{
+                    'app-sidebar__host-item--selected': selectedHostId === host.id,
+                    'app-sidebar__host-item--connected': isHostConnected(host.id),
+                  }"
                   @click="selectHost(host)"
                   @dblclick="connectToHost(host)"
                 >
                   <span
                     class="app-sidebar__status-dot"
-                    :class="host.lastConnected ? 'app-sidebar__status-dot--online' : 'app-sidebar__status-dot--offline'"
+                    :class="isHostConnected(host.id) ? 'app-sidebar__status-dot--connected' : 'app-sidebar__status-dot--idle'"
                   />
                   <el-icon :size="13" class="app-sidebar__host-icon"><Connection /></el-icon>
                   <div class="app-sidebar__host-info">
@@ -99,7 +103,8 @@
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="connect">连接</el-dropdown-item>
+                    <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
+                    <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
                     <el-dropdown-item command="edit">编辑</el-dropdown-item>
                     <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
@@ -113,17 +118,21 @@
             v-for="host in filteredUngroupedHosts"
             :key="host.id"
             trigger="contextmenu"
+            popper-class="sidebar-context-menu"
             @command="(cmd: string) => handleHostCmd(cmd, host)"
           >
             <div
               class="app-sidebar__host-item app-sidebar__host-item--root"
-              :class="{ 'app-sidebar__host-item--selected': selectedHostId === host.id }"
+              :class="{
+                'app-sidebar__host-item--selected': selectedHostId === host.id,
+                'app-sidebar__host-item--connected': isHostConnected(host.id),
+              }"
               @click="selectHost(host)"
               @dblclick="connectToHost(host)"
             >
               <span
                 class="app-sidebar__status-dot"
-                :class="host.lastConnected ? 'app-sidebar__status-dot--online' : 'app-sidebar__status-dot--offline'"
+                :class="isHostConnected(host.id) ? 'app-sidebar__status-dot--connected' : 'app-sidebar__status-dot--idle'"
               />
               <el-icon :size="13" class="app-sidebar__host-icon"><Connection /></el-icon>
               <div class="app-sidebar__host-info">
@@ -133,7 +142,8 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="connect">连接</el-dropdown-item>
+                <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
+                <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
                 <el-dropdown-item command="edit">编辑</el-dropdown-item>
                 <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
               </el-dropdown-menu>
@@ -169,6 +179,7 @@
             v-for="terminal in filteredTerminals"
             :key="terminal.id"
             trigger="contextmenu"
+            popper-class="sidebar-context-menu"
             @command="(cmd: string) => handleTerminalCmd(cmd, terminal)"
           >
             <div
@@ -374,6 +385,11 @@ function getGroupHosts(groupId: string): Host[] {
 
 function getGroupHostCount(groupId: string): number {
   return hostsStore.hosts.filter(h => h.groupId === groupId).length
+}
+
+// ===== 连接状态判断 =====
+function isHostConnected(hostId: string): boolean {
+  return sessionsStore.connectedHostIds.has(hostId)
 }
 
 // ===== 主机操作 =====
@@ -780,6 +796,12 @@ function injectMockData(): void {
       background-color: var(--bg-hover);
       color: var(--text-primary);
     }
+
+    &--connected {
+      .app-sidebar__host-icon {
+        color: var(--success);
+      }
+    }
   }
 
   &__status-dot {
@@ -787,6 +809,16 @@ function injectMockData(): void {
     height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
+
+    &--connected {
+      background-color: var(--success);
+      box-shadow: 0 0 4px var(--success);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    &--idle {
+      background-color: var(--text-tertiary);
+    }
 
     &--online {
       background-color: var(--success);
@@ -937,6 +969,12 @@ function injectMockData(): void {
     text-align: center;
   }
 
+  // ===== 脉冲动画 =====
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
   // ===== 宽度拖拽手柄 =====
   &__resize-handle {
     position: absolute;
@@ -950,6 +988,55 @@ function injectMockData(): void {
     &:hover {
       background-color: var(--accent);
       opacity: 0.4;
+    }
+  }
+}
+</style>
+
+<style lang="scss">
+/* 右键菜单暗色主题（全局，因为 popper 挂载在 body 上） */
+.sidebar-context-menu {
+  &.el-dropdown__popper {
+    background-color: var(--bg-elevated, #1e1f35);
+    border: 1px solid var(--border, #2a2b40);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 4px;
+
+    .el-dropdown-menu {
+      background-color: transparent;
+      border: none;
+      padding: 0;
+    }
+
+    .el-dropdown-menu__item {
+      color: var(--text-secondary, #a1a1b5);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      line-height: 1.6;
+
+      &:hover,
+      &:focus {
+        background-color: var(--bg-hover, #2a2b40);
+        color: var(--text-primary, #e4e4ed);
+      }
+
+      &.is-disabled {
+        color: var(--text-tertiary, #5a5b70);
+      }
+    }
+
+    .el-dropdown-menu__item--divided {
+      border-top-color: var(--divider, #2a2b40);
+      margin-top: 4px;
+      padding-top: 10px;
+    }
+
+    /* 箭头颜色 */
+    .el-popper__arrow::before {
+      background-color: var(--bg-elevated, #1e1f35);
+      border-color: var(--border, #2a2b40);
     }
   }
 }

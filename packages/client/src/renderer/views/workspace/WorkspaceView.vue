@@ -59,7 +59,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'WorkspaceView' })
 
-import { onMounted, onBeforeUnmount } from 'vue'
+import { defineAsyncComponent, onMounted, onBeforeUnmount } from 'vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
@@ -67,10 +67,11 @@ import { useTerminalsStore } from '../../stores/terminals.store'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
 import AppToolbar from '../../components/toolbar/AppToolbar.vue'
 import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
-import TerminalPane from '../../components/terminal/TerminalPane.vue'
-import CommandPalette from '../../components/common/CommandPalette.vue'
-import HostConfigDialog from '../../components/host/HostConfigDialog.vue'
-import TerminalConfigDialog from '../../components/terminal/TerminalConfigDialog.vue'
+// 按需异步加载：仅在使用时才加载
+const TerminalPane = defineAsyncComponent(() => import('../../components/terminal/TerminalPane.vue'))
+const CommandPalette = defineAsyncComponent(() => import('../../components/common/CommandPalette.vue'))
+const HostConfigDialog = defineAsyncComponent(() => import('../../components/host/HostConfigDialog.vue'))
+const TerminalConfigDialog = defineAsyncComponent(() => import('../../components/terminal/TerminalConfigDialog.vue'))
 
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()

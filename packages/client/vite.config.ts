@@ -64,5 +64,15 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // xterm 拆出（仅终端面板需要，约 300KB）
+          if (id.includes('node_modules/@xterm/')) {
+            return 'vendor-xterm'
+          }
+        },
+      },
+    },
   },
 })

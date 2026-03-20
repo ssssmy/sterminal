@@ -26,6 +26,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 1024,
     minHeight: 600,
+    show: false, // 等渲染完成再显示，避免白屏闪烁
     // 自定义标题栏（与 UI 设计保持一致）
     titleBarStyle: 'hidden',
     // macOS：交通灯按钮位置
@@ -47,6 +48,11 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: false,
     },
+  })
+
+  // 页面渲染完成后再显示窗口，消除白屏感知
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show()
   })
 
   if (isDev) {

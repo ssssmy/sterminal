@@ -6,6 +6,16 @@
 
     <!-- 左侧按钮组 -->
     <div class="app-toolbar__btn-group">
+      <!-- 新建终端 -->
+      <el-tooltip content="新建终端" placement="bottom">
+        <button
+          class="app-toolbar__btn"
+          @click="openDefaultTerminal"
+        >
+          <el-icon :size="16"><Monitor /></el-icon>
+        </button>
+      </el-tooltip>
+
       <!-- SFTP 文件传输 -->
       <el-tooltip content="SFTP 文件传输" placement="bottom">
         <button
@@ -104,11 +114,15 @@
 import { ref } from 'vue'
 import {
   FolderOpened, Microphone, VideoCamera,
-  Search, FullScreen,
+  Search, FullScreen, Monitor,
 } from '@element-plus/icons-vue'
+import { useSessionsStore } from '../../stores/sessions.store'
+import { useTerminalsStore } from '../../stores/terminals.store'
 
 const isMacOS = window.electronAPI?.platform === 'darwin'
 const isWindows = window.electronAPI?.platform === 'win32'
+const sessionsStore = useSessionsStore()
+const terminalsStore = useTerminalsStore()
 
 // ===== emits =====
 const emit = defineEmits<{
@@ -134,6 +148,15 @@ function toggleBroadcast(): void {
 function toggleRecording(): void {
   isRecording.value = !isRecording.value
   emit('record', isRecording.value)
+}
+
+function openDefaultTerminal(): void {
+  const defaultTerminal = terminalsStore.getDefault()
+  if (defaultTerminal) {
+    sessionsStore.createTab(defaultTerminal.name, 'local', defaultTerminal.id)
+  } else {
+    sessionsStore.createTab()
+  }
 }
 </script>
 

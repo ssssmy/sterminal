@@ -4,6 +4,9 @@
     class="app-sidebar"
     :style="{ width: `${props.width}px` }"
   >
+    <!-- macOS 交通灯占位 + 可拖拽区域 -->
+    <div v-if="isMacOS" class="app-sidebar__traffic-light" />
+
     <!-- ===== 顶部 Header ===== -->
     <div class="app-sidebar__header">
       <div class="app-sidebar__header-left">
@@ -275,6 +278,9 @@ import { useAuthStore } from '../../stores/auth.store'
 import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig } from '@shared/types/terminal'
 
+// ===== 平台检测 =====
+const isMacOS = window.electronAPI?.platform === 'darwin'
+
 // ===== props =====
 const props = defineProps<{
   width: number
@@ -486,6 +492,13 @@ onBeforeUnmount(() => {
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
+
+  // macOS 交通灯占位区域（可拖拽窗口）
+  &__traffic-light {
+    height: 38px;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+  }
 
   // ===== Header =====
   &__header {

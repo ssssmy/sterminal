@@ -1,8 +1,8 @@
 <template>
   <!-- 工具栏：SFTP / 分屏 / 广播 / 录制 / 搜索 / 全屏 -->
-  <div class="app-toolbar">
-    <!-- macOS 交通灯占位 -->
-    <div class="app-toolbar__drag-region" />
+  <div class="app-toolbar" :class="{ 'app-toolbar--windows': isWindows }">
+    <!-- macOS 交通灯占位（仅 macOS 显示） -->
+    <div v-if="isMacOS" class="app-toolbar__drag-region" />
 
     <!-- 左侧按钮组 -->
     <div class="app-toolbar__btn-group">
@@ -94,6 +94,9 @@
         </button>
       </el-tooltip>
     </div>
+
+    <!-- Windows 窗口控制按钮占位（titleBarOverlay 在此区域显示原生按钮） -->
+    <div v-if="isWindows" class="app-toolbar__win-controls-spacer" />
   </div>
 </template>
 
@@ -103,6 +106,9 @@ import {
   FolderOpened, Microphone, VideoCamera,
   Search, FullScreen,
 } from '@element-plus/icons-vue'
+
+const isMacOS = window.electronAPI?.platform === 'darwin'
+const isWindows = window.electronAPI?.platform === 'win32'
 
 // ===== emits =====
 const emit = defineEmits<{
@@ -156,6 +162,19 @@ function toggleRecording(): void {
     width: 72px;
     height: 100%;
     flex-shrink: 0;
+  }
+
+  // Windows 原生窗口控制按钮占位（最小化/最大化/关闭）
+  &__win-controls-spacer {
+    width: 138px;
+    height: 100%;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+  }
+
+  // Windows 模式：不需要左侧交通灯占位
+  &--windows {
+    padding-left: 12px;
   }
 
   &__btn-group {

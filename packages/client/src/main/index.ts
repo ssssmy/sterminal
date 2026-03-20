@@ -17,6 +17,9 @@ let mainWindow: BrowserWindow | null = null
  * 创建主窗口
  */
 function createWindow(): void {
+  const isMac = process.platform === 'darwin'
+  const isWindows = process.platform === 'win32'
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -24,7 +27,16 @@ function createWindow(): void {
     minHeight: 600,
     // 自定义标题栏（与 UI 设计保持一致）
     titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 16, y: 16 },
+    // macOS：交通灯按钮位置
+    ...(isMac ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
+    // Windows：显示原生窗口控制按钮（最小化/最大化/关闭）
+    ...(isWindows ? {
+      titleBarOverlay: {
+        color: '#1a1b2e',
+        symbolColor: '#e2e8f0',
+        height: 40,
+      },
+    } : {}),
     backgroundColor: '#1a1b2e',
     webPreferences: {
       // 预加载脚本，暴露 contextBridge API

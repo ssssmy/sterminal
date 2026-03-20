@@ -11,6 +11,7 @@ interface ElectronIpc {
 }
 
 interface ElectronAPI {
+  platform: 'darwin' | 'win32' | 'linux'
   ipc: ElectronIpc
 }
 

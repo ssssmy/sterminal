@@ -5,6 +5,8 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
 // 暴露给渲染进程的 electronAPI
 const electronAPI = {
+  platform: process.platform as 'darwin' | 'win32' | 'linux',
+
   ipc: {
     /**
      * 向主进程发送请求并等待响应（invoke/handle 模式）

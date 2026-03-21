@@ -2,6 +2,7 @@ electronVersion: "33.4.11"
 appId: app.sterminal.client
 productName: STerminal
 copyright: Copyright © 2026 STerminal
+homepage: https://github.com/ssssmy/sterminal
 
 # 构建目录配置
 directories:

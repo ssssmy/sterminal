@@ -131,9 +131,26 @@ function defaultForm(): FormData {
 
 const form = ref<FormData>(defaultForm())
 
+// 匹配常见中文标点符号（全角符号）
+const CJK_PUNCTUATION = /[\u3000-\u303F\uFF01-\uFF60\u2018-\u201F\u2026\u2013\u2014\u00B7]/
+
+const cwdValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (!value) return callback()
+  if (CJK_PUNCTUATION.test(value)) {
+    callback(new Error('路径中包含中文符号，请使用英文符号'))
+  } else if (!/^[~/.\\]/.test(value) && !/^[a-zA-Z]:/.test(value)) {
+    callback(new Error('路径应以 ~ / . 或盘符开头'))
+  } else {
+    callback()
+  }
+}
+
 const rules: FormRules = {
   name: [
     { required: true, message: '请输入终端配置名称', trigger: 'blur' },
+  ],
+  cwd: [
+    { validator: cwdValidator, trigger: 'blur' },
   ],
 }
 

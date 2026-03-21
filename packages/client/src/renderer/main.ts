@@ -4,6 +4,9 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import 'element-plus/theme-chalk/dark/css-vars.css'
+import 'element-plus/theme-chalk/el-overlay.css'
+import 'element-plus/theme-chalk/el-message-box.css'
+import 'element-plus/theme-chalk/el-message.css'
 
 import App from './App.vue'
 import router from './router/index'

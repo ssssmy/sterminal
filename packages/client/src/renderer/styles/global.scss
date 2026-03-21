@@ -153,6 +153,57 @@ html.dark {
   }
 }
 
+// MessageBox（ElMessageBox.prompt / confirm）→ 匹配应用风格
+.el-message-box {
+  --el-messagebox-title-color: var(--el-text-color-primary);
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  padding: 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+  .el-message-box__header {
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .el-message-box__title {
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .el-message-box__content {
+    padding: 20px 24px;
+    color: var(--el-text-color-regular);
+    font-size: 13px;
+  }
+
+  .el-message-box__input {
+    .el-input__inner {
+      background: var(--el-fill-color-blank);
+    }
+  }
+
+  .el-message-box__btns {
+    padding: 12px 24px 20px;
+    border-top: 1px solid var(--el-border-color-lighter);
+
+    .el-button--primary {
+      min-width: 80px;
+    }
+
+    .el-button--default {
+      min-width: 72px;
+    }
+  }
+
+  .el-message-box__headerbtn {
+    top: 18px;
+    right: 20px;
+    font-size: 16px;
+  }
+}
+
 // 输入框 → 聚焦时用品牌色
 .el-input {
   --el-input-hover-border-color: var(--el-color-primary);

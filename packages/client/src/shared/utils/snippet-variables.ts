@@ -30,9 +30,10 @@ export interface SnippetVariable {
   options: string[]
 }
 
-/** 内置变量名集合 */
+/** 内置变量名集合（支持 __date__ 和 date 两种写法） */
 const BUILTIN_VARS = new Set([
   '__date__', '__time__', '__datetime__', '__timestamp__', '__hostname__',
+  'date', 'time', 'datetime', 'timestamp', 'hostname',
 ])
 
 // 匹配 ${...} 模式，支持嵌套内容但不支持嵌套大括号
@@ -119,13 +120,13 @@ export function replaceVariables(
     const colonIdx = body.indexOf(':')
     const name = colonIdx === -1 ? body : body.substring(0, colonIdx)
 
-    // 内置变量
+    // 内置变量（支持 __date__ 和 date 两种写法）
     switch (name) {
-      case '__date__': return dateStr
-      case '__time__': return timeStr
-      case '__datetime__': return `${dateStr} ${timeStr}`
-      case '__timestamp__': return String(Math.floor(now.getTime() / 1000))
-      case '__hostname__': return hostLabel || ''
+      case '__date__': case 'date': return dateStr
+      case '__time__': case 'time': return timeStr
+      case '__datetime__': case 'datetime': return `${dateStr} ${timeStr}`
+      case '__timestamp__': case 'timestamp': return String(Math.floor(now.getTime() / 1000))
+      case '__hostname__': case 'hostname': return hostLabel || ''
     }
 
     // 用户变量

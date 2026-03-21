@@ -68,10 +68,10 @@
           <div v-show="showVarHelp" class="snippet-var-help__body">
             <div class="snippet-var-help__builtin">
               <div class="snippet-var-help__builtin-title">内置变量（执行时自动替换，无需填写）</div>
-              <code>&#36;{__date__}</code> 当前日期 &nbsp;
-              <code>&#36;{__time__}</code> 当前时间 &nbsp;
-              <code>&#36;{__datetime__}</code> 日期时间 &nbsp;
-              <code>&#36;{__timestamp__}</code> Unix时间戳
+              <code>&#36;{date}</code> 当前日期 &nbsp;
+              <code>&#36;{time}</code> 当前时间 &nbsp;
+              <code>&#36;{datetime}</code> 日期时间 &nbsp;
+              <code>&#36;{timestamp}</code> Unix时间戳
             </div>
             <div class="snippet-var-help__example">
               <div class="snippet-var-help__builtin-title">完整示例</div>

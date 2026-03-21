@@ -127,7 +127,7 @@ const lastUsedValues: Record<string, string> = {}
 
 // 检查是否包含内置变量
 const hasBuiltinVars = computed(() =>
-  /\$\{__(?:date|time|datetime|timestamp|hostname)__\}/.test(props.snippetContent)
+  /\$\{(?:__)?(?:date|time|datetime|timestamp|hostname)(?:__)?}/.test(props.snippetContent)
 )
 
 // 实时预览替换后的命令（密码变量用 ●●●● 遮蔽）

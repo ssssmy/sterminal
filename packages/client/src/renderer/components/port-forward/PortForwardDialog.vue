@@ -96,7 +96,12 @@
 
       <!-- 命令预览 -->
       <el-form-item label="等效命令">
-        <code class="pf-preview">{{ commandPreview }}</code>
+        <div class="pf-preview-wrap">
+          <code class="pf-preview">{{ commandPreview }}</code>
+          <button type="button" class="pf-copy-btn" title="复制命令" @click="copyCommand">
+            <el-icon :size="14"><DocumentCopy /></el-icon>
+          </button>
+        </div>
       </el-form-item>
 
       <el-form-item label="自动启动">
@@ -117,6 +122,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { DocumentCopy } from '@element-plus/icons-vue'
 import { useUiStore } from '../../stores/ui.store'
 import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import { useHostsStore } from '../../stores/hosts.store'
@@ -188,6 +195,11 @@ const commandPreview = computed(() => {
   const lp = form.value.localTargetPort || '?'
   return `ssh -R ${form.value.remoteBindAddr}:${rp}:${la}:${lp} ${hostStr}`
 })
+
+async function copyCommand(): Promise<void> {
+  await navigator.clipboard.writeText(commandPreview.value)
+  ElMessage.success('已复制到剪贴板')
+}
 
 watch(
   () => uiStore.editingPortForwardId,
@@ -306,9 +318,15 @@ async function handleSave(): Promise<void> {
   flex-shrink: 0;
 }
 
-.pf-preview {
-  display: block;
+.pf-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
+}
+
+.pf-preview {
+  flex: 1;
   font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   font-size: 12px;
   padding: 6px 10px;
@@ -316,6 +334,27 @@ async function handleSave(): Promise<void> {
   border-radius: 4px;
   color: var(--el-text-color-regular);
   word-break: break-all;
+}
+
+.pf-copy-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--el-color-primary);
+    color: var(--el-color-primary);
+    background-color: var(--el-color-primary-light-9);
+  }
 }
 
 .pf-host-addr {

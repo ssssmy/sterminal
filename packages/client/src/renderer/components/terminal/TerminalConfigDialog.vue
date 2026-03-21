@@ -17,8 +17,10 @@
       <el-form-item label="名称" prop="name">
         <el-input
           v-model="form.name"
-          placeholder="如：默认终端、项目开发"
+          placeholder="如：默认终端、项目开发（最多15字符）"
           clearable
+          :maxlength="15"
+          show-word-limit
         />
       </el-form-item>
 
@@ -145,9 +147,17 @@ const cwdValidator = (_rule: unknown, value: string, callback: (error?: Error) =
   }
 }
 
+const nameValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (!value) return callback(new Error('请输入终端配置名称'))
+  if (value.length > 15) return callback(new Error('名称最多 15 个字符'))
+  const duplicate = terminalsStore.terminals.find(t => t.name === value && t.id !== uiStore.editingTerminalId)
+  if (duplicate) return callback(new Error(`名称 "${value}" 已被使用`))
+  callback()
+}
+
 const rules: FormRules = {
   name: [
-    { required: true, message: '请输入终端配置名称', trigger: 'blur' },
+    { validator: nameValidator, trigger: 'blur' },
   ],
   cwd: [
     { validator: cwdValidator, trigger: 'blur' },

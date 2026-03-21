@@ -16,10 +16,11 @@ export const useSnippetsStore = defineStore('snippets', () => {
 
   // ===== 计算属性 =====
 
-  /** 按分组组织的片段 Map */
+  /** 按分组组织的片段 Map（每组内按 sortOrder 排序） */
   const snippetsByGroup = computed(() => {
     const map = new Map<string | null, Snippet[]>()
-    for (const s of snippets.value) {
+    const sorted = [...snippets.value].sort((a, b) => a.sortOrder - b.sortOrder)
+    for (const s of sorted) {
       const key = s.groupId || null
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(s)
@@ -104,6 +105,35 @@ export const useSnippetsStore = defineStore('snippets', () => {
     }
   }
 
+  // ===== 拖拽移动 =====
+
+  async function moveSnippet(snippetId: string, targetGroupId: string | null, targetIndex: number): Promise<void> {
+    const snippet = snippets.value.find(s => s.id === snippetId)
+    if (!snippet) return
+
+    const siblings = snippets.value
+      .filter(s => (s.groupId || null) === targetGroupId && s.id !== snippetId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+
+    siblings.splice(targetIndex, 0, snippet)
+
+    const newGroupId = targetGroupId || undefined
+    snippet.groupId = newGroupId
+
+    const updates: Promise<unknown>[] = []
+    for (let i = 0; i < siblings.length; i++) {
+      const s = siblings[i]
+      const oldOrder = s.sortOrder
+      s.sortOrder = i
+      if (s.id === snippetId) {
+        updates.push(invoke(IPC_DB.SNIPPETS_UPDATE, s.id, { groupId: newGroupId, sortOrder: i }))
+      } else if (oldOrder !== i) {
+        updates.push(invoke(IPC_DB.SNIPPETS_UPDATE, s.id, { sortOrder: i }))
+      }
+    }
+    await Promise.all(updates)
+  }
+
   // ===== 初始化 =====
 
   async function init(): Promise<void> {
@@ -125,6 +155,7 @@ export const useSnippetsStore = defineStore('snippets', () => {
     createGroup,
     updateGroup,
     deleteGroup,
+    moveSnippet,
     init,
   }
 })

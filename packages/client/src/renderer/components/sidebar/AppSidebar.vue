@@ -401,6 +401,9 @@
         <div
           v-show="!collapsedSections.has('snippets')"
           class="app-sidebar__snippet-list"
+          @dragover.prevent="onSnipTreeDragOver"
+          @drop.prevent="onSnipTreeDrop"
+          @dragleave="onSnipTreeDragLeave"
         >
           <!-- 分组 -->
           <template v-for="group in filteredSnippetGroups" :key="group.id">
@@ -411,7 +414,11 @@
             >
               <div
                 class="app-sidebar__group-row"
+                :class="{ 'app-sidebar__group-row--drag-over': snipDragOverGroupId === group.id }"
                 @click="toggleSnippetGroup(group.id)"
+                @dragover.prevent.stop="onSnipGroupDragOver($event, group.id)"
+                @dragleave="onSnipGroupDragLeave(group.id)"
+                @drop.prevent.stop="onSnipGroupDrop($event, group.id)"
               >
                 <el-icon :size="12" class="app-sidebar__arrow" :class="{ 'app-sidebar__arrow--expanded': !collapsedSnippetGroups.has(group.id) }">
                   <ArrowRight />
@@ -431,7 +438,7 @@
             <!-- 分组内片段 -->
             <div v-if="!collapsedSnippetGroups.has(group.id)" class="app-sidebar__group-children">
               <el-dropdown
-                v-for="snippet in getGroupSnippets(group.id)"
+                v-for="(snippet, idx) in getGroupSnippets(group.id)"
                 :key="snippet.id"
                 trigger="contextmenu"
                 popper-class="sidebar-context-menu"
@@ -439,7 +446,17 @@
               >
                 <div
                   class="app-sidebar__snippet-item"
+                  :class="{
+                    'app-sidebar__snippet-item--drop-before': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'before',
+                    'app-sidebar__snippet-item--drop-after': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'after',
+                  }"
                   :title="snippetTitle(snippet)"
+                  draggable="true"
+                  @dragstart="onSnipDragStart($event, snippet)"
+                  @dragend="onSnipDragEnd"
+                  @dragover.prevent.stop="onSnipDragOver($event, snippet, group.id, idx)"
+                  @dragleave="onSnipDragLeaveItem"
+                  @drop.prevent.stop="onSnipDrop($event, snippet, group.id, idx)"
                   @dblclick="executeSnippet(snippet)"
                 >
                   <el-icon :size="13" class="app-sidebar__snippet-icon"><DocumentCopy /></el-icon>
@@ -461,7 +478,7 @@
 
           <!-- 未分组片段 -->
           <el-dropdown
-            v-for="snippet in filteredUngroupedSnippets"
+            v-for="(snippet, idx) in filteredUngroupedSnippets"
             :key="snippet.id"
             trigger="contextmenu"
             popper-class="sidebar-context-menu"
@@ -469,7 +486,17 @@
           >
             <div
               class="app-sidebar__snippet-item app-sidebar__snippet-item--root"
+              :class="{
+                'app-sidebar__snippet-item--drop-before': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'before',
+                'app-sidebar__snippet-item--drop-after': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'after',
+              }"
               :title="snippetTitle(snippet)"
+              draggable="true"
+              @dragstart="onSnipDragStart($event, snippet)"
+              @dragend="onSnipDragEnd"
+              @dragover.prevent.stop="onSnipDragOver($event, snippet, null, idx)"
+              @dragleave="onSnipDragLeaveItem"
+              @drop.prevent.stop="onSnipDrop($event, snippet, null, idx)"
               @dblclick="executeSnippet(snippet)"
             >
               <el-icon :size="13" class="app-sidebar__snippet-icon"><DocumentCopy /></el-icon>
@@ -487,8 +514,20 @@
             </template>
           </el-dropdown>
 
+          <!-- 拖到此处移出分组 -->
+          <div
+            v-if="draggedSnippetId"
+            class="app-sidebar__drop-ungrouped"
+            :class="{ 'app-sidebar__drop-ungrouped--active': snipDragOverUngrouped }"
+            @dragover.prevent.stop="snipDragOverUngrouped = true"
+            @dragleave="snipDragOverUngrouped = false"
+            @drop.prevent.stop="onSnipDropToUngrouped"
+          >
+            拖放到此处移为未分组
+          </div>
+
           <!-- 空状态 -->
-          <div v-if="filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
+          <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
             暂无命令片段
           </div>
         </div>
@@ -1181,6 +1220,89 @@ function goToSettings(): void {
   })
 }
 
+// ===== 片段拖拽排序 =====
+const draggedSnippetId = ref<string | null>(null)
+const snipDragOverGroupId = ref<string | null>(null)
+const snipDragOverUngrouped = ref(false)
+const snipDropIndicator = ref<{ snippetId: string; position: 'before' | 'after' } | null>(null)
+
+function onSnipDragStart(e: DragEvent, snippet: Snippet): void {
+  draggedSnippetId.value = snippet.id
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', snippet.id)
+  }
+}
+
+function onSnipDragEnd(): void {
+  draggedSnippetId.value = null
+  snipDragOverGroupId.value = null
+  snipDragOverUngrouped.value = false
+  snipDropIndicator.value = null
+}
+
+function onSnipGroupDragOver(e: DragEvent, groupId: string): void {
+  if (!draggedSnippetId.value) return
+  snipDragOverGroupId.value = groupId
+  snipDropIndicator.value = null
+  collapsedSnippetGroups.delete(groupId)
+}
+
+function onSnipGroupDragLeave(groupId: string): void {
+  if (snipDragOverGroupId.value === groupId) snipDragOverGroupId.value = null
+}
+
+async function onSnipGroupDrop(e: DragEvent, groupId: string): Promise<void> {
+  if (!draggedSnippetId.value) return
+  const snippet = snippetsStore.snippets.find(s => s.id === draggedSnippetId.value)
+  if (!snippet || snippet.groupId === groupId) { onSnipDragEnd(); return }
+  const count = snippetsStore.snippets.filter(s => s.groupId === groupId).length
+  await snippetsStore.moveSnippet(draggedSnippetId.value, groupId, count)
+  onSnipDragEnd()
+}
+
+function onSnipDragOver(e: DragEvent, target: Snippet, groupId: string | null, idx: number): void {
+  if (!draggedSnippetId.value || draggedSnippetId.value === target.id) return
+  snipDragOverGroupId.value = null
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const midY = rect.top + rect.height / 2
+  snipDropIndicator.value = { snippetId: target.id, position: e.clientY < midY ? 'before' : 'after' }
+}
+
+function onSnipDragLeaveItem(): void { /* 不清空避免闪烁 */ }
+
+async function onSnipDrop(e: DragEvent, target: Snippet, groupId: string | null, idx: number): Promise<void> {
+  if (!draggedSnippetId.value || draggedSnippetId.value === target.id) { onSnipDragEnd(); return }
+  const position = snipDropIndicator.value?.position || 'after'
+  let targetIndex = position === 'before' ? idx : idx + 1
+  const dragged = snippetsStore.snippets.find(s => s.id === draggedSnippetId.value)
+  if (dragged && (dragged.groupId || null) === groupId) {
+    const sorted = snippetsStore.snippets
+      .filter(s => (s.groupId || null) === groupId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+    const draggedIdx = sorted.findIndex(s => s.id === draggedSnippetId.value)
+    if (draggedIdx !== -1 && draggedIdx < idx) targetIndex--
+  }
+  await snippetsStore.moveSnippet(draggedSnippetId.value, groupId, targetIndex)
+  onSnipDragEnd()
+}
+
+function onSnipTreeDragOver(): void { /* 允许 drop */ }
+function onSnipTreeDragLeave(): void { snipDragOverGroupId.value = null }
+function onSnipTreeDrop(): void {
+  if (!draggedSnippetId.value) return
+  onSnipDropToUngrouped()
+}
+
+async function onSnipDropToUngrouped(): Promise<void> {
+  if (!draggedSnippetId.value) return
+  const snippet = snippetsStore.snippets.find(s => s.id === draggedSnippetId.value)
+  if (!snippet || !snippet.groupId) { onSnipDragEnd(); return }
+  const count = snippetsStore.snippets.filter(s => !s.groupId).length
+  await snippetsStore.moveSnippet(draggedSnippetId.value, null, count)
+  onSnipDragEnd()
+}
+
 // ===== 命令片段 =====
 
 const filteredSnippetGroups = computed(() => {
@@ -1786,6 +1908,14 @@ onBeforeUnmount(() => {
 
     &:hover {
       background-color: var(--bg-hover);
+    }
+
+    &--drop-before {
+      box-shadow: inset 0 2px 0 0 var(--accent);
+    }
+
+    &--drop-after {
+      box-shadow: inset 0 -2px 0 0 var(--accent);
     }
   }
 

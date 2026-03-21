@@ -548,6 +548,7 @@ import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
 import type { Snippet, SnippetGroup } from '@shared/types/snippet'
 import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
+import { hasVariables, replaceVariables } from '@shared/utils/snippet-variables'
 
 // ===== 平台检测 =====
 const isMacOS = window.electronAPI?.platform === 'darwin'
@@ -1231,9 +1232,16 @@ function snippetTitle(snippet: Snippet): string {
 function executeSnippet(snippet: Snippet): void {
   const terminalIds = sessionsStore.getActiveTabTerminalIds()
   if (terminalIds.length === 0) return
-  // 发送到当前活跃 tab 的第一个终端
-  sendCommandToTerminal(terminalIds[0], snippet.content)
-  snippetsStore.incrementUseCount(snippet.id)
+
+  if (hasVariables(snippet.content)) {
+    // 有变量 → 弹出变量填写对话框
+    uiStore.openSnippetVariableDialog(snippet)
+  } else {
+    // 无变量 → 直接替换内置变量并执行
+    const command = replaceVariables(snippet.content, {})
+    sendCommandToTerminal(terminalIds[0], command)
+    snippetsStore.incrementUseCount(snippet.id)
+  }
 }
 
 async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {

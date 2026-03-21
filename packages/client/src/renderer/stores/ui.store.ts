@@ -4,6 +4,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { useSettingsStore } from './settings.store'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
+import type { Snippet } from '@shared/types/snippet'
 
 export type AppTheme = 'light' | 'dark' | 'system'
 export type SidebarPanel = 'hosts' | 'terminals' | 'snippets' | 'portForwards' | 'vault'
@@ -134,6 +135,20 @@ export const useUiStore = defineStore('ui', () => {
     editingSnippetId.value = null
   }
 
+  // ===== 片段变量对话框 =====
+  const showSnippetVariableDialog = ref(false)
+  const executingSnippet = ref<Snippet | null>(null)
+
+  function openSnippetVariableDialog(snippet: Snippet): void {
+    executingSnippet.value = snippet
+    showSnippetVariableDialog.value = true
+  }
+
+  function closeSnippetVariableDialog(): void {
+    showSnippetVariableDialog.value = false
+    executingSnippet.value = null
+  }
+
   return {
     sidebarWidth,
     sidebarCollapsed,
@@ -160,5 +175,9 @@ export const useUiStore = defineStore('ui', () => {
     closeTerminalConfigDialog,
     openSnippetEditDialog,
     closeSnippetEditDialog,
+    showSnippetVariableDialog,
+    executingSnippet,
+    openSnippetVariableDialog,
+    closeSnippetVariableDialog,
   }
 })

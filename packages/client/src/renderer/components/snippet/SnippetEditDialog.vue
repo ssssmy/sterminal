@@ -23,13 +23,63 @@
       </el-form-item>
 
       <el-form-item label="命令" prop="content">
+        <!-- 快捷插入变量按钮 -->
+        <div class="snippet-var-toolbar">
+          <span class="snippet-var-toolbar__label">插入变量:</span>
+          <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name}')">
+            <code>${`{name}`}</code>
+            <span>文本</span>
+          </button>
+          <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name:default}')">
+            <code>${`{name:默认值}`}</code>
+            <span>带默认值</span>
+          </button>
+          <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name:A|B|C}')">
+            <code>${`{name:A|B|C}`}</code>
+            <span>下拉选择</span>
+          </button>
+          <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${!name}')">
+            <code>${`{!name}`}</code>
+            <span>密码</span>
+          </button>
+        </div>
         <el-input
+          ref="contentInputRef"
           v-model="form.content"
           type="textarea"
           :rows="5"
-          placeholder="输入命令内容，支持多行&#10;可使用变量 ${name} 或 ${name:默认值}"
+          placeholder="输入命令内容，支持多行&#10;&#10;试试点击上方按钮插入变量 —— 执行时会弹窗让你填值&#10;例如: systemctl restart ${service:nginx}"
           class="snippet-content-input"
         />
+        <!-- 变量检测提示 -->
+        <div v-if="detectedVars.length > 0" class="snippet-var-detected">
+          检测到 {{ detectedVars.length }} 个变量：
+          <code v-for="v in detectedVars" :key="v.name" class="snippet-var-detected__tag">
+            {{ v.name }}<template v-if="v.type === 'password'"> (密码)</template><template v-else-if="v.type === 'select'"> ({{ v.options.length }}个选项)</template><template v-else-if="v.defaultValue"> = {{ v.defaultValue }}</template>
+          </code>
+          <span class="snippet-var-detected__hint">— 双击执行时将弹窗填写</span>
+        </div>
+        <!-- 内置变量和更多语法 -->
+        <div class="snippet-var-help">
+          <div class="snippet-var-help__title" @click="showVarHelp = !showVarHelp">
+            <span class="snippet-var-help__toggle">{{ showVarHelp ? '▾' : '▸' }}</span>
+            内置变量和更多用法
+          </div>
+          <div v-show="showVarHelp" class="snippet-var-help__body">
+            <div class="snippet-var-help__builtin">
+              <div class="snippet-var-help__builtin-title">内置变量（执行时自动替换，无需填写）</div>
+              <code>${`{__date__}`}</code> 当前日期 &nbsp;
+              <code>${`{__time__}`}</code> 当前时间 &nbsp;
+              <code>${`{__datetime__}`}</code> 日期时间 &nbsp;
+              <code>${`{__timestamp__}`}</code> Unix时间戳
+            </div>
+            <div class="snippet-var-help__example">
+              <div class="snippet-var-help__builtin-title">完整示例</div>
+              <code>ssh ${`{user:root}`}@${`{host}`} -p ${`{port:22}`}</code><br/>
+              <span class="snippet-var-help__example-desc">执行时弹窗填写 user（默认 root）、host、port（默认 22）</span>
+            </div>
+          </div>
+        </div>
       </el-form-item>
 
       <el-form-item label="描述" prop="description">
@@ -103,6 +153,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useUiStore } from '../../stores/ui.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
+import { parseVariables } from '@shared/utils/snippet-variables'
 
 const uiStore = useUiStore()
 const snippetsStore = useSnippetsStore()
@@ -117,7 +168,34 @@ const visible = computed({
 const isEditing = computed(() => !!uiStore.editingSnippetId)
 
 const formRef = ref<FormInstance>()
+const contentInputRef = ref<InstanceType<typeof import('element-plus')['ElInput']>>()
 const saving = ref(false)
+const showVarHelp = ref(false)
+
+// 实时检测命令中的变量
+const detectedVars = computed(() => parseVariables(form.value.content))
+
+// 在光标位置插入变量模板
+function insertVar(template: string): void {
+  const textarea = contentInputRef.value?.textarea as HTMLTextAreaElement | undefined
+  if (!textarea) {
+    form.value.content += template
+    return
+  }
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const before = form.value.content.substring(0, start)
+  const after = form.value.content.substring(end)
+  form.value.content = before + template + after
+  // 将光标定位到插入内容的 name 位置以便用户直接修改变量名
+  nextTick(() => {
+    // 选中模板中的 "name" 部分方便用户直接替换
+    const nameStart = start + template.indexOf('name')
+    const nameEnd = nameStart + 4
+    textarea.focus()
+    textarea.setSelectionRange(nameStart, nameEnd)
+  })
+}
 
 // 标签输入
 const tagInputVisible = ref(false)
@@ -249,5 +327,157 @@ async function handleSave(): Promise<void> {
   height: 24px;
   padding: 0 8px;
   font-size: 12px;
+}
+
+// 快捷插入变量工具栏
+.snippet-var-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+
+  &__label {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    flex-shrink: 0;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px dashed var(--el-border-color);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--el-text-color-regular);
+    transition: all 0.15s;
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--el-color-primary);
+    }
+
+    span {
+      color: var(--el-text-color-secondary);
+      font-size: 10px;
+    }
+
+    &:hover {
+      border-color: var(--el-color-primary);
+      background-color: var(--el-color-primary-light-9);
+      color: var(--el-color-primary);
+
+      span {
+        color: var(--el-color-primary);
+      }
+    }
+  }
+}
+
+// 变量检测反馈
+.snippet-var-detected {
+  margin-top: 6px;
+  width: 100%;
+  font-size: 12px;
+  color: var(--el-color-success);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  &__tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background-color: var(--el-color-success-light-9);
+    color: var(--el-color-success);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+
+  &__hint {
+    font-size: 11px;
+    color: var(--el-text-color-placeholder);
+  }
+}
+
+.snippet-var-help {
+  margin-top: 6px;
+  width: 100%;
+
+  &__title {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    &:hover {
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  &__toggle {
+    font-size: 10px;
+    width: 12px;
+  }
+
+  &__body {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background-color: var(--el-fill-color-lighter);
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--el-text-color-regular);
+  }
+
+  &__builtin {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+
+    code {
+      background-color: var(--el-fill-color);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+    }
+  }
+
+  &__builtin-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--el-text-color-regular);
+  }
+
+  &__example {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.8;
+
+    code {
+      background-color: var(--el-fill-color);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+  }
+
+  &__example-desc {
+    font-size: 11px;
+    color: var(--el-text-color-placeholder);
+  }
 }
 </style>

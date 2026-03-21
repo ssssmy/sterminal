@@ -56,18 +56,30 @@
     <TerminalConfigDialog v-if="uiStore.showTerminalConfigDialog" />
     <!-- 片段编辑对话框 -->
     <SnippetEditDialog v-if="uiStore.showSnippetEditDialog" />
+    <!-- 片段变量填写对话框 -->
+    <SnippetVariableDialog
+      v-if="uiStore.executingSnippet"
+      v-model="uiStore.showSnippetVariableDialog"
+      :snippet-name="uiStore.executingSnippet.name"
+      :snippet-content="uiStore.executingSnippet.content"
+      :variables="executingSnippetVars"
+      @confirm="handleSnippetVarConfirm"
+      @cancel="uiStore.closeSnippetVariableDialog()"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 defineOptions({ name: 'WorkspaceView' })
 
-import { defineAsyncComponent, onMounted, onBeforeUnmount } from 'vue'
+import { defineAsyncComponent, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
+import { parseVariables } from '@shared/utils/snippet-variables'
+import { sendCommandToTerminal } from '../../components/terminal/TerminalPane.vue'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
 import AppToolbar from '../../components/toolbar/AppToolbar.vue'
 import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
@@ -78,6 +90,7 @@ const HostConfigDialog = defineAsyncComponent(() => import('../../components/hos
 const TerminalConfigDialog = defineAsyncComponent(() => import('../../components/terminal/TerminalConfigDialog.vue'))
 const TerminalSearchBar = defineAsyncComponent(() => import('../../components/terminal/TerminalSearchBar.vue'))
 const SnippetEditDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetEditDialog.vue'))
+const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
 
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
@@ -126,6 +139,23 @@ function handleFullscreen(): void {
   } else {
     document.exitFullscreen()
   }
+}
+
+// ===== 片段变量执行 =====
+const executingSnippetVars = computed(() => {
+  const snippet = uiStore.executingSnippet
+  if (!snippet) return []
+  return parseVariables(snippet.content)
+})
+
+function handleSnippetVarConfirm(command: string): void {
+  const terminalIds = sessionsStore.getActiveTabTerminalIds()
+  if (terminalIds.length === 0) return
+  sendCommandToTerminal(terminalIds[0], command)
+  if (uiStore.executingSnippet) {
+    snippetsStore.incrementUseCount(uiStore.executingSnippet.id)
+  }
+  uiStore.closeSnippetVariableDialog()
 }
 
 // ===== 键盘快捷键处理 =====

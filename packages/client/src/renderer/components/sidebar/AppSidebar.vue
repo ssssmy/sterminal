@@ -1522,7 +1522,9 @@ function getPortForwardStatus(ruleId: string): string {
 
 function getHostLabel(hostId: string): string {
   const host = hostsStore.hosts.find(h => h.id === hostId)
-  return host ? (host.label || host.address) : '未知主机'
+  if (!host) return '未知主机'
+  if (host.label) return `${host.label} (${host.address})`
+  return host.address
 }
 
 function portForwardLabel(rule: PortForward): string {

@@ -576,7 +576,10 @@
                 }"
               />
               <span class="app-sidebar__pf-type">{{ rule.type === 'local' ? 'L' : 'R' }}</span>
-              <span class="app-sidebar__pf-name">{{ portForwardLabel(rule) }}</span>
+              <div class="app-sidebar__pf-info">
+                <span class="app-sidebar__pf-name">{{ portForwardLabel(rule) }}</span>
+                <span class="app-sidebar__pf-host">{{ getHostLabel(rule.hostId) }}</span>
+              </div>
               <button
                 class="app-sidebar__pf-toggle"
                 :class="{ 'app-sidebar__pf-toggle--active': getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' }"
@@ -1511,6 +1514,11 @@ function getPortForwardStatus(ruleId: string): string {
   return portForwardsStore.getTunnelStatus(ruleId)?.status || 'inactive'
 }
 
+function getHostLabel(hostId: string): string {
+  const host = hostsStore.hosts.find(h => h.id === hostId)
+  return host ? (host.label || host.address) : '未知主机'
+}
+
 function portForwardLabel(rule: PortForward): string {
   if (rule.name) return rule.name
   if (rule.type === 'local') {
@@ -2145,14 +2153,29 @@ onBeforeUnmount(() => {
     flex-shrink: 0;
   }
 
-  &__pf-name {
+  &__pf-info {
     flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  &__pf-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: var(--text-primary);
+  }
+
+  &__pf-host {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--text-tertiary);
   }
 
   &__pf-toggle {

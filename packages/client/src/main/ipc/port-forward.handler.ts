@@ -197,6 +197,7 @@ function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean,
       tunnel.error = `本地监听失败: ${err.message}`
     }
     emitStatus(tunnel)
+    activeTunnels.delete(rule.id)
   })
 
   server.listen(rule.localPort, rule.localBindAddr || '127.0.0.1', () => {
@@ -229,6 +230,7 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
         tunnel.status = 'error'
         tunnel.error = `远程端口 ${rule.remoteBindAddr}:${rule.remotePort} 绑定失败: ${err.message}`
         emitStatus(tunnel)
+        activeTunnels.delete(rule.id)
         return
       }
       tunnel.status = 'active'

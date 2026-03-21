@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "STerminal 桌面客户端",
   "author": "STerminal Team",
+  "homepage": "https://github.com/ssssmy/sterminal",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",

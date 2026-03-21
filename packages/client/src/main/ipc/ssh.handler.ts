@@ -11,6 +11,7 @@ export interface SshSession {
   client: Client
   stream: ClientChannel | null
   webContents: WebContents
+  hostId: string
 }
 
 export const sshSessions = new Map<string, SshSession>()
@@ -67,6 +68,7 @@ export function registerSshHandlers(): void {
         client: conn,
         stream: null,
         webContents,
+        hostId: params.hostId,
       }
       sshSessions.set(connectionId, session)
 

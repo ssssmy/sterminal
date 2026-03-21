@@ -10,8 +10,30 @@ import type { Host } from '../../shared/types/host'
 import { sshSessions } from './ssh.handler'
 import { dbGet } from '../services/db'
 
+function parsePortForwardRow(row: Record<string, unknown>): PortForward {
+  return {
+    id: row.id as string,
+    name: row.name as string | undefined,
+    type: row.type as PortForward['type'],
+    hostId: row.host_id as string,
+    localBindAddr: (row.local_bind_addr as string) || '127.0.0.1',
+    localPort: row.local_port as number | undefined,
+    remoteTargetAddr: row.remote_target_addr as string | undefined,
+    remoteTargetPort: row.remote_target_port as number | undefined,
+    remoteBindAddr: (row.remote_bind_addr as string) || '127.0.0.1',
+    remotePort: row.remote_port as number | undefined,
+    localTargetAddr: (row.local_target_addr as string) || '127.0.0.1',
+    localTargetPort: row.local_target_port as number | undefined,
+    autoStart: !!(row.auto_start),
+    appStart: !!(row.app_start),
+    groupId: row.group_id as string | undefined,
+    sortOrder: (row.sort_order as number) || 0,
+  }
+}
+
 interface ActiveTunnel {
   ruleId: string
+  hostId: string
   type: PortForward['type']
   server?: net.Server
   sshClient: Client
@@ -38,9 +60,20 @@ function emitStatus(tunnel: ActiveTunnel): void {
   })
 }
 
-/** 监听 SSH 连接断开，自动停止使用该连接的隧道 */
+/** 查找同主机的其他活跃 SSH 连接 */
+function findAlternativeSshClient(hostId: string, excludeClient: Client): Client | undefined {
+  for (const session of sshSessions.values()) {
+    if (session.client !== excludeClient && session.hostId === hostId) {
+      return session.client
+    }
+  }
+  const tunnelClient = tunnelSshClients.get(`tunnel_${hostId}`)
+  if (tunnelClient && tunnelClient !== excludeClient) return tunnelClient
+  return undefined
+}
+
+/** 监听 SSH 连接断开，迁移或停止使用该连接的隧道 */
 function watchSshClientClose(sshClient: Client): void {
-  // 避免重复绑定（多个隧道共享同一个 client）
   if ((sshClient as any).__pfCloseWatched) return
   ;(sshClient as any).__pfCloseWatched = true
 
@@ -48,14 +81,36 @@ function watchSshClientClose(sshClient: Client): void {
   const onClose = () => {
     if (fired) return
     fired = true
-    const toStop: string[] = []
-    for (const [ruleId, tunnel] of activeTunnels) {
+
+    const affected: ActiveTunnel[] = []
+    for (const tunnel of activeTunnels.values()) {
       if (tunnel.sshClient === sshClient) {
-        toStop.push(ruleId)
+        affected.push(tunnel)
       }
     }
-    for (const ruleId of toStop) {
+    if (affected.length === 0) return
+
+    for (const tunnel of affected) {
+      const altClient = findAlternativeSshClient(tunnel.hostId, sshClient)
+
+      if (!altClient) {
+        stopTunnel(tunnel.ruleId)
+        continue
+      }
+
+      // 有同主机的其他连接，停止当前隧道再用新连接重启
+      const { ruleId, webContents } = tunnel
       stopTunnel(ruleId)
+
+      const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [ruleId])
+      if (!row) continue
+      const rule = parsePortForwardRow(row)
+      watchSshClientClose(altClient)
+      if (rule.type === 'local') {
+        startLocalForward(rule, altClient, false, webContents)
+      } else if (rule.type === 'remote') {
+        startRemoteForward(rule, altClient, false, webContents)
+      }
     }
   }
   sshClient.on('close', onClose)
@@ -163,6 +218,7 @@ async function getOrCreateSshClient(
 function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean, webContents: WebContents): void {
   const tunnel: ActiveTunnel = {
     ruleId: rule.id,
+    hostId: rule.hostId,
     type: 'local',
     sshClient,
     ownsSshClient: owned,
@@ -236,6 +292,7 @@ function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean,
 function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean, webContents: WebContents): void {
   const tunnel: ActiveTunnel = {
     ruleId: rule.id,
+    hostId: rule.hostId,
     type: 'remote',
     sshClient,
     ownsSshClient: owned,
@@ -372,24 +429,7 @@ export function registerPortForwardHandlers(): void {
     const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [ruleId])
     if (!row) return { success: false, error: '转发规则不存在' }
 
-    const rule: PortForward = {
-      id: row.id as string,
-      name: row.name as string | undefined,
-      type: row.type as PortForward['type'],
-      hostId: row.host_id as string,
-      localBindAddr: (row.local_bind_addr as string) || '127.0.0.1',
-      localPort: row.local_port as number | undefined,
-      remoteTargetAddr: row.remote_target_addr as string | undefined,
-      remoteTargetPort: row.remote_target_port as number | undefined,
-      remoteBindAddr: (row.remote_bind_addr as string) || '127.0.0.1',
-      remotePort: row.remote_port as number | undefined,
-      localTargetAddr: (row.local_target_addr as string) || '127.0.0.1',
-      localTargetPort: row.local_target_port as number | undefined,
-      autoStart: !!(row.auto_start),
-      appStart: !!(row.app_start),
-      groupId: row.group_id as string | undefined,
-      sortOrder: (row.sort_order as number) || 0,
-    }
+    const rule = parsePortForwardRow(row)
 
     try {
       const { client, owned } = await getOrCreateSshClient(rule.hostId, connectionId)

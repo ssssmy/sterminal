@@ -55,7 +55,7 @@ function watchSshClientClose(sshClient: Client): void {
       }
     }
     for (const ruleId of toStop) {
-      stopTunnel(ruleId, 'SSH 连接已断开')
+      stopTunnel(ruleId)
     }
   }
   sshClient.on('close', onClose)

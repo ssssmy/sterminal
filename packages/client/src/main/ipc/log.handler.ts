@@ -1,7 +1,6 @@
 // 会话日志录制 IPC Handler
 
-import { ipcMain, shell, app } from 'electron'
-import * as path from 'path'
+import { ipcMain, shell } from 'electron'
 import * as fs from 'fs'
 import { IPC_LOG } from '../../shared/types/ipc-channels'
 import {
@@ -13,6 +12,7 @@ import {
   getReplayData,
   getLogDirectory,
 } from '../services/session-recorder'
+import { assertUnderHome } from '../utils/platform'
 
 export function registerLogHandlers(): void {
   ipcMain.handle(IPC_LOG.START, (_event, params: {
@@ -49,15 +49,9 @@ export function registerLogHandlers(): void {
   // 打开录制文件夹（跨平台：Finder / Explorer / Files）
   ipcMain.handle(IPC_LOG.OPEN_DIRECTORY, () => {
     const dir = getLogDirectory()
-    // 确保目录存在
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-    // 路径校验：仅允许打开用户目录下的路径
-    const resolved = path.resolve(dir)
-    const homeDir = app.getPath('home')
-    if (!resolved.startsWith(homeDir)) {
-      throw new Error('Access denied: path outside home directory')
+    const resolved = assertUnderHome(dir)
+    if (!fs.existsSync(resolved)) {
+      fs.mkdirSync(resolved, { recursive: true })
     }
     return shell.openPath(resolved)
   })

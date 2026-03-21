@@ -1,10 +1,11 @@
 // 系统操作 IPC Handler
 // 处理剪贴板、外部链接、Shell 列表等系统级操作
 
-import { ipcMain, shell, clipboard, app } from 'electron'
+import { ipcMain, shell, clipboard } from 'electron'
 import { execSync } from 'child_process'
-import * as path from 'path'
+import * as fs from 'fs'
 import { IPC_SYSTEM } from '../../shared/types/ipc-channels'
+import { assertUnderHome } from '../utils/platform'
 
 /**
  * 注册系统操作相关的 IPC handlers
@@ -22,11 +23,7 @@ export function registerSystemHandlers(): void {
 
   // 用系统文件管理器打开指定路径（跨平台：Finder / Explorer / Files）
   ipcMain.handle(IPC_SYSTEM.OPEN_PATH, async (_event, targetPath: string) => {
-    const resolved = path.resolve(targetPath)
-    const homeDir = app.getPath('home')
-    if (!resolved.startsWith(homeDir)) {
-      throw new Error('Access denied: path outside home directory')
-    }
+    const resolved = assertUnderHome(targetPath)
     await shell.openPath(resolved)
   })
 
@@ -38,14 +35,17 @@ export function registerSystemHandlers(): void {
   })
 }
 
+let cachedShells: string[] | null = null
+
 /**
- * 获取系统可用的 Shell 列表
+ * 获取系统可用的 Shell 列表（结果缓存，应用生命周期内不变）
  */
 function getAvailableShells(): string[] {
+  if (cachedShells) return cachedShells
   const platform = process.platform
 
   if (platform === 'win32') {
-    return ['cmd.exe', 'powershell.exe', 'pwsh.exe'].filter(sh => {
+    cachedShells = ['cmd.exe', 'powershell.exe', 'pwsh.exe'].filter(sh => {
       try {
         execSync(`where ${sh}`, { stdio: 'ignore' })
         return true
@@ -53,16 +53,18 @@ function getAvailableShells(): string[] {
         return false
       }
     })
+    return cachedShells
   }
 
   // macOS / Linux: 读取 /etc/shells
   try {
-    const content = require('fs').readFileSync('/etc/shells', 'utf-8') as string
-    return content
+    const content = fs.readFileSync('/etc/shells', 'utf-8')
+    cachedShells = content
       .split('\n')
       .filter((line: string) => line.startsWith('/'))
       .map((line: string) => line.trim())
   } catch {
-    return ['/bin/bash', '/bin/zsh', '/bin/sh']
+    cachedShells = ['/bin/bash', '/bin/zsh', '/bin/sh']
   }
+  return cachedShells
 }

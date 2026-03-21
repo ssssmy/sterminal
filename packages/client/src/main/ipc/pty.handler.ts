@@ -7,6 +7,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { IPC_PTY } from '../../shared/types/ipc-channels'
 import { recordData } from '../services/session-recorder'
+import { getDefaultShell } from '../utils/platform'
 
 // PTY 实例映射表（ptyId → 进程实例）
 const ptyProcesses = new Map<string, pty.IPty>()
@@ -27,9 +28,7 @@ export function registerPtyHandlers(): void {
   }) => {
     const ptyId = `pty_${++idCounter}_${Date.now()}`
 
-    const defaultShell = process.platform === 'win32'
-      ? 'powershell.exe'
-      : process.env.SHELL || '/bin/zsh'
+    const defaultShell = getDefaultShell()
 
     // 解析 cwd：展开 ~ 并验证路径
     const home = process.env.HOME || '/'

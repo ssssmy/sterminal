@@ -115,7 +115,7 @@ export function registerSshHandlers(): void {
             if (execErr) return
             let output = ''
             const timeout = setTimeout(() => { try { execStream.destroy() } catch {} }, 5000)
-            execStream.on('data', (data: Buffer) => { output += data.toString() })
+            execStream.on('data', (data: Buffer) => { if (output.length < 256) output += data.toString() })
             execStream.on('error', () => { clearTimeout(timeout) })
             execStream.on('close', () => {
               clearTimeout(timeout)

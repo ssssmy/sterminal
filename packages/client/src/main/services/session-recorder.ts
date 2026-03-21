@@ -6,6 +6,7 @@ import * as path from 'path'
 import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { dbRun, dbGet, dbAll } from './db'
+import { getDefaultShell } from '../utils/platform'
 
 interface ActiveRecording {
   logId: string
@@ -66,7 +67,7 @@ export function startRecording(params: {
     height: params.rows,
     timestamp: Math.floor(now.getTime() / 1000),
     title: params.label || 'STerminal Recording',
-    env: { TERM: 'xterm-256color', SHELL: process.env.SHELL || (process.platform === 'win32' ? 'powershell.exe' : '/bin/zsh') },
+    env: { TERM: 'xterm-256color', SHELL: getDefaultShell() },
   }
   stream.write(JSON.stringify(header) + '\n')
 

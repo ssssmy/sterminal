@@ -1235,6 +1235,12 @@ async function handleHostCmd(cmd: string, host: Host): Promise<void> {
       httpProxy: host.httpProxy,
     })
   } else if (cmd === 'delete') {
+    // 检查是否有端口转发规则绑定该主机
+    const boundRules = portForwardsStore.rules.filter(r => r.hostId === host.id)
+    if (boundRules.length > 0) {
+      ElMessage.warning(`无法删除：该主机有 ${boundRules.length} 条端口转发规则，请先删除相关规则`)
+      return
+    }
     sessionsStore.closeTabsByHostId(host.id)
     await hostsStore.deleteHost(host.id)
   }

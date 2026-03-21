@@ -40,15 +40,16 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/electron
           key: electron-mac-${{ hashFiles('packages/client/package.json') }}
           restore-keys: electron-mac-
-
-      - name: Install Python setuptools (needed by node-gyp)
-        run: pip install setuptools
 
       - run: npm install
 
@@ -77,15 +78,16 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: ~/AppData/Local/electron/Cache
           key: electron-win-${{ hashFiles('packages/client/package.json') }}
           restore-keys: electron-win-
-
-      - name: Install Python setuptools (needed by node-gyp)
-        run: pip install setuptools
 
       - run: npm install
 
@@ -112,15 +114,16 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: ~/.cache/electron
           key: electron-linux-${{ hashFiles('packages/client/package.json') }}
           restore-keys: electron-linux-
-
-      - name: Install Python setuptools (needed by node-gyp)
-        run: pip install setuptools
 
       - run: npm install
 

@@ -84,10 +84,10 @@ export const usePortForwardsStore = defineStore('portForwards', () => {
     return undefined
   }
 
-  async function startTunnel(ruleId: string): Promise<{ success: boolean; error?: string }> {
+  async function startTunnel(ruleId: string, sshConnectionId?: string): Promise<{ success: boolean; error?: string }> {
     const rule = rules.value.find(r => r.id === ruleId)
     if (!rule) return { success: false, error: '规则不存在' }
-    const connectionId = findConnectionIdForHost(rule.hostId)
+    const connectionId = sshConnectionId || findConnectionIdForHost(rule.hostId)
     const result = await invoke<{ success: boolean; error?: string }>(
       IPC_PORT_FORWARD.START,
       { ruleId, connectionId }
@@ -123,11 +123,11 @@ export const usePortForwardsStore = defineStore('portForwards', () => {
 
     // 监听 SSH 连接成功，自动启动 autoStart 规则
     on(IPC_SSH.STATUS, (data: unknown) => {
-      const { hostId, status } = data as { connectionId: string; hostId?: string; status: string }
+      const { connectionId, hostId, status } = data as { connectionId: string; hostId?: string; status: string }
       if (status !== 'connected' || !hostId) return
       for (const rule of rules.value) {
         if (rule.hostId === hostId && rule.autoStart && !tunnelStates.value.has(rule.id)) {
-          startTunnel(rule.id)
+          startTunnel(rule.id, connectionId)
         }
       }
     })

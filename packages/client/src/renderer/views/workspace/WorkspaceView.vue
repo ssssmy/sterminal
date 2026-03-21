@@ -56,6 +56,8 @@
     <TerminalConfigDialog v-if="uiStore.showTerminalConfigDialog" />
     <!-- 片段编辑对话框 -->
     <SnippetEditDialog v-if="uiStore.showSnippetEditDialog" />
+    <!-- 端口转发对话框 -->
+    <PortForwardDialog v-if="uiStore.showPortForwardDialog" />
     <!-- 片段变量填写对话框 -->
     <SnippetVariableDialog
       v-if="uiStore.executingSnippet"
@@ -78,6 +80,7 @@ import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import { parseVariables } from '@shared/utils/snippet-variables'
 import { sendCommandToTerminal } from '../../components/terminal/TerminalPane.vue'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
@@ -90,6 +93,7 @@ const HostConfigDialog = defineAsyncComponent(() => import('../../components/hos
 const TerminalConfigDialog = defineAsyncComponent(() => import('../../components/terminal/TerminalConfigDialog.vue'))
 const TerminalSearchBar = defineAsyncComponent(() => import('../../components/terminal/TerminalSearchBar.vue'))
 const SnippetEditDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetEditDialog.vue'))
+const PortForwardDialog = defineAsyncComponent(() => import('../../components/port-forward/PortForwardDialog.vue'))
 const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
 
 const sessionsStore = useSessionsStore()
@@ -97,6 +101,7 @@ const uiStore = useUiStore()
 const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
 const snippetsStore = useSnippetsStore()
+const portForwardsStore = usePortForwardsStore()
 
 // ===== 工具栏事件处理 =====
 function handleSftp(): void {
@@ -190,6 +195,7 @@ onMounted(() => {
     terminalsStore.fetchTerminals(),
     terminalsStore.fetchGroups(),
     snippetsStore.init(),
+    portForwardsStore.init(),
   ])
 
   window.addEventListener('keydown', handleKeydown)

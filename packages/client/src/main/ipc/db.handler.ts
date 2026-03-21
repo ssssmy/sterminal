@@ -19,6 +19,7 @@ export function registerDbHandlers(): void {
   registerTagsHandlers()
   registerSnippetsHandlers()
   registerSnippetGroupsHandlers()
+  registerPortForwardsHandlers()
 }
 
 // ===== 设置 =====
@@ -513,6 +514,107 @@ function registerSnippetGroupsHandlers(): void {
     // 将该分组下的片段移到未分组
     dbRun('UPDATE snippets SET group_id = NULL WHERE group_id = ?', [id])
     dbRun('DELETE FROM snippet_groups WHERE id = ?', [id])
+    return true
+  })
+}
+
+// ===== 端口转发 =====
+
+function mapPortForwardRow(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: row.name || null,
+    type: row.type,
+    hostId: row.host_id,
+    localBindAddr: row.local_bind_addr || '127.0.0.1',
+    localPort: row.local_port ?? null,
+    remoteTargetAddr: row.remote_target_addr || null,
+    remoteTargetPort: row.remote_target_port ?? null,
+    remoteBindAddr: row.remote_bind_addr || '127.0.0.1',
+    remotePort: row.remote_port ?? null,
+    localTargetAddr: row.local_target_addr || '127.0.0.1',
+    localTargetPort: row.local_target_port ?? null,
+    autoStart: !!(row.auto_start),
+    appStart: !!(row.app_start),
+    groupId: row.group_id || null,
+    sortOrder: row.sort_order ?? 0,
+  }
+}
+
+function registerPortForwardsHandlers(): void {
+  ipcMain.handle(IPC_DB.PORT_FORWARDS_LIST, (_event, hostId?: string) => {
+    const rows = hostId
+      ? dbAll<Record<string, unknown>>('SELECT * FROM port_forwards WHERE host_id = ? ORDER BY sort_order ASC', [hostId])
+      : dbAll<Record<string, unknown>>('SELECT * FROM port_forwards ORDER BY sort_order ASC, created_at ASC')
+    return rows.map(mapPortForwardRow)
+  })
+
+  ipcMain.handle(IPC_DB.PORT_FORWARDS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO port_forwards (id, name, type, host_id, local_bind_addr, local_port, remote_target_addr, remote_target_port, remote_bind_addr, remote_port, local_target_addr, local_target_port, auto_start, app_start, group_id, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        data.name ?? null,
+        data.type || 'local',
+        data.hostId,
+        data.localBindAddr ?? '127.0.0.1',
+        data.localPort ?? null,
+        data.remoteTargetAddr ?? null,
+        data.remoteTargetPort ?? null,
+        data.remoteBindAddr ?? '127.0.0.1',
+        data.remotePort ?? null,
+        data.localTargetAddr ?? '127.0.0.1',
+        data.localTargetPort ?? null,
+        data.autoStart ? 1 : 0,
+        data.appStart ? 1 : 0,
+        data.groupId ?? null,
+        data.sortOrder ?? 0,
+      ]
+    )
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
+    return row ? mapPortForwardRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.PORT_FORWARDS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    const coalesceFields: [string, string][] = [
+      ['name', 'name'], ['type', 'type'], ['host_id', 'hostId'],
+      ['local_bind_addr', 'localBindAddr'], ['local_port', 'localPort'],
+      ['remote_target_addr', 'remoteTargetAddr'], ['remote_target_port', 'remoteTargetPort'],
+      ['remote_bind_addr', 'remoteBindAddr'], ['remote_port', 'remotePort'],
+      ['local_target_addr', 'localTargetAddr'], ['local_target_port', 'localTargetPort'],
+      ['sort_order', 'sortOrder'],
+    ]
+    for (const [col, key] of coalesceFields) {
+      if (key in data) {
+        sets.push(`${col} = COALESCE(?, ${col})`)
+        params.push(data[key] ?? null)
+      }
+    }
+    if ('autoStart' in data) { sets.push('auto_start = ?'); params.push(data.autoStart ? 1 : 0) }
+    if ('appStart' in data) { sets.push('app_start = ?'); params.push(data.appStart ? 1 : 0) }
+    const nullableFields: [string, string][] = [['group_id', 'groupId']]
+    for (const [col, key] of nullableFields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    }
+
+    if (sets.length === 0) {
+      const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
+      return row ? mapPortForwardRow(row) : null
+    }
+
+    params.push(id)
+    dbRun(`UPDATE port_forwards SET ${sets.join(', ')} WHERE id = ?`, params)
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
+    return row ? mapPortForwardRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.PORT_FORWARDS_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM port_forwards WHERE id = ?', [id])
     return true
   })
 }

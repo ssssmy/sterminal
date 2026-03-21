@@ -147,6 +147,15 @@ export const IPC_KEY = {
   AGENT_UNLOAD: 'key:agent-unload',
 } as const
 
+// ===== 端口转发隧道 =====
+export const IPC_PORT_FORWARD = {
+  START: 'port-forward:start',
+  STOP: 'port-forward:stop',
+  STOP_ALL: 'port-forward:stop-all',
+  STATUS: 'port-forward:status',
+  LIST_ACTIVE: 'port-forward:list-active',
+} as const
+
 // ===== 同步 =====
 export const IPC_SYNC = {
   START: 'sync:start',

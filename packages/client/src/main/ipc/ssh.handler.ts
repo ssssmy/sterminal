@@ -7,13 +7,13 @@ import { IPC_SSH } from '../../shared/types/ipc-channels'
 import type { Host } from '../../shared/types/host'
 import { recordData } from '../services/session-recorder'
 
-interface SshSession {
+export interface SshSession {
   client: Client
   stream: ClientChannel | null
   webContents: WebContents
 }
 
-const sshSessions = new Map<string, SshSession>()
+export const sshSessions = new Map<string, SshSession>()
 
 /**
  * 注册所有 SSH 相关的 IPC handlers

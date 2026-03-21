@@ -1,0 +1,326 @@
+<template>
+  <el-dialog
+    v-model="visible"
+    :title="isEditing ? '编辑端口转发' : '新建端口转发'"
+    width="540px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="true"
+    @close="handleClose"
+  >
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-width="100px"
+      label-position="left"
+    >
+      <el-form-item label="名称" prop="name">
+        <el-input
+          v-model="form.name"
+          placeholder="如：MySQL 转发、Web 服务"
+          clearable
+        />
+      </el-form-item>
+
+      <el-form-item label="主机" prop="hostId">
+        <el-select
+          v-model="form.hostId"
+          placeholder="选择 SSH 主机"
+          filterable
+          style="width: 100%"
+        >
+          <el-option
+            v-for="host in hostsStore.hosts"
+            :key="host.id"
+            :label="host.label || host.address"
+            :value="host.id"
+          >
+            <span>{{ host.label || host.address }}</span>
+            <span class="pf-host-addr">{{ host.label ? host.address : '' }}</span>
+          </el-option>
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="转发类型" prop="type">
+        <el-radio-group v-model="form.type">
+          <el-radio-button value="local">
+            Local (-L)
+          </el-radio-button>
+          <el-radio-button value="remote">
+            Remote (-R)
+          </el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+
+      <!-- Local 转发字段 -->
+      <template v-if="form.type === 'local'">
+        <div class="pf-direction-hint">
+          本地 <span class="pf-arrow">&#8594;</span> 远程：将本地端口的流量通过 SSH 转发到远程地址
+        </div>
+        <el-form-item label="本地端口" prop="localPort" required>
+          <div class="pf-addr-port">
+            <el-input v-model="form.localBindAddr" placeholder="127.0.0.1" class="pf-addr" />
+            <span class="pf-colon">:</span>
+            <el-input-number v-model="form.localPort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+          </div>
+        </el-form-item>
+        <el-form-item label="远程目标" prop="remoteTargetPort" required>
+          <div class="pf-addr-port">
+            <el-input v-model="form.remoteTargetAddr" placeholder="127.0.0.1" class="pf-addr" />
+            <span class="pf-colon">:</span>
+            <el-input-number v-model="form.remoteTargetPort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+          </div>
+        </el-form-item>
+      </template>
+
+      <!-- Remote 转发字段 -->
+      <template v-if="form.type === 'remote'">
+        <div class="pf-direction-hint">
+          远程 <span class="pf-arrow">&#8594;</span> 本地：将远程端口的流量通过 SSH 转发到本地地址
+        </div>
+        <el-form-item label="远程端口" prop="remotePort" required>
+          <div class="pf-addr-port">
+            <el-input v-model="form.remoteBindAddr" placeholder="127.0.0.1" class="pf-addr" />
+            <span class="pf-colon">:</span>
+            <el-input-number v-model="form.remotePort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+          </div>
+        </el-form-item>
+        <el-form-item label="本地目标" prop="localTargetPort" required>
+          <div class="pf-addr-port">
+            <el-input v-model="form.localTargetAddr" placeholder="127.0.0.1" class="pf-addr" />
+            <span class="pf-colon">:</span>
+            <el-input-number v-model="form.localTargetPort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+          </div>
+        </el-form-item>
+      </template>
+
+      <!-- 命令预览 -->
+      <el-form-item label="等效命令">
+        <code class="pf-preview">{{ commandPreview }}</code>
+      </el-form-item>
+
+      <el-form-item label="自动启动">
+        <el-switch v-model="form.autoStart" />
+        <span class="form-hint">连接该主机时自动启动此转发</span>
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="handleClose">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      </div>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
+import { useUiStore } from '../../stores/ui.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
+import { useHostsStore } from '../../stores/hosts.store'
+
+const uiStore = useUiStore()
+const portForwardsStore = usePortForwardsStore()
+const hostsStore = useHostsStore()
+
+const visible = computed({
+  get: () => uiStore.showPortForwardDialog,
+  set: (val) => { if (!val) uiStore.closePortForwardDialog() },
+})
+
+const isEditing = computed(() => !!uiStore.editingPortForwardId)
+
+const formRef = ref<FormInstance>()
+const saving = ref(false)
+
+interface FormData {
+  name: string
+  hostId: string
+  type: 'local' | 'remote'
+  localBindAddr: string
+  localPort: number | undefined
+  remoteTargetAddr: string
+  remoteTargetPort: number | undefined
+  remoteBindAddr: string
+  remotePort: number | undefined
+  localTargetAddr: string
+  localTargetPort: number | undefined
+  autoStart: boolean
+}
+
+function defaultForm(): FormData {
+  return {
+    name: '',
+    hostId: '',
+    type: 'local',
+    localBindAddr: '127.0.0.1',
+    localPort: undefined,
+    remoteTargetAddr: '127.0.0.1',
+    remoteTargetPort: undefined,
+    remoteBindAddr: '127.0.0.1',
+    remotePort: undefined,
+    localTargetAddr: '127.0.0.1',
+    localTargetPort: undefined,
+    autoStart: false,
+  }
+}
+
+const form = ref<FormData>(defaultForm())
+
+const rules: FormRules = {
+  hostId: [{ required: true, message: '请选择主机', trigger: 'change' }],
+  type: [{ required: true, message: '请选择转发类型', trigger: 'change' }],
+}
+
+const commandPreview = computed(() => {
+  const host = hostsStore.hosts.find(h => h.id === form.value.hostId)
+  const hostStr = host ? `${host.username || 'user'}@${host.address}` : 'user@host'
+  if (form.value.type === 'local') {
+    const lp = form.value.localPort || '?'
+    const ra = form.value.remoteTargetAddr || '127.0.0.1'
+    const rp = form.value.remoteTargetPort || '?'
+    return `ssh -L ${form.value.localBindAddr}:${lp}:${ra}:${rp} ${hostStr}`
+  }
+  const rp = form.value.remotePort || '?'
+  const la = form.value.localTargetAddr || '127.0.0.1'
+  const lp = form.value.localTargetPort || '?'
+  return `ssh -R ${form.value.remoteBindAddr}:${rp}:${la}:${lp} ${hostStr}`
+})
+
+watch(
+  () => uiStore.editingPortForwardId,
+  (id) => {
+    if (!id) { form.value = defaultForm(); return }
+    const rule = portForwardsStore.rules.find(r => r.id === id)
+    if (!rule) return
+    form.value = {
+      name: rule.name || '',
+      hostId: rule.hostId,
+      type: rule.type === 'remote' ? 'remote' : 'local',
+      localBindAddr: rule.localBindAddr || '127.0.0.1',
+      localPort: rule.localPort,
+      remoteTargetAddr: rule.remoteTargetAddr || '127.0.0.1',
+      remoteTargetPort: rule.remoteTargetPort,
+      remoteBindAddr: rule.remoteBindAddr || '127.0.0.1',
+      remotePort: rule.remotePort,
+      localTargetAddr: rule.localTargetAddr || '127.0.0.1',
+      localTargetPort: rule.localTargetPort,
+      autoStart: rule.autoStart,
+    }
+  },
+  { immediate: true }
+)
+
+function handleClose(): void {
+  uiStore.closePortForwardDialog()
+  formRef.value?.clearValidate()
+}
+
+async function handleSave(): Promise<void> {
+  if (!formRef.value) return
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  saving.value = true
+  try {
+    const data: Record<string, unknown> = {
+      name: form.value.name || undefined,
+      hostId: form.value.hostId,
+      type: form.value.type,
+      localBindAddr: form.value.localBindAddr,
+      localPort: form.value.localPort,
+      remoteTargetAddr: form.value.remoteTargetAddr,
+      remoteTargetPort: form.value.remoteTargetPort,
+      remoteBindAddr: form.value.remoteBindAddr,
+      remotePort: form.value.remotePort,
+      localTargetAddr: form.value.localTargetAddr,
+      localTargetPort: form.value.localTargetPort,
+      autoStart: form.value.autoStart,
+      appStart: false,
+    }
+
+    if (isEditing.value && uiStore.editingPortForwardId) {
+      await portForwardsStore.updateRule(uiStore.editingPortForwardId, data)
+    } else {
+      data.sortOrder = portForwardsStore.rules.length
+      await portForwardsStore.createRule(data)
+    }
+
+    uiStore.closePortForwardDialog()
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.form-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.pf-direction-hint {
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background-color: var(--el-fill-color-lighter);
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.pf-arrow {
+  color: var(--el-color-primary);
+  font-weight: 600;
+  margin: 0 4px;
+}
+
+.pf-addr-port {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.pf-addr {
+  flex: 1;
+}
+
+.pf-colon {
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.pf-port {
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.pf-preview {
+  display: block;
+  width: 100%;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+  font-size: 12px;
+  padding: 6px 10px;
+  background-color: var(--el-fill-color-lighter);
+  border-radius: 4px;
+  color: var(--el-text-color-regular);
+  word-break: break-all;
+}
+
+.pf-host-addr {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+}
+</style>

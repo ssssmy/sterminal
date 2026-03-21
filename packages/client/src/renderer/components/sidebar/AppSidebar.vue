@@ -534,15 +534,72 @@
       </div>
 
       <!-- 端口转发 -->
-      <div
-        class="app-sidebar__collapse-row"
-        @click="toggleCollapse('portForwards')"
-      >
-        <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
-        <span class="app-sidebar__collapse-label">端口转发</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('portForwards') }">
-          <ArrowRight />
-        </el-icon>
+      <div class="app-sidebar__section">
+        <div
+          class="app-sidebar__collapse-row"
+          @click="toggleCollapse('portForwards')"
+        >
+          <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
+          <span class="app-sidebar__collapse-label">端口转发</span>
+          <el-tooltip content="新建转发" placement="top">
+            <button class="app-sidebar__add-btn" @click.stop="uiStore.openPortForwardDialog()">
+              <el-icon :size="13"><Plus /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('portForwards') }">
+            <ArrowRight />
+          </el-icon>
+        </div>
+
+        <!-- 端口转发列表 -->
+        <div
+          v-show="!collapsedSections.has('portForwards')"
+          class="app-sidebar__pf-list"
+        >
+          <el-dropdown
+            v-for="rule in portForwardRules"
+            :key="rule.id"
+            trigger="contextmenu"
+            popper-class="sidebar-context-menu"
+            @command="(cmd: string) => handlePortForwardCmd(cmd, rule)"
+          >
+            <div
+              class="app-sidebar__pf-item"
+              :title="portForwardTitle(rule)"
+            >
+              <span
+                class="app-sidebar__pf-status"
+                :class="{
+                  'app-sidebar__pf-status--active': getPortForwardStatus(rule.id) === 'active',
+                  'app-sidebar__pf-status--error': getPortForwardStatus(rule.id) === 'error',
+                  'app-sidebar__pf-status--starting': getPortForwardStatus(rule.id) === 'starting',
+                }"
+              />
+              <span class="app-sidebar__pf-type">{{ rule.type === 'local' ? 'L' : 'R' }}</span>
+              <span class="app-sidebar__pf-name">{{ portForwardLabel(rule) }}</span>
+              <button
+                class="app-sidebar__pf-toggle"
+                :class="{ 'app-sidebar__pf-toggle--active': getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' }"
+                @click.stop="togglePortForward(rule)"
+              >
+                {{ getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' ? '停止' : '启动' }}
+              </button>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="getPortForwardStatus(rule.id) !== 'active'" command="start">启动</el-dropdown-item>
+                <el-dropdown-item v-else command="stop">停止</el-dropdown-item>
+                <el-dropdown-item command="edit" divided>编辑</el-dropdown-item>
+                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <div v-if="portForwardRules.length === 0" class="app-sidebar__empty">
+            暂无端口转发
+          </div>
+        </div>
       </div>
 
       <!-- 密钥库 -->
@@ -583,9 +640,11 @@ import { useSessionsStore } from '../../stores/sessions.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
 import type { Snippet, SnippetGroup } from '@shared/types/snippet'
+import type { PortForward } from '@shared/types/port-forward'
 import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
 import { hasVariables, replaceVariables } from '@shared/utils/snippet-variables'
 
@@ -611,6 +670,7 @@ const sessionsStore = useSessionsStore()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const snippetsStore = useSnippetsStore()
+const portForwardsStore = usePortForwardsStore()
 
 // ===== 右键菜单：关闭已打开的下拉菜单 =====
 function closeOpenDropdowns(): void {
@@ -1441,6 +1501,78 @@ async function handleSnippetGroupCmd(cmd: string, groupId: string): Promise<void
   }
 }
 
+// ===== 端口转发 =====
+
+const portForwardRules = computed(() =>
+  [...portForwardsStore.rules].sort((a, b) => a.sortOrder - b.sortOrder)
+)
+
+function getPortForwardStatus(ruleId: string): string {
+  return portForwardsStore.getTunnelStatus(ruleId)?.status || 'inactive'
+}
+
+function portForwardLabel(rule: PortForward): string {
+  if (rule.name) return rule.name
+  if (rule.type === 'local') {
+    return `${rule.localPort || '?'} → ${rule.remoteTargetAddr || '?'}:${rule.remoteTargetPort || '?'}`
+  }
+  return `${rule.remotePort || '?'} → ${rule.localTargetAddr || '?'}:${rule.localTargetPort || '?'}`
+}
+
+function portForwardTitle(rule: PortForward): string {
+  const host = hostsStore.hosts.find(h => h.id === rule.hostId)
+  const hostName = host ? (host.label || host.address) : '未知主机'
+  const lines: string[] = []
+  if (rule.name) lines.push(rule.name)
+  lines.push(`主机: ${hostName}`)
+  lines.push(`类型: ${rule.type === 'local' ? 'Local (-L)' : 'Remote (-R)'}`)
+  if (rule.type === 'local') {
+    lines.push(`${rule.localBindAddr}:${rule.localPort} → ${rule.remoteTargetAddr}:${rule.remoteTargetPort}`)
+  } else {
+    lines.push(`${rule.remoteBindAddr}:${rule.remotePort} → ${rule.localTargetAddr}:${rule.localTargetPort}`)
+  }
+  const status = getPortForwardStatus(rule.id)
+  if (status !== 'inactive') lines.push(`状态: ${status}`)
+  return lines.join('\n')
+}
+
+async function togglePortForward(rule: PortForward): Promise<void> {
+  const status = getPortForwardStatus(rule.id)
+  if (status === 'active' || status === 'starting') {
+    await portForwardsStore.stopTunnel(rule.id)
+  } else {
+    await portForwardsStore.startTunnel(rule.id)
+  }
+}
+
+async function handlePortForwardCmd(cmd: string, rule: PortForward): Promise<void> {
+  if (cmd === 'start') {
+    await portForwardsStore.startTunnel(rule.id)
+  } else if (cmd === 'stop') {
+    await portForwardsStore.stopTunnel(rule.id)
+  } else if (cmd === 'edit') {
+    uiStore.openPortForwardDialog(rule.id)
+  } else if (cmd === 'duplicate') {
+    await portForwardsStore.createRule({
+      name: rule.name ? `${rule.name} 副本` : undefined,
+      type: rule.type,
+      hostId: rule.hostId,
+      localBindAddr: rule.localBindAddr,
+      localPort: rule.localPort,
+      remoteTargetAddr: rule.remoteTargetAddr,
+      remoteTargetPort: rule.remoteTargetPort,
+      remoteBindAddr: rule.remoteBindAddr,
+      remotePort: rule.remotePort,
+      localTargetAddr: rule.localTargetAddr,
+      localTargetPort: rule.localTargetPort,
+      autoStart: rule.autoStart,
+      appStart: rule.appStart,
+    })
+  } else if (cmd === 'delete') {
+    await portForwardsStore.deleteRule(rule.id)
+  }
+}
+
 // ===== 侧边栏宽度拖拽调整 =====
 let resizeStartX = 0
 let resizeStartWidth = 0
@@ -1943,6 +2075,105 @@ onBeforeUnmount(() => {
     padding: 0 5px;
     border-radius: 8px;
     flex-shrink: 0;
+  }
+
+  // ===== 端口转发列表 =====
+  &__pf-list {
+    padding: 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    :deep(.el-dropdown) {
+      display: block;
+      width: 100%;
+    }
+  }
+
+  &__pf-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: var(--bg-hover);
+    }
+  }
+
+  &__pf-status {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: var(--text-tertiary);
+
+    &--active {
+      background-color: var(--success);
+      box-shadow: 0 0 4px var(--success);
+    }
+
+    &--error {
+      background-color: #ef4444;
+    }
+
+    &--starting {
+      background-color: #eab308;
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+  }
+
+  &__pf-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    background-color: rgba(99, 102, 241, 0.1);
+    padding: 1px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  &__pf-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+  }
+
+  &__pf-toggle {
+    font-size: 10px;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: all 0.15s;
+
+    .app-sidebar__pf-item:hover & {
+      opacity: 1;
+    }
+
+    &--active {
+      opacity: 1 !important;
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
   }
 
   // ===== 分割线 =====

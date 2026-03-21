@@ -149,6 +149,20 @@ export const useUiStore = defineStore('ui', () => {
     executingSnippet.value = null
   }
 
+  // ===== 端口转发对话框 =====
+  const showPortForwardDialog = ref(false)
+  const editingPortForwardId = ref<string | null>(null)
+
+  function openPortForwardDialog(portForwardId?: string): void {
+    editingPortForwardId.value = portForwardId || null
+    showPortForwardDialog.value = true
+  }
+
+  function closePortForwardDialog(): void {
+    showPortForwardDialog.value = false
+    editingPortForwardId.value = null
+  }
+
   return {
     sidebarWidth,
     sidebarCollapsed,
@@ -179,5 +193,9 @@ export const useUiStore = defineStore('ui', () => {
     executingSnippet,
     openSnippetVariableDialog,
     closeSnippetVariableDialog,
+    showPortForwardDialog,
+    editingPortForwardId,
+    openPortForwardDialog,
+    closePortForwardDialog,
   }
 })

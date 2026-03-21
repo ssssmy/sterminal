@@ -8,6 +8,7 @@ import { registerAllHandlers } from './ipc/index'
 import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
 import { stopAllRecordings } from './services/session-recorder'
+import { stopAllTunnels } from './ipc/port-forward.handler'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -163,6 +164,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   saveWindowBounds()
   stopAllRecordings()
+  stopAllTunnels()
   killAllPty()
   disconnectAllSsh()
   closeDatabase()

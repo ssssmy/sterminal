@@ -44,7 +44,10 @@ function watchSshClientClose(sshClient: Client): void {
   if ((sshClient as any).__pfCloseWatched) return
   ;(sshClient as any).__pfCloseWatched = true
 
+  let fired = false
   const onClose = () => {
+    if (fired) return
+    fired = true
     const toStop: string[] = []
     for (const [ruleId, tunnel] of activeTunnels) {
       if (tunnel.sshClient === sshClient) {
@@ -52,17 +55,12 @@ function watchSshClientClose(sshClient: Client): void {
       }
     }
     for (const ruleId of toStop) {
-      const tunnel = activeTunnels.get(ruleId)
-      if (tunnel) {
-        tunnel.error = 'SSH 连接已断开'
-        tunnel.status = 'error'
-        emitStatus(tunnel)
-      }
-      stopTunnel(ruleId)
+      stopTunnel(ruleId, 'SSH 连接已断开')
     }
   }
   sshClient.on('close', onClose)
   sshClient.on('end', onClose)
+  sshClient.on('error', onClose)
 }
 
 function loadHostConfig(hostId: string): Host | null {
@@ -298,50 +296,51 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
   })
 }
 
-function stopTunnel(ruleId: string): void {
+function stopTunnel(ruleId: string, errorMsg?: string): void {
   const tunnel = activeTunnels.get(ruleId)
   if (!tunnel) return
 
-  tunnel.status = 'stopping'
-  emitStatus(tunnel)
+  // 先从 map 中移除，防止 close 事件回调重入
+  activeTunnels.delete(ruleId)
 
-  // 关闭 net.Server（local 转发）
+  // 关闭 net.Server 并强制断开所有已有连接
   if (tunnel.server) {
-    tunnel.server.close()
+    // 先销毁所有活跃 socket，再 close server
+    for (const ch of tunnel.activeChannels) {
+      try { (ch as any).destroy?.() || (ch as any).close?.() } catch {}
+    }
+    tunnel.activeChannels.clear()
+    try { tunnel.server.close() } catch {}
   }
 
   // 如果是 remote 转发，取消 forwardIn
   if (tunnel.type === 'remote') {
     try {
-      tunnel.sshClient.unforwardIn(
-        '127.0.0.1', // 需要记录绑定地址和端口
-        0
-      )
+      tunnel.sshClient.unforwardIn('127.0.0.1', 0)
     } catch {}
+    for (const ch of tunnel.activeChannels) {
+      try { (ch as any).destroy?.() || (ch as any).close?.() } catch {}
+    }
+    tunnel.activeChannels.clear()
   }
-
-  // 关闭所有活跃的 channel/socket
-  for (const ch of tunnel.activeChannels) {
-    try {
-      if ('destroy' in ch) (ch as net.Socket).destroy()
-      else (ch as ClientChannel).close()
-    } catch {}
-  }
-  tunnel.activeChannels.clear()
 
   // 如果是专用 SSH 连接且没有其他隧道使用，断开
   if (tunnel.ownsSshClient) {
     const otherTunnelsUsingSameClient = [...activeTunnels.values()].some(
-      t => t !== tunnel && t.sshClient === tunnel.sshClient
+      t => t.sshClient === tunnel.sshClient
     )
     if (!otherTunnelsUsingSameClient) {
       try { tunnel.sshClient.end() } catch {}
     }
   }
 
-  tunnel.status = 'inactive'
+  if (errorMsg) {
+    tunnel.status = 'error'
+    tunnel.error = errorMsg
+  } else {
+    tunnel.status = 'inactive'
+  }
   emitStatus(tunnel)
-  activeTunnels.delete(ruleId)
 }
 
 export function stopAllTunnels(): void {

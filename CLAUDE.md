@@ -18,7 +18,7 @@ Monorepo 结构：
 |------|------|------|
 | **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
 | **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
-| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | ⏳ 待开发 |
+| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 部分完成（片段+端口转发已完成） |
 | **P2 进阶功能** | SSH密钥管理、已知主机、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
 | **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
 
@@ -30,7 +30,7 @@ packages/client/src/
   main/                    # Electron 主进程
     index.ts                 窗口创建，平台特定配置
     database/schema.ts       SQLite 建表语句（20+ 张表）
-    ipc/                     IPC handlers (pty, ssh, db, system, log)
+    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward)
     services/db.ts           better-sqlite3 封装
     services/session-recorder.ts  asciicast v2 会话录制服务
   preload/index.ts         # contextBridge，暴露 ipc + platform
@@ -43,6 +43,9 @@ packages/client/src/
       terminal/TerminalSearchBar.vue 终端内搜索栏
       terminal/TerminalConfigDialog.vue
       host/HostConfigDialog.vue
+      snippet/SnippetEditDialog.vue         片段新建/编辑对话框
+      snippet/SnippetVariableDialog.vue     片段变量填写对话框
+      port-forward/PortForwardDialog.vue   端口转发配置对话框
       icons/Icon{MacOS,Windows,Linux}.vue  OS图标SVG组件
     composables/useIpc.ts          IPC 封装（invoke/on/off + 自动清理）
     stores/
@@ -51,7 +54,8 @@ packages/client/src/
       terminals.store.ts   本地终端配置 CRUD
       ui.store.ts          侧边栏宽度、对话框状态
       settings.store.ts    全局设置管理
-      snippets.store.ts    命令片段管理
+      snippets.store.ts    命令片段管理（CRUD+分组+变量+拖拽排序）
+      port-forwards.store.ts  端口转发规则+隧道状态+自动启动
       auth.store.ts        用户认证（当前 mock，P1 对接真实 API）
     views/
       workspace/WorkspaceView.vue  主工作区（KeepAlive 缓存）
@@ -67,6 +71,9 @@ packages/client/src/
     ipc-channels.ts IPC 频道常量（180+ channel 定义，含 SSH.OS_DETECTED、LOG 全流程）
     settings.ts    设置类型
     snippet.ts     命令片段类型
+    port-forward.ts 端口转发类型（PortForward, TunnelState）
+  shared/utils/
+    snippet-variables.ts 片段变量解析/替换工具
   shared/constants/
     defaults.ts    60+ 默认设置值
 
@@ -91,8 +98,8 @@ UI 设计稿 `untitled.pen` 共 16 屏（使用 pencil MCP 工具读取）：
 | 02 主机配置 | HostConfigDialog（Basic/Auth/SSH/Proxy/Appearance/Notes 6 Tab） |
 | 03 SFTP | SftpPanel（待实现） |
 | 04 快速连接 | QuickConnect + CommandPalette |
-| 05 Snippets | SnippetPanel（待实现） |
-| 06 端口转发 | PortForwardPanel（待实现） |
+| 05 Snippets | SnippetEditDialog + SnippetVariableDialog + 侧边栏列表 |
+| 06 端口转发 | PortForwardDialog + 侧边栏列表 + port-forward.handler 隧道服务 |
 | 07-08 登录注册 | LoginView / RegisterView |
 | 09-16 设置/管理 | SettingsLayout 下各子页面 |
 
@@ -107,7 +114,7 @@ UI 设计稿 `untitled.pen` 共 16 屏（使用 pencil MCP 工具读取）：
 数据流：`用户操作 → Vue Component → Pinia Store → IPC invoke → Main Process → SQLite/远程 → IPC reply → Store → UI`
 
 ### IPC Channel 划分
-`ssh:*`（连接+OS检测）、`pty:*`（本地终端）、`sftp:*`（文件操作）、`db:*`（数据库 CRUD）、`sync:*`（同步）、`vault:*`（凭据）、`key:*`（密钥）、`system:*`（系统操作）、`window:*`（窗口）、`log:*`（会话录制全流程）
+`ssh:*`（连接+OS检测）、`pty:*`（本地终端）、`sftp:*`（文件操作）、`db:*`（数据库 CRUD）、`port-forward:*`（隧道生命周期：start/stop/status）、`sync:*`（同步）、`vault:*`（凭据）、`key:*`（密钥）、`system:*`（系统操作）、`window:*`（窗口）、`log:*`（会话录制全流程）
 
 ### 终端池模式（TerminalPane.vue）
 xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<script lang="ts">` 中的 `terminalPool` Map 管理（非 `<script setup>`，确保跨实例共享）：
@@ -144,6 +151,26 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - WorkspaceView 用 `<KeepAlive include="WorkspaceView">` 缓存
 - 切换设置页时终端不销毁
 - 路由：`/login`, `/register`, `/`(Workspace), `/settings/*`, 404→`/`
+
+### 命令片段变量系统
+- 解析器在 `shared/utils/snippet-variables.ts`：`parseVariables()` / `hasVariables()` / `replaceVariables()`
+- 支持 4 种变量：`${name}`（文本）、`${name:default}`（带默认值）、`${name:A|B|C}`（下拉选择）、`${!name}`（密码）
+- 内置变量 `${date}` / `${time}` / `${datetime}` / `${timestamp}` 执行时自动替换
+- `SnippetVariableDialog.vue` 弹窗填写，实时预览替换后命令，密码变量用 `●` 遮蔽
+- 非密码变量自动记忆上次填写的值（模块级缓存，跨对话框保持）
+- 侧边栏双击片段执行：无变量直接发送，有变量弹填写对话框
+- `sendCommandToTerminal()` 从 `TerminalPane.vue` 导出，用 `\r` 发送
+
+### 端口转发隧道（port-forward.handler.ts）
+- **Local 转发 (-L)**：`net.createServer()` 监听本地端口 → `sshClient.forwardOut()` 建立 SSH channel → 双向 pipe
+- **Remote 转发 (-R)**：`sshClient.forwardIn()` 请求远程监听 → `tcp connection` 事件 → `net.createConnection()` 连接本地目标 → pipe
+- SSH 连接策略：优先复用终端 SSH 连接（通过 connectionId），无终端时建立专用连接
+- 隧道迁移：关闭终端时检查同主机其他活跃连接，自动迁移隧道而非停止
+- 自动启动：`port-forwards.store` 监听 `IPC_SSH.STATUS` connected 事件，启动 `autoStart=true` 的规则
+- SSH STATUS 事件携带 `hostId`（解决时序问题：connectionId 在 terminalInstances 中可能尚未设置）
+- `SshSession` 接口增加了 `hostId` 字段，支持隧道迁移时按主机匹配
+- `stopAllTunnels()` 在 `app.before-quit` 中调用，强制 destroy 所有 socket 释放端口
+- 主机删除保护：侧边栏删除主机前检查 `portForwardsStore.rules`，有绑定规则时阻止并提示
 
 ### 默认终端配置
 - `createTab()` 未指定 `configId` 时自动使用 `terminalsStore.getDefault()`

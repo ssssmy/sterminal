@@ -54,6 +54,8 @@
     <HostConfigDialog v-if="uiStore.showHostConfigDialog" />
     <!-- 终端配置对话框 -->
     <TerminalConfigDialog v-if="uiStore.showTerminalConfigDialog" />
+    <!-- 片段编辑对话框 -->
+    <SnippetEditDialog v-if="uiStore.showSnippetEditDialog" />
   </div>
 </template>
 
@@ -65,6 +67,7 @@ import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
+import { useSnippetsStore } from '../../stores/snippets.store'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
 import AppToolbar from '../../components/toolbar/AppToolbar.vue'
 import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
@@ -74,11 +77,13 @@ const CommandPalette = defineAsyncComponent(() => import('../../components/commo
 const HostConfigDialog = defineAsyncComponent(() => import('../../components/host/HostConfigDialog.vue'))
 const TerminalConfigDialog = defineAsyncComponent(() => import('../../components/terminal/TerminalConfigDialog.vue'))
 const TerminalSearchBar = defineAsyncComponent(() => import('../../components/terminal/TerminalSearchBar.vue'))
+const SnippetEditDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetEditDialog.vue'))
 
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
 const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
+const snippetsStore = useSnippetsStore()
 
 // ===== 工具栏事件处理 =====
 function handleSftp(): void {
@@ -154,6 +159,7 @@ onMounted(() => {
     hostsStore.fetchGroups(),
     terminalsStore.fetchTerminals(),
     terminalsStore.fetchGroups(),
+    snippetsStore.init(),
   ])
 
   window.addEventListener('keydown', handleKeydown)

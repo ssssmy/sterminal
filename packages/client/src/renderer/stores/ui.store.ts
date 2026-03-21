@@ -20,6 +20,8 @@ export const useUiStore = defineStore('ui', () => {
   const showTerminalConfigDialog = ref(false)
   const editingTerminalId = ref<string | null>(null)
   const showTerminalSearch = ref(false)
+  const showSnippetEditDialog = ref(false)
+  const editingSnippetId = ref<string | null>(null)
 
   // ===== 主题操作 =====
 
@@ -120,6 +122,18 @@ export const useUiStore = defineStore('ui', () => {
     editingTerminalId.value = null
   }
 
+  // ===== 片段编辑对话框 =====
+
+  function openSnippetEditDialog(snippetId?: string): void {
+    editingSnippetId.value = snippetId || null
+    showSnippetEditDialog.value = true
+  }
+
+  function closeSnippetEditDialog(): void {
+    showSnippetEditDialog.value = false
+    editingSnippetId.value = null
+  }
+
   return {
     sidebarWidth,
     sidebarCollapsed,
@@ -130,6 +144,8 @@ export const useUiStore = defineStore('ui', () => {
     editingHostId,
     showTerminalConfigDialog,
     editingTerminalId,
+    showSnippetEditDialog,
+    editingSnippetId,
     setTheme,
     restoreTheme,
     toggleSidebar,
@@ -142,5 +158,7 @@ export const useUiStore = defineStore('ui', () => {
     showTerminalSearch,
     openTerminalConfigDialog,
     closeTerminalConfigDialog,
+    openSnippetEditDialog,
+    closeSnippetEditDialog,
   }
 })

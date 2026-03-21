@@ -102,6 +102,20 @@ export function terminalClearSearch(terminalIds: string[]): void {
   }
 }
 
+/**
+ * 向指定终端发送命令（用 \r 发送）
+ */
+export function sendCommandToTerminal(terminalId: string, command: string): void {
+  const pooled = terminalPool.get(terminalId)
+  if (!pooled) return
+  const data = command + '\r'
+  if (pooled.isSSH && pooled.sshConnectionId) {
+    ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
+  } else if (pooled.ptyId) {
+    ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
+  }
+}
+
 let _offscreenHolder: HTMLDivElement | null = null
 function getOffscreenHolder(): HTMLDivElement {
   if (!_offscreenHolder) {

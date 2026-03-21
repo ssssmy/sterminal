@@ -17,6 +17,8 @@ export function registerDbHandlers(): void {
   registerHostsHandlers()
   registerHostGroupsHandlers()
   registerTagsHandlers()
+  registerSnippetsHandlers()
+  registerSnippetGroupsHandlers()
 }
 
 // ===== 设置 =====
@@ -344,6 +346,173 @@ function registerTagsHandlers(): void {
   ipcMain.handle(IPC_DB.TAGS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM tags WHERE id = ?', [id])
     dbRun('DELETE FROM host_tags WHERE tag_id = ?', [id])
+    return true
+  })
+}
+
+// ===== 命令片段 =====
+
+function registerSnippetsHandlers(): void {
+  // 查询所有片段（含标签）
+  ipcMain.handle(IPC_DB.SNIPPETS_LIST, () => {
+    const rows = dbAll<Record<string, unknown>>(
+      'SELECT * FROM snippets ORDER BY sort_order ASC, created_at ASC'
+    )
+    // 为每个 snippet 附加 tags
+    return rows.map(row => {
+      const tags = dbAll<{ tag: string }>(
+        'SELECT tag FROM snippet_tags WHERE snippet_id = ?',
+        [row.id as string]
+      )
+      return {
+        id: row.id,
+        name: row.name,
+        content: row.content,
+        description: row.description || '',
+        groupId: row.group_id || null,
+        sortOrder: row.sort_order ?? 0,
+        useCount: row.use_count ?? 0,
+        lastUsedAt: row.last_used_at || null,
+        tags: tags.map(t => t.tag),
+      }
+    })
+  })
+
+  // 创建片段
+  ipcMain.handle(IPC_DB.SNIPPETS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO snippets (id, name, content, description, group_id, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        data.name || '',
+        data.content || '',
+        data.description ?? null,
+        data.groupId ?? null,
+        data.sortOrder ?? 0,
+      ]
+    )
+    // 插入标签
+    const tags = (data.tags as string[]) || []
+    for (const tag of tags) {
+      dbRun('INSERT INTO snippet_tags (snippet_id, tag) VALUES (?, ?)', [id, tag])
+    }
+    // 返回完整对象
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM snippets WHERE id = ?', [id])
+    return row ? { id: row.id, name: row.name, content: row.content, description: row.description || '', groupId: row.group_id || null, sortOrder: row.sort_order ?? 0, useCount: 0, lastUsedAt: null, tags } : null
+  })
+
+  // 更新片段
+  ipcMain.handle(IPC_DB.SNIPPETS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    const coalesceFields: [string, string][] = [
+      ['name', 'name'], ['content', 'content'], ['sort_order', 'sortOrder'],
+    ]
+    for (const [col, key] of coalesceFields) {
+      if (key in data) {
+        sets.push(`${col} = COALESCE(?, ${col})`)
+        params.push(data[key] ?? null)
+      }
+    }
+    const nullableFields: [string, string][] = [
+      ['description', 'description'], ['group_id', 'groupId'],
+    ]
+    for (const [col, key] of nullableFields) {
+      if (key in data) {
+        sets.push(`${col} = ?`)
+        params.push(data[key] ?? null)
+      }
+    }
+
+    if (sets.length > 0) {
+      sets.push("updated_at = datetime('now')")
+      params.push(id)
+      dbRun(`UPDATE snippets SET ${sets.join(', ')} WHERE id = ?`, params)
+    }
+
+    // 更新标签（如果传入了 tags）
+    if ('tags' in data) {
+      dbRun('DELETE FROM snippet_tags WHERE snippet_id = ?', [id])
+      const tags = (data.tags as string[]) || []
+      for (const tag of tags) {
+        dbRun('INSERT INTO snippet_tags (snippet_id, tag) VALUES (?, ?)', [id, tag])
+      }
+    }
+
+    // 返回更新后的完整对象
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM snippets WHERE id = ?', [id])
+    if (!row) return null
+    const tagRows = dbAll<{ tag: string }>('SELECT tag FROM snippet_tags WHERE snippet_id = ?', [id])
+    return {
+      id: row.id, name: row.name, content: row.content, description: row.description || '',
+      groupId: row.group_id || null, sortOrder: row.sort_order ?? 0,
+      useCount: row.use_count ?? 0, lastUsedAt: row.last_used_at || null,
+      tags: tagRows.map(t => t.tag),
+    }
+  })
+
+  // 删除片段
+  ipcMain.handle(IPC_DB.SNIPPETS_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM snippet_tags WHERE snippet_id = ?', [id])
+    dbRun('DELETE FROM snippets WHERE id = ?', [id])
+    return true
+  })
+
+  // 使用次数递增
+  ipcMain.handle(IPC_DB.SNIPPETS_INCREMENT_USE, (_event, id: string) => {
+    dbRun(
+      `UPDATE snippets SET use_count = use_count + 1, last_used_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+      [id]
+    )
+    const row = dbGet<Record<string, unknown>>('SELECT use_count, last_used_at FROM snippets WHERE id = ?', [id])
+    return row ? { useCount: row.use_count, lastUsedAt: row.last_used_at } : null
+  })
+}
+
+// ===== 命令片段分组 =====
+
+function registerSnippetGroupsHandlers(): void {
+  ipcMain.handle(IPC_DB.SNIPPET_GROUPS_LIST, () => {
+    return dbAll('SELECT * FROM snippet_groups ORDER BY sort_order ASC').map((row: Record<string, unknown>) => ({
+      id: row.id,
+      name: row.name,
+      parentId: row.parent_id || null,
+      color: row.color || null,
+      sortOrder: row.sort_order ?? 0,
+    }))
+  })
+
+  ipcMain.handle(IPC_DB.SNIPPET_GROUPS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      'INSERT INTO snippet_groups (id, name, parent_id, color, sort_order) VALUES (?, ?, ?, ?, ?)',
+      [id, data.name, data.parentId ?? null, data.color ?? null, data.sortOrder ?? 0]
+    )
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM snippet_groups WHERE id = ?', [id])
+    return row ? { id: row.id, name: row.name, parentId: row.parent_id || null, color: row.color || null, sortOrder: row.sort_order ?? 0 } : null
+  })
+
+  ipcMain.handle(IPC_DB.SNIPPET_GROUPS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    dbRun(
+      `UPDATE snippet_groups SET
+        name = COALESCE(?, name),
+        parent_id = ?,
+        color = ?,
+        sort_order = COALESCE(?, sort_order)
+       WHERE id = ?`,
+      [data.name ?? null, data.parentId ?? null, data.color ?? null, data.sortOrder ?? null, id]
+    )
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM snippet_groups WHERE id = ?', [id])
+    return row ? { id: row.id, name: row.name, parentId: row.parent_id || null, color: row.color || null, sortOrder: row.sort_order ?? 0 } : null
+  })
+
+  ipcMain.handle(IPC_DB.SNIPPET_GROUPS_DELETE, (_event, id: string) => {
+    // 将该分组下的片段移到未分组
+    dbRun('UPDATE snippets SET group_id = NULL WHERE group_id = ?', [id])
+    dbRun('DELETE FROM snippet_groups WHERE id = ?', [id])
     return true
   })
 }

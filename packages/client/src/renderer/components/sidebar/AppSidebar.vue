@@ -375,15 +375,123 @@
       <!-- ===== 功能折叠区 ===== -->
 
       <!-- 命令片段 -->
-      <div
-        class="app-sidebar__collapse-row"
-        @click="toggleCollapse('snippets')"
-      >
-        <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
-        <span class="app-sidebar__collapse-label">命令片段</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('snippets') }">
-          <ArrowRight />
-        </el-icon>
+      <div class="app-sidebar__section">
+        <div
+          class="app-sidebar__collapse-row"
+          @click="toggleCollapse('snippets')"
+        >
+          <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
+          <span class="app-sidebar__collapse-label">命令片段</span>
+          <el-tooltip content="新建分组" placement="top">
+            <button class="app-sidebar__add-btn" @click.stop="handleAddSnippetGroup">
+              <el-icon :size="13"><FolderAdd /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-tooltip content="新建片段" placement="top">
+            <button class="app-sidebar__add-btn" @click.stop="uiStore.openSnippetEditDialog()">
+              <el-icon :size="13"><Plus /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('snippets') }">
+            <ArrowRight />
+          </el-icon>
+        </div>
+
+        <!-- 片段列表 -->
+        <div
+          v-show="!collapsedSections.has('snippets')"
+          class="app-sidebar__snippet-list"
+        >
+          <!-- 分组 -->
+          <template v-for="group in filteredSnippetGroups" :key="group.id">
+            <el-dropdown
+              trigger="contextmenu"
+              popper-class="sidebar-context-menu"
+              @command="(cmd: string) => handleSnippetGroupCmd(cmd, group.id)"
+            >
+              <div
+                class="app-sidebar__group-row"
+                @click="toggleSnippetGroup(group.id)"
+              >
+                <el-icon :size="12" class="app-sidebar__arrow" :class="{ 'app-sidebar__arrow--expanded': !collapsedSnippetGroups.has(group.id) }">
+                  <ArrowRight />
+                </el-icon>
+                <el-icon :size="14" class="app-sidebar__folder-icon" :style="group.color ? { color: group.color } : {}"><Folder /></el-icon>
+                <span class="app-sidebar__group-name">{{ group.name }}</span>
+                <span class="app-sidebar__group-count">{{ getSnippetGroupCount(group.id) }}</span>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除分组</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+
+            <!-- 分组内片段 -->
+            <div v-if="!collapsedSnippetGroups.has(group.id)" class="app-sidebar__group-children">
+              <el-dropdown
+                v-for="snippet in getGroupSnippets(group.id)"
+                :key="snippet.id"
+                trigger="contextmenu"
+                popper-class="sidebar-context-menu"
+                @command="(cmd: string) => handleSnippetCmd(cmd, snippet)"
+              >
+                <div
+                  class="app-sidebar__snippet-item"
+                  :title="snippetTitle(snippet)"
+                  @dblclick="executeSnippet(snippet)"
+                >
+                  <el-icon :size="13" class="app-sidebar__snippet-icon"><DocumentCopy /></el-icon>
+                  <span class="app-sidebar__snippet-name">{{ snippet.name }}</span>
+                  <span v-if="snippet.useCount" class="app-sidebar__snippet-count">{{ snippet.useCount }}</span>
+                </div>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="execute">执行</el-dropdown-item>
+                    <el-dropdown-item command="copy">复制命令</el-dropdown-item>
+                    <el-dropdown-item command="edit" divided>编辑</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">复制片段</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </template>
+
+          <!-- 未分组片段 -->
+          <el-dropdown
+            v-for="snippet in filteredUngroupedSnippets"
+            :key="snippet.id"
+            trigger="contextmenu"
+            popper-class="sidebar-context-menu"
+            @command="(cmd: string) => handleSnippetCmd(cmd, snippet)"
+          >
+            <div
+              class="app-sidebar__snippet-item app-sidebar__snippet-item--root"
+              :title="snippetTitle(snippet)"
+              @dblclick="executeSnippet(snippet)"
+            >
+              <el-icon :size="13" class="app-sidebar__snippet-icon"><DocumentCopy /></el-icon>
+              <span class="app-sidebar__snippet-name">{{ snippet.name }}</span>
+              <span v-if="snippet.useCount" class="app-sidebar__snippet-count">{{ snippet.useCount }}</span>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="execute">执行</el-dropdown-item>
+                <el-dropdown-item command="copy">复制命令</el-dropdown-item>
+                <el-dropdown-item command="edit" divided>编辑</el-dropdown-item>
+                <el-dropdown-item command="duplicate">复制片段</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <!-- 空状态 -->
+          <div v-if="filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
+            暂无命令片段
+          </div>
+        </div>
       </div>
 
       <!-- 端口转发 -->
@@ -435,8 +543,11 @@ import { useTerminalsStore } from '../../stores/terminals.store'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useSnippetsStore } from '../../stores/snippets.store'
 import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
+import type { Snippet, SnippetGroup } from '@shared/types/snippet'
+import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
 
 // ===== 平台检测 =====
 const isMacOS = window.electronAPI?.platform === 'darwin'
@@ -459,6 +570,7 @@ const terminalsStore = useTerminalsStore()
 const sessionsStore = useSessionsStore()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
+const snippetsStore = useSnippetsStore()
 
 // ===== 右键菜单：关闭已打开的下拉菜单 =====
 function closeOpenDropdowns(): void {
@@ -506,6 +618,17 @@ function toggleTerminalGroup(groupId: string): void {
     collapsedTerminalGroups.delete(groupId)
   } else {
     collapsedTerminalGroups.add(groupId)
+  }
+}
+
+// ===== 片段分组折叠状态 =====
+const collapsedSnippetGroups = reactive<Set<string>>(new Set())
+
+function toggleSnippetGroup(groupId: string): void {
+  if (collapsedSnippetGroups.has(groupId)) {
+    collapsedSnippetGroups.delete(groupId)
+  } else {
+    collapsedSnippetGroups.add(groupId)
   }
 }
 
@@ -1057,6 +1180,137 @@ function goToSettings(): void {
   })
 }
 
+// ===== 命令片段 =====
+
+const filteredSnippetGroups = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return snippetsStore.groups
+  return snippetsStore.groups.filter(g =>
+    snippetsStore.snippets.some(s =>
+      s.groupId === g.id && matchesSnippet(s, q)
+    )
+  )
+})
+
+const filteredUngroupedSnippets = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  const ungrouped = snippetsStore.ungroupedSnippets
+  if (!q) return ungrouped
+  return ungrouped.filter(s => matchesSnippet(s, q))
+})
+
+function matchesSnippet(snippet: Snippet, q: string): boolean {
+  return (
+    snippet.name.toLowerCase().includes(q) ||
+    snippet.content.toLowerCase().includes(q) ||
+    (snippet.description || '').toLowerCase().includes(q) ||
+    snippet.tags.some(t => t.toLowerCase().includes(q))
+  )
+}
+
+function getGroupSnippets(groupId: string): Snippet[] {
+  const q = searchQuery.value.trim().toLowerCase()
+  const items = snippetsStore.snippetsByGroup.get(groupId) || []
+  if (!q) return items
+  return items.filter(s => matchesSnippet(s, q))
+}
+
+function getSnippetGroupCount(groupId: string): number {
+  return snippetsStore.snippets.filter(s => s.groupId === groupId).length
+}
+
+function snippetTitle(snippet: Snippet): string {
+  const lines: string[] = [snippet.name]
+  if (snippet.description) lines.push(snippet.description)
+  lines.push(`命令: ${snippet.content}`)
+  if (snippet.tags.length) lines.push(`标签: ${snippet.tags.join(', ')}`)
+  if (snippet.useCount) lines.push(`使用次数: ${snippet.useCount}`)
+  return lines.join('\n')
+}
+
+function executeSnippet(snippet: Snippet): void {
+  const terminalIds = sessionsStore.getActiveTabTerminalIds()
+  if (terminalIds.length === 0) return
+  // 发送到当前活跃 tab 的第一个终端
+  sendCommandToTerminal(terminalIds[0], snippet.content)
+  snippetsStore.incrementUseCount(snippet.id)
+}
+
+async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {
+  if (cmd === 'execute') {
+    executeSnippet(snippet)
+  } else if (cmd === 'copy') {
+    if (window.electronAPI?.ipc) {
+      await navigator.clipboard.writeText(snippet.content)
+    }
+  } else if (cmd === 'edit') {
+    uiStore.openSnippetEditDialog(snippet.id)
+  } else if (cmd === 'duplicate') {
+    await snippetsStore.createSnippet({
+      name: `${snippet.name} 副本`,
+      content: snippet.content,
+      description: snippet.description,
+      groupId: snippet.groupId,
+      tags: [...snippet.tags],
+    })
+  } else if (cmd === 'delete') {
+    await snippetsStore.deleteSnippet(snippet.id)
+  }
+}
+
+async function handleAddSnippetGroup(): Promise<void> {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入分组名称', '新建分组', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /^.{1,64}$/,
+      inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+    })
+    if (value) {
+      await snippetsStore.createGroup({ name: value.trim(), sortOrder: snippetsStore.groups.length })
+    }
+  } catch {
+    // 用户取消
+  }
+}
+
+async function handleSnippetGroupCmd(cmd: string, groupId: string): Promise<void> {
+  const group = snippetsStore.groups.find(g => g.id === groupId)
+  if (!group) return
+
+  if (cmd === 'rename') {
+    try {
+      const { value } = await ElMessageBox.prompt('请输入新的分组名称', '重命名分组', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputValue: group.name,
+        inputPattern: /^.{1,64}$/,
+        inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+      })
+      if (value) {
+        await snippetsStore.updateGroup(groupId, { name: value.trim() })
+      }
+    } catch {
+      // 用户取消
+    }
+  } else if (cmd === 'delete') {
+    const count = snippetsStore.snippets.filter(s => s.groupId === groupId).length
+    const msg = count > 0
+      ? `该分组下有 ${count} 个片段，删除后它们将变为未分组。确定删除？`
+      : '确定删除该分组？'
+    try {
+      await ElMessageBox.confirm(msg, '删除分组', {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+      await snippetsStore.deleteGroup(groupId)
+    } catch {
+      // 用户取消
+    }
+  }
+}
+
 // ===== 侧边栏宽度拖拽调整 =====
 let resizeStartX = 0
 let resizeStartWidth = 0
@@ -1492,6 +1746,65 @@ onBeforeUnmount(() => {
     font-size: 12px;
     font-weight: 500;
     color: var(--text-primary);
+  }
+
+  // ===== 片段列表 =====
+  &__snippet-list {
+    padding: 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    :deep(.el-dropdown) {
+      display: block;
+      width: 100%;
+    }
+  }
+
+  &__snippet-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.15s;
+    position: relative;
+
+    &--root {
+      padding-left: 28px;
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+    }
+  }
+
+  &__snippet-icon {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  &__snippet-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  &__snippet-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    background-color: var(--bg-hover);
+    padding: 0 5px;
+    border-radius: 8px;
+    flex-shrink: 0;
   }
 
   // ===== 分割线 =====

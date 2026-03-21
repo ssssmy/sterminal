@@ -73,6 +73,12 @@ export const IPC_DB = {
   SNIPPETS_CREATE: 'db:snippets:create',
   SNIPPETS_UPDATE: 'db:snippets:update',
   SNIPPETS_DELETE: 'db:snippets:delete',
+  SNIPPETS_INCREMENT_USE: 'db:snippets:increment-use',
+  // 命令片段分组
+  SNIPPET_GROUPS_LIST: 'db:snippet-groups:list',
+  SNIPPET_GROUPS_CREATE: 'db:snippet-groups:create',
+  SNIPPET_GROUPS_UPDATE: 'db:snippet-groups:update',
+  SNIPPET_GROUPS_DELETE: 'db:snippet-groups:delete',
   // 端口转发
   PORT_FORWARDS_LIST: 'db:port-forwards:list',
   PORT_FORWARDS_CREATE: 'db:port-forwards:create',

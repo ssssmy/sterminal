@@ -187,9 +187,15 @@ function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean,
     )
   })
 
-  server.on('error', (err) => {
+  server.on('error', (err: NodeJS.ErrnoException) => {
     tunnel.status = 'error'
-    tunnel.error = err.message
+    if (err.code === 'EADDRINUSE') {
+      tunnel.error = `本地端口 ${rule.localBindAddr}:${rule.localPort} 已被占用`
+    } else if (err.code === 'EACCES') {
+      tunnel.error = `无权限绑定本地端口 ${rule.localPort}（端口 < 1024 需管理员权限）`
+    } else {
+      tunnel.error = `本地监听失败: ${err.message}`
+    }
     emitStatus(tunnel)
   })
 
@@ -221,7 +227,7 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
     (err) => {
       if (err) {
         tunnel.status = 'error'
-        tunnel.error = err.message
+        tunnel.error = `远程端口 ${rule.remoteBindAddr}:${rule.remotePort} 绑定失败: ${err.message}`
         emitStatus(tunnel)
         return
       }
@@ -368,7 +374,14 @@ export function registerPortForwardHandlers(): void {
 
       return { success: true }
     } catch (err) {
-      return { success: false, error: (err as Error).message }
+      const msg = (err as Error).message
+      if (msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT')) {
+        return { success: false, error: `SSH 连接失败: ${msg}` }
+      }
+      if (msg.includes('Authentication') || msg.includes('auth')) {
+        return { success: false, error: `SSH 认证失败: ${msg}` }
+      }
+      return { success: false, error: `启动失败: ${msg}` }
     }
   })
 

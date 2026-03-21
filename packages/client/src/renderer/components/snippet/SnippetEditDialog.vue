@@ -27,19 +27,19 @@
         <div class="snippet-var-toolbar">
           <span class="snippet-var-toolbar__label">插入变量:</span>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name}')">
-            <code>${`{name}`}</code>
+            <code>&#36;{name}</code>
             <span>文本</span>
           </button>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name:default}')">
-            <code>${`{name:默认值}`}</code>
+            <code>&#36;{name:默认值}</code>
             <span>带默认值</span>
           </button>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name:A|B|C}')">
-            <code>${`{name:A|B|C}`}</code>
+            <code>&#36;{name:A|B|C}</code>
             <span>下拉选择</span>
           </button>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${!name}')">
-            <code>${`{!name}`}</code>
+            <code>&#36;{!name}</code>
             <span>密码</span>
           </button>
         </div>
@@ -68,14 +68,14 @@
           <div v-show="showVarHelp" class="snippet-var-help__body">
             <div class="snippet-var-help__builtin">
               <div class="snippet-var-help__builtin-title">内置变量（执行时自动替换，无需填写）</div>
-              <code>${`{__date__}`}</code> 当前日期 &nbsp;
-              <code>${`{__time__}`}</code> 当前时间 &nbsp;
-              <code>${`{__datetime__}`}</code> 日期时间 &nbsp;
-              <code>${`{__timestamp__}`}</code> Unix时间戳
+              <code>&#36;{__date__}</code> 当前日期 &nbsp;
+              <code>&#36;{__time__}</code> 当前时间 &nbsp;
+              <code>&#36;{__datetime__}</code> 日期时间 &nbsp;
+              <code>&#36;{__timestamp__}</code> Unix时间戳
             </div>
             <div class="snippet-var-help__example">
               <div class="snippet-var-help__builtin-title">完整示例</div>
-              <code>ssh ${`{user:root}`}@${`{host}`} -p ${`{port:22}`}</code><br/>
+              <code>ssh &#36;{user:root}@&#36;{host} -p &#36;{port:22}</code><br/>
               <span class="snippet-var-help__example-desc">执行时弹窗填写 user（默认 root）、host、port（默认 22）</span>
             </div>
           </div>

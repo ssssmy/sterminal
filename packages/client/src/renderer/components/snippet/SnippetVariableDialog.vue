@@ -77,7 +77,7 @@
 
     <!-- 内置变量提示 -->
     <div v-if="hasBuiltinVars" class="snippet-var__builtin-hint">
-      命令中的内置变量（如 <code>${`{__date__}`}</code>）将在执行时自动替换
+      命令中的内置变量（如 <code>&#36;{__date__}</code>）将在执行时自动替换
     </div>
 
     <template #footer>

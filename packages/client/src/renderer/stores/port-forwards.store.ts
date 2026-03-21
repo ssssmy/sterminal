@@ -2,6 +2,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { PortForward, TunnelState } from '@shared/types/port-forward'
 import { useIpc } from '../composables/useIpc'
 import { IPC_DB, IPC_PORT_FORWARD } from '@shared/types/ipc-channels'
@@ -107,10 +108,17 @@ export const usePortForwardsStore = defineStore('portForwards', () => {
   function setupStatusListener(): void {
     on(IPC_PORT_FORWARD.STATUS, (data: unknown) => {
       const state = data as TunnelState
+      const prev = tunnelStates.value.get(state.ruleId)
       if (state.status === 'inactive') {
         tunnelStates.value.delete(state.ruleId)
       } else {
         tunnelStates.value.set(state.ruleId, state)
+      }
+      // 状态变为 error 时提示用户
+      if (state.status === 'error' && prev?.status !== 'error') {
+        const rule = rules.value.find(r => r.id === state.ruleId)
+        const name = rule?.name || `端口 ${rule?.localPort || rule?.remotePort || ''}`
+        ElMessage.error(`端口转发 "${name}" 失败: ${state.error || '未知错误'}`)
       }
     })
   }

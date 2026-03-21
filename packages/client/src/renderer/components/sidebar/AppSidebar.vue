@@ -627,7 +627,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   Monitor, Plus, Search, Setting, Refresh,
   Cpu, DocumentCopy, Share, Lock, ArrowRight, FolderAdd,
@@ -1536,18 +1536,25 @@ function portForwardTitle(rule: PortForward): string {
   return lines.join('\n')
 }
 
+async function startPortForwardWithFeedback(ruleId: string): Promise<void> {
+  const result = await portForwardsStore.startTunnel(ruleId)
+  if (!result.success) {
+    ElMessage.error(`启动失败: ${result.error || '未知错误'}`)
+  }
+}
+
 async function togglePortForward(rule: PortForward): Promise<void> {
   const status = getPortForwardStatus(rule.id)
   if (status === 'active' || status === 'starting') {
     await portForwardsStore.stopTunnel(rule.id)
   } else {
-    await portForwardsStore.startTunnel(rule.id)
+    await startPortForwardWithFeedback(rule.id)
   }
 }
 
 async function handlePortForwardCmd(cmd: string, rule: PortForward): Promise<void> {
   if (cmd === 'start') {
-    await portForwardsStore.startTunnel(rule.id)
+    await startPortForwardWithFeedback(rule.id)
   } else if (cmd === 'stop') {
     await portForwardsStore.stopTunnel(rule.id)
   } else if (cmd === 'edit') {

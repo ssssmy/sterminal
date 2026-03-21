@@ -21,8 +21,10 @@
           <el-form-item label="标签名" prop="label">
             <el-input
               v-model="form.label"
-              placeholder="服务器名称（可选）"
+              placeholder="服务器名称（可选，最多15字符）"
               clearable
+              :maxlength="15"
+              show-word-limit
             />
           </el-form-item>
 
@@ -49,6 +51,7 @@
               v-model="form.username"
               placeholder="root"
               clearable
+              @blur="formRef?.validateField('address')"
             />
           </el-form-item>
 
@@ -326,9 +329,32 @@ const showKey = computed(() =>
 )
 
 // ===== 表单验证规则 =====
+const labelValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (!value) return callback()
+  if (value.length > 15) return callback(new Error('标签名最多 15 个字符'))
+  const duplicate = hostsStore.hosts.find(h => h.label === value && h.id !== uiStore.editingHostId)
+  if (duplicate) return callback(new Error(`标签名 "${value}" 已被使用`))
+  callback()
+}
+
+const addressValidator = (_rule: unknown, _value: string, callback: (error?: Error) => void) => {
+  const addr = form.value.address
+  const user = form.value.username || ''
+  if (!addr) return callback()
+  const duplicate = hostsStore.hosts.find(h =>
+    h.address === addr && (h.username || '') === user && h.id !== uiStore.editingHostId
+  )
+  if (duplicate) return callback(new Error(`主机 ${user ? user + '@' : ''}${addr} 已存在`))
+  callback()
+}
+
 const rules: FormRules = {
+  label: [
+    { validator: labelValidator, trigger: 'blur' },
+  ],
   address: [
     { required: true, message: '请输入主机地址', trigger: 'blur' },
+    { validator: addressValidator, trigger: 'blur' },
   ],
   port: [
     { required: true, message: '请输入端口号', trigger: 'blur' },

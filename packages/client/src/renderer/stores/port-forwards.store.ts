@@ -123,19 +123,8 @@ export const usePortForwardsStore = defineStore('portForwards', () => {
 
     // 监听 SSH 连接成功，自动启动 autoStart 规则
     on(IPC_SSH.STATUS, (data: unknown) => {
-      const { connectionId, status } = data as { connectionId: string; status: string }
-      if (status !== 'connected') return
-      // 找到该连接对应的 hostId
-      const sessionsStore = useSessionsStore()
-      let hostId: string | undefined
-      for (const inst of sessionsStore.terminalInstances.values()) {
-        if (inst.sshConnectionId === connectionId && inst.hostId) {
-          hostId = inst.hostId
-          break
-        }
-      }
-      if (!hostId) return
-      // 启动该主机下所有 autoStart 规则
+      const { hostId, status } = data as { connectionId: string; hostId?: string; status: string }
+      if (status !== 'connected' || !hostId) return
       for (const rule of rules.value) {
         if (rule.hostId === hostId && rule.autoStart && !tunnelStates.value.has(rule.id)) {
           startTunnel(rule.id)

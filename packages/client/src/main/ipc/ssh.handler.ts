@@ -71,7 +71,7 @@ export function registerSshHandlers(): void {
       sshSessions.set(connectionId, session)
 
       conn.on('ready', () => {
-        webContents.send(IPC_SSH.STATUS, { connectionId, status: 'connected' })
+        webContents.send(IPC_SSH.STATUS, { connectionId, hostId: params.hostId, status: 'connected' })
 
         conn.shell({ term: 'xterm-256color', cols, rows }, (err, stream) => {
           if (err) {

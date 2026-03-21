@@ -47,6 +47,9 @@ jobs:
           key: electron-mac-${{ hashFiles('packages/client/package.json') }}
           restore-keys: electron-mac-
 
+      - name: Install Python setuptools (needed by node-gyp)
+        run: pip install setuptools
+
       - run: npm install
 
       - name: Build & Package
@@ -81,6 +84,9 @@ jobs:
           key: electron-win-${{ hashFiles('packages/client/package.json') }}
           restore-keys: electron-win-
 
+      - name: Install Python setuptools (needed by node-gyp)
+        run: pip install setuptools
+
       - run: npm install
 
       - name: Build & Package
@@ -112,6 +118,9 @@ jobs:
           path: ~/.cache/electron
           key: electron-linux-${{ hashFiles('packages/client/package.json') }}
           restore-keys: electron-linux-
+
+      - name: Install Python setuptools (needed by node-gyp)
+        run: pip install setuptools
 
       - run: npm install
 

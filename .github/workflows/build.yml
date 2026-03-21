@@ -28,10 +28,13 @@ jobs:
         run: cd packages/client && npm run typecheck
 
   build-mac:
-    name: Build macOS
+    name: Build macOS (${{ matrix.arch }})
     needs: typecheck
     if: github.event_name == 'push'
-    runs-on: macos-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'macos-latest' || 'macos-13' }}
+    strategy:
+      matrix:
+        arch: [arm64, x64]
     steps:
       - uses: actions/checkout@v4
 
@@ -48,20 +51,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/electron
-          key: electron-mac-${{ hashFiles('packages/client/package.json') }}
-          restore-keys: electron-mac-
+          key: electron-mac-${{ matrix.arch }}-${{ hashFiles('packages/client/package.json') }}
+          restore-keys: electron-mac-${{ matrix.arch }}-
 
       - run: npm install
 
       - name: Build & Package
-        run: npm run client:pack:mac
+        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --mac --${{ matrix.arch }}
+        working-directory: packages/client
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sterminal-macos
+          name: sterminal-macos-${{ matrix.arch }}
           path: packages/client/release/*.dmg
           retention-days: 7
 

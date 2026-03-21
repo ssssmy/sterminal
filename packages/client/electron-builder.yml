@@ -78,6 +78,7 @@ linux:
 
 deb:
   packageName: sterminal
+  artifactName: ${productName}_${version}_${arch}.${ext}
   depends:
     - libnotify4
     - libxtst6

@@ -5,7 +5,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { PortForward, TunnelState } from '@shared/types/port-forward'
 import { useIpc } from '../composables/useIpc'
-import { IPC_DB, IPC_PORT_FORWARD } from '@shared/types/ipc-channels'
+import { IPC_DB, IPC_PORT_FORWARD, IPC_SSH } from '@shared/types/ipc-channels'
 import { useSessionsStore } from './sessions.store'
 
 export const usePortForwardsStore = defineStore('portForwards', () => {
@@ -114,11 +114,32 @@ export const usePortForwardsStore = defineStore('portForwards', () => {
       } else {
         tunnelStates.value.set(state.ruleId, state)
       }
-      // 状态变为 error 时提示用户
       if (state.status === 'error' && prev?.status !== 'error') {
         const rule = rules.value.find(r => r.id === state.ruleId)
         const name = rule?.name || `端口 ${rule?.localPort || rule?.remotePort || ''}`
         ElMessage.error(`端口转发 "${name}" 失败: ${state.error || '未知错误'}`)
+      }
+    })
+
+    // 监听 SSH 连接成功，自动启动 autoStart 规则
+    on(IPC_SSH.STATUS, (data: unknown) => {
+      const { connectionId, status } = data as { connectionId: string; status: string }
+      if (status !== 'connected') return
+      // 找到该连接对应的 hostId
+      const sessionsStore = useSessionsStore()
+      let hostId: string | undefined
+      for (const inst of sessionsStore.terminalInstances.values()) {
+        if (inst.sshConnectionId === connectionId && inst.hostId) {
+          hostId = inst.hostId
+          break
+        }
+      }
+      if (!hostId) return
+      // 启动该主机下所有 autoStart 规则
+      for (const rule of rules.value) {
+        if (rule.hostId === hostId && rule.autoStart && !tunnelStates.value.has(rule.id)) {
+          startTunnel(rule.id)
+        }
       }
     })
   }

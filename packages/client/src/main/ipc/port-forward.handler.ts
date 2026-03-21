@@ -38,6 +38,33 @@ function emitStatus(tunnel: ActiveTunnel): void {
   })
 }
 
+/** 监听 SSH 连接断开，自动停止使用该连接的隧道 */
+function watchSshClientClose(sshClient: Client): void {
+  // 避免重复绑定（多个隧道共享同一个 client）
+  if ((sshClient as any).__pfCloseWatched) return
+  ;(sshClient as any).__pfCloseWatched = true
+
+  const onClose = () => {
+    const toStop: string[] = []
+    for (const [ruleId, tunnel] of activeTunnels) {
+      if (tunnel.sshClient === sshClient) {
+        toStop.push(ruleId)
+      }
+    }
+    for (const ruleId of toStop) {
+      const tunnel = activeTunnels.get(ruleId)
+      if (tunnel) {
+        tunnel.error = 'SSH 连接已断开'
+        tunnel.status = 'error'
+        emitStatus(tunnel)
+      }
+      stopTunnel(ruleId)
+    }
+  }
+  sshClient.on('close', onClose)
+  sshClient.on('end', onClose)
+}
+
 function loadHostConfig(hostId: string): Host | null {
   const row = dbGet<Record<string, unknown>>('SELECT * FROM hosts WHERE id = ?', [hostId])
   if (!row) return null
@@ -149,6 +176,7 @@ function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean,
   }
   activeTunnels.set(rule.id, tunnel)
   emitStatus(tunnel)
+  watchSshClientClose(sshClient)
 
   const server = net.createServer((socket) => {
     tunnel.connectionCount++
@@ -221,6 +249,7 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
   }
   activeTunnels.set(rule.id, tunnel)
   emitStatus(tunnel)
+  watchSshClientClose(sshClient)
 
   sshClient.forwardIn(
     rule.remoteBindAddr || '127.0.0.1',

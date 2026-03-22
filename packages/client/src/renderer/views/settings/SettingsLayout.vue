@@ -65,6 +65,7 @@
           <AccountSettings v-if="activeSection === 'account'" />
           <TerminalSettings v-else-if="activeSection === 'terminal'" />
           <AppearanceSettings v-else-if="activeSection === 'appearance'" />
+          <LogSettings v-else-if="activeSection === 'logs'" />
           <div v-else class="settings-layout__placeholder">
             <el-empty description="功能开发中" />
           </div>
@@ -83,6 +84,7 @@ import {
 import AccountSettings from './AccountSettings.vue'
 import TerminalSettings from './TerminalSettings.vue'
 import AppearanceSettings from './AppearanceSettings.vue'
+import LogSettings from './LogSettings.vue'
 
 const router = useRouter()
 const isMacOS = window.electronAPI?.platform === 'darwin'

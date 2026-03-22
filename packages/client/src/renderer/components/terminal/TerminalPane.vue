@@ -14,6 +14,8 @@ import { SearchAddon } from '@xterm/addon-search'
 import { IPC_PTY, IPC_SSH, IPC_LOG } from '@shared/types/ipc-channels'
 import { useSessionsStore } from '@/stores/sessions.store'
 import { useUiStore } from '@/stores/ui.store'
+import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
+import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { nextTick } from 'vue'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
@@ -236,13 +238,18 @@ function getXtermTheme(): typeof XTERM_THEME_DARK {
   return getResolvedTheme() === 'light' ? XTERM_THEME_LIGHT : XTERM_THEME_DARK
 }
 
-const XTERM_BASE_OPTIONS = {
-  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
-  fontSize: 14,
-  lineHeight: 1.2,
-  cursorBlink: true,
-  cursorStyle: 'block' as const,
-  allowProposedApi: true,
+function getXtermBaseOptions() {
+  const s = useSettingsStoreModule().settings
+  return {
+    fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
+    fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
+    lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
+    fontLigatures: (s.get('terminal.fontLigatures') ?? DEFAULT_SETTINGS['terminal.fontLigatures']) as boolean,
+    cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
+    cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
+    scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
+    allowProposedApi: true,
+  }
 }
 
 // 监听系统主题切换（模块级，只注册一次）
@@ -292,6 +299,34 @@ watch(
 // 注册系统主题监听（模块级，仅首次生效）
 registerSystemThemeListener()
 
+// 监听终端设置变化，实时更新所有终端
+const settingsStore = useSettingsStoreModule()
+const terminalSettingKeys = [
+  'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
+  'terminal.fontLigatures', 'terminal.cursorStyle', 'terminal.cursorBlink',
+  'terminal.scrollback',
+]
+watch(
+  () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
+  () => {
+    const s = settingsStore.settings
+    const opts = {
+      fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
+      fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
+      lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
+      fontLigatures: (s.get('terminal.fontLigatures') ?? DEFAULT_SETTINGS['terminal.fontLigatures']) as boolean,
+      cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
+      cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
+      scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
+    }
+    for (const pooled of terminalPool.values()) {
+      Object.assign(pooled.terminal.options, opts)
+      pooled.fitAddon.fit()
+    }
+  },
+  { deep: true },
+)
+
 // ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
   name: 'TerminalXterm',
@@ -335,7 +370,7 @@ const TerminalXterm = defineComponent({
       const wrapperEl = document.createElement('div')
       wrapperEl.className = 'terminal-xterm'
 
-      const terminal = new Terminal({ ...XTERM_BASE_OPTIONS, theme: getXtermTheme() })
+      const terminal = new Terminal({ ...getXtermBaseOptions(), theme: getXtermTheme() })
       const fitAddon = new FitAddon()
       const searchAddon = new SearchAddon()
       terminal.loadAddon(fitAddon)

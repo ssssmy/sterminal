@@ -142,6 +142,13 @@ app.whenReady().then(() => {
     })
   }
 
+  // 界面缩放
+  ipcMain.handle(IPC_WINDOW.SET_ZOOM, (_event, level: number) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.setZoomFactor(level)
+    }
+  })
+
   // 3. 创建主窗口
   createWindow()
 

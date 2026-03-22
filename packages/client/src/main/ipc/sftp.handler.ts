@@ -393,6 +393,8 @@ export function registerSftpHandlers(): void {
       webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
     }
 
+    console.log('[SFTP Upload]', { localPath: params.localPath, remotePath: params.remotePath })
+
     return new Promise<{ transferId: string }>((resolve, reject) => {
       session.sftp.fastPut(
         params.localPath,
@@ -490,6 +492,8 @@ export function registerSftpHandlers(): void {
     // 确保本地目标目录存在
     const localDir = require('path').dirname(params.localPath)
     require('fs').mkdirSync(localDir, { recursive: true })
+
+    console.log('[SFTP Download]', { remotePath: params.remotePath, localPath: params.localPath })
 
     return new Promise<{ transferId: string }>((resolve, reject) => {
       session.sftp.fastGet(

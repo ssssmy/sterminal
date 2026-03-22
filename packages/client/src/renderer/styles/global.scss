@@ -45,6 +45,19 @@ pre,
   font-family: 'JetBrains Mono', 'Fira Code', 'Menlo', 'Consolas', monospace;
 }
 
+// ===== 紧凑模式 =====
+html.compact {
+  font-size: 12px;
+
+  .app-sidebar__header { padding: 10px 12px; }
+  .app-sidebar__collapse-row { padding: 6px 12px; }
+  .app-sidebar__host-item,
+  .app-sidebar__terminal-item,
+  .app-sidebar__snippet-item,
+  .app-sidebar__pf-item { padding: 4px 8px; }
+  .settings-row { padding: 8px 0; min-height: 36px; }
+}
+
 // ===== 滚动条样式 =====
 ::-webkit-scrollbar {
   width: 6px;

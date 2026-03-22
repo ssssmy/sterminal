@@ -32,7 +32,7 @@
         <el-select
           :model-value="getStr('app.language')"
           style="width: 180px"
-          @change="(v: unknown) => set('app.language', v)"
+          @change="handleLanguageChange"
         >
           <el-option label="简体中文" value="zh-CN" />
           <el-option label="English" value="en" />
@@ -74,7 +74,7 @@
         </div>
         <el-switch
           :model-value="getBool('app.compactMode')"
-          @change="(v: unknown) => set('app.compactMode', v)"
+          @change="handleCompactChange"
         />
       </div>
     </div>
@@ -83,12 +83,14 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import type { AppTheme } from '../../stores/ui.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
 
+const { locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
 
@@ -113,6 +115,18 @@ function set(key: string, value: unknown): void {
 
 function handleThemeChange(val: string | number | boolean | undefined): void {
   uiStore.setTheme(val as AppTheme)
+}
+
+function handleLanguageChange(val: unknown): void {
+  const lang = String(val)
+  set('app.language', lang)
+  locale.value = lang
+}
+
+function handleCompactChange(val: unknown): void {
+  const compact = !!val
+  set('app.compactMode', compact)
+  document.documentElement.classList.toggle('compact', compact)
 }
 
 function handleZoomChange(val: unknown): void {

@@ -248,6 +248,7 @@ function getXtermBaseOptions() {
     cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
     cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
     scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
+    scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
     allowProposedApi: true,
   }
 }
@@ -303,8 +304,8 @@ registerSystemThemeListener()
 const settingsStore = useSettingsStoreModule()
 const terminalSettingKeys = [
   'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
-  'terminal.fontLigatures', 'terminal.cursorStyle', 'terminal.cursorBlink',
-  'terminal.scrollback',
+  'terminal.cursorStyle', 'terminal.cursorBlink',
+  'terminal.scrollback', 'terminal.scrollSensitivity',
 ]
 watch(
   () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
@@ -314,10 +315,10 @@ watch(
       fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
       fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
       lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
-      fontLigatures: (s.get('terminal.fontLigatures') ?? DEFAULT_SETTINGS['terminal.fontLigatures']) as boolean,
       cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
       cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
       scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
+      scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
     }
     for (const pooled of terminalPool.values()) {
       Object.assign(pooled.terminal.options, opts)
@@ -405,6 +406,52 @@ const TerminalXterm = defineComponent({
         dirtyWhileHidden: false,
       }
       terminalPool.set(xtermProps.terminalId, pooled)
+
+      // 粘贴拦截：换行警告 + 去尾换行
+      terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
+          navigator.clipboard.readText().then(text => {
+            if (!text) return
+            const s = useSettingsStoreModule().settings
+            const trimNewlines = s.get('terminal.trimPasteNewlines') ?? DEFAULT_SETTINGS['terminal.trimPasteNewlines']
+            const pasteWarning = s.get('terminal.pasteWarning') ?? DEFAULT_SETTINGS['terminal.pasteWarning']
+
+            let processed = text
+            if (trimNewlines) {
+              processed = processed.replace(/[\r\n]+$/, '')
+            }
+
+            if (pasteWarning && processed.includes('\n')) {
+              const preview = processed.length > 100 ? processed.substring(0, 100) + '...' : processed
+              if (!confirm(`粘贴内容包含换行符，确定执行？\n\n${preview}`)) return
+            }
+
+            terminal.paste(processed)
+          })
+          return false
+        }
+        return true
+      })
+
+      // 响铃处理
+      terminal.onBell(() => {
+        const bell = useSettingsStoreModule().settings.get('terminal.bell') || 'none'
+        if (bell === 'sound' || bell === 'both') {
+          const audio = new Audio('data:audio/wav;base64,UklGRl9vT19teleQQBGRgAAABAAAA=')
+          audio.volume = 0.3
+          audio.play().catch(() => {})
+        }
+        if (bell === 'visual' || bell === 'both') {
+          wrapperEl.style.opacity = '0.5'
+          setTimeout(() => { wrapperEl.style.opacity = '1' }, 150)
+        }
+      })
+
+      // 焦点跟随鼠标
+      wrapperEl.addEventListener('mouseenter', () => {
+        const followMouse = useSettingsStoreModule().settings.get('terminal.focusFollowMouse')
+        if (followMouse) terminal.focus()
+      })
 
       // 注册 IPC 监听的辅助函数（自动记录以便清理）
       function trackOn(channel: string, callback: (data: unknown) => void): void {

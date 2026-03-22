@@ -211,8 +211,8 @@ export function registerSshHandlers(): void {
           connectConfig.password = hostConfig.password || ''
       }
 
-      // 主机密钥验证
-      connectConfig.hostVerifier = (key: Buffer) => {
+      // 主机密钥验证（ssh2 的 hostVerifier 签名: (key, verify) => void）
+      connectConfig.hostVerifier = (key: Buffer, verify: (accept: boolean) => void) => {
         const fingerprint = crypto.createHash('sha256').update(key).digest('base64')
         const keyType = 'ssh-key'
         const host = hostConfig.address
@@ -226,63 +226,53 @@ export function registerSshHandlers(): void {
 
         if (known) {
           if (known.fingerprint === fingerprint) {
-            // 指纹匹配，更新 last_seen
             dbRun('UPDATE known_hosts SET last_seen = datetime(\'now\') WHERE id = ?', [known.id])
-            return true
+            return verify(true)
           }
-          // 指纹变更！通知渲染进程
+          // 指纹变更 → 弹窗确认
           const verifyId = uuidv4()
           webContents.send(IPC_SSH.HOST_VERIFY, {
-            verifyId,
-            host,
-            port,
-            keyType,
+            verifyId, host, port, keyType,
             fingerprint: `SHA256:${fingerprint}`,
             oldFingerprint: `SHA256:${known.fingerprint}`,
             type: 'changed',
           })
-          return new Promise<boolean>((res) => {
-            pendingHostVerify.set(verifyId, { resolve: (accept) => {
-              if (accept) {
-                dbRun('UPDATE known_hosts SET fingerprint = ?, public_key = ?, last_seen = datetime(\'now\') WHERE id = ?',
-                  [fingerprint, key.toString('base64'), known.id])
-              }
-              res(accept)
-            }})
-          })
+          pendingHostVerify.set(verifyId, { resolve: (accept) => {
+            if (accept) {
+              dbRun('UPDATE known_hosts SET fingerprint = ?, public_key = ?, last_seen = datetime(\'now\') WHERE id = ?',
+                [fingerprint, key.toString('base64'), known.id])
+            }
+            verify(accept)
+          }})
+          return undefined
         }
 
         // 首次连接
         if (!hostConfig.strictHostKey) {
-          // 不严格检查 → 自动接受并保存
           dbRun(
             'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
             [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
           )
-          return true
+          return verify(true)
         }
 
         // 严格检查 → 弹窗确认
         const verifyId = uuidv4()
         webContents.send(IPC_SSH.HOST_VERIFY, {
-          verifyId,
-          host,
-          port,
-          keyType,
+          verifyId, host, port, keyType,
           fingerprint: `SHA256:${fingerprint}`,
           type: 'new',
         })
-        return new Promise<boolean>((res) => {
-          pendingHostVerify.set(verifyId, { resolve: (accept) => {
-            if (accept) {
-              dbRun(
-                'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
-                [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
-              )
-            }
-            res(accept)
-          }})
-        })
+        pendingHostVerify.set(verifyId, { resolve: (accept) => {
+          if (accept) {
+            dbRun(
+              'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
+              [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
+            )
+          }
+          verify(accept)
+        }})
+        return undefined
       }
 
       conn.connect(connectConfig)

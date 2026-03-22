@@ -124,28 +124,6 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">选中即复制</label>
-          <span class="settings-row__desc">鼠标选中文本后自动复制到剪贴板</span>
-        </div>
-        <el-switch
-          :model-value="getBool('terminal.copyOnSelect')"
-          @change="(v: unknown) => set('terminal.copyOnSelect', v)"
-        />
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row__info">
-          <label class="settings-row__label">复制保留格式</label>
-          <span class="settings-row__desc">复制时保留终端文本的颜色和样式</span>
-        </div>
-        <el-switch
-          :model-value="getBool('terminal.copyWithFormat')"
-          @change="(v: unknown) => set('terminal.copyWithFormat', v)"
-        />
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row__info">
           <label class="settings-row__label">右键行为</label>
           <span class="settings-row__desc">在终端区域右键点击的操作</span>
         </div>

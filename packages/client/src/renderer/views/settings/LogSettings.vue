@@ -161,9 +161,9 @@
           class="log-list__item"
         >
           <div class="log-list__info">
-            <span class="log-list__name">{{ rec.fileName }}</span>
+            <span class="log-list__name">{{ extractFileName(rec.file_path) }}</span>
             <span class="log-list__meta">
-              {{ formatSize(rec.fileSize) }} &middot; {{ formatDate(rec.createdAt) }}
+              {{ formatSize(rec.file_size) }} &middot; {{ formatDate(rec.started_at) }}
             </span>
           </div>
           <el-button
@@ -218,9 +218,10 @@ function set(key: string, value: unknown): void {
 // ===== 录制文件管理 =====
 interface Recording {
   id: string
-  fileName: string
-  fileSize: number
-  createdAt: string
+  file_path: string
+  file_size: number | null
+  started_at: string
+  host_label: string | null
 }
 
 const recordings = ref<Recording[]>([])
@@ -245,7 +246,13 @@ async function openLogDirectory(): Promise<void> {
   await invoke(IPC_LOG.OPEN_DIRECTORY)
 }
 
-function formatSize(bytes: number): string {
+function extractFileName(filePath: string): string {
+  if (!filePath) return '-'
+  return filePath.split(/[/\\]/).pop() || filePath
+}
+
+function formatSize(bytes: number | null): string {
+  if (bytes == null || isNaN(bytes)) return '-'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1048576).toFixed(1)} MB`

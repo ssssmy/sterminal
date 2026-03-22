@@ -215,8 +215,15 @@ export function registerSftpHandlers(): void {
 
     return new Promise<void>((resolve, reject) => {
       session.sftp.mkdir(params.path, (err) => {
-        if (err) reject(err)
-        else resolve()
+        if (err) {
+          if ((err as any).code === 4) {
+            reject(new Error(`创建目录失败: "${params.path}" 可能已存在或权限不足`))
+          } else {
+            reject(err)
+          }
+        } else {
+          resolve()
+        }
       })
     })
   })

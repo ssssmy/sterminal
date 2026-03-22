@@ -9,8 +9,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">字体</label>
-          <span class="settings-row__desc">终端使用的字体</span>
+          <label class="settings-row__label">终端字体</label>
+          <span class="settings-row__desc">仅影响终端窗口，不影响界面其他区域</span>
         </div>
         <el-select
           :model-value="getStr('terminal.fontFamily')"
@@ -31,8 +31,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">字号</label>
-          <span class="settings-row__desc">终端字体大小（8-32px）</span>
+          <label class="settings-row__label">终端字号</label>
+          <span class="settings-row__desc">终端窗口中的字体大小（8-32px），不影响界面字号</span>
         </div>
         <div class="settings-row__slider-group">
           <el-slider
@@ -58,8 +58,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">行高</label>
-          <span class="settings-row__desc">行距倍数（1.0-2.0）</span>
+          <label class="settings-row__label">终端行高</label>
+          <span class="settings-row__desc">终端窗口行距倍数（1.0-2.0）</span>
         </div>
         <div class="settings-row__slider-group">
           <el-slider

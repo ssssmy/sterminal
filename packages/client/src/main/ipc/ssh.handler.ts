@@ -2,10 +2,16 @@
 // 使用 ssh2 库管理 SSH 连接生命周期
 
 import { ipcMain, WebContents } from 'electron'
+import crypto from 'crypto'
 import { Client, ClientChannel } from 'ssh2'
 import { IPC_SSH } from '../../shared/types/ipc-channels'
 import type { Host } from '../../shared/types/host'
 import { recordData, shouldAutoRecord, startRecording } from '../services/session-recorder'
+import { dbGet, dbRun, dbAll } from '../services/db'
+import { v4 as uuidv4 } from 'uuid'
+
+// 待用户确认的主机密钥请求
+const pendingHostVerify = new Map<string, { resolve: (accept: boolean) => void }>()
 
 export interface SshSession {
   client: Client
@@ -205,6 +211,80 @@ export function registerSshHandlers(): void {
           connectConfig.password = hostConfig.password || ''
       }
 
+      // 主机密钥验证
+      connectConfig.hostVerifier = (key: Buffer) => {
+        const fingerprint = crypto.createHash('sha256').update(key).digest('base64')
+        const keyType = 'ssh-key'
+        const host = hostConfig.address
+        const port = hostConfig.port || 22
+
+        // 查询已知主机
+        const known = dbGet<{ fingerprint: string; id: string }>(
+          'SELECT id, fingerprint FROM known_hosts WHERE host = ? AND port = ? AND key_type = ?',
+          [host, port, keyType]
+        )
+
+        if (known) {
+          if (known.fingerprint === fingerprint) {
+            // 指纹匹配，更新 last_seen
+            dbRun('UPDATE known_hosts SET last_seen = datetime(\'now\') WHERE id = ?', [known.id])
+            return true
+          }
+          // 指纹变更！通知渲染进程
+          const verifyId = uuidv4()
+          webContents.send(IPC_SSH.HOST_VERIFY, {
+            verifyId,
+            host,
+            port,
+            keyType,
+            fingerprint: `SHA256:${fingerprint}`,
+            oldFingerprint: `SHA256:${known.fingerprint}`,
+            type: 'changed',
+          })
+          return new Promise<boolean>((res) => {
+            pendingHostVerify.set(verifyId, { resolve: (accept) => {
+              if (accept) {
+                dbRun('UPDATE known_hosts SET fingerprint = ?, public_key = ?, last_seen = datetime(\'now\') WHERE id = ?',
+                  [fingerprint, key.toString('base64'), known.id])
+              }
+              res(accept)
+            }})
+          })
+        }
+
+        // 首次连接
+        if (!hostConfig.strictHostKey) {
+          // 不严格检查 → 自动接受并保存
+          dbRun(
+            'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
+            [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
+          )
+          return true
+        }
+
+        // 严格检查 → 弹窗确认
+        const verifyId = uuidv4()
+        webContents.send(IPC_SSH.HOST_VERIFY, {
+          verifyId,
+          host,
+          port,
+          keyType,
+          fingerprint: `SHA256:${fingerprint}`,
+          type: 'new',
+        })
+        return new Promise<boolean>((res) => {
+          pendingHostVerify.set(verifyId, { resolve: (accept) => {
+            if (accept) {
+              dbRun(
+                'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
+                [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
+              )
+            }
+            res(accept)
+          }})
+        })
+      }
+
       conn.connect(connectConfig)
     })
   })
@@ -237,6 +317,26 @@ export function registerSshHandlers(): void {
     const session = sshSessions.get(params.connectionId)
     if (!session?.stream) return
     session.stream.setWindow(params.rows, params.cols, 0, 0)
+  })
+
+  // 用户响应主机密钥验证
+  ipcMain.handle('ssh:host-verify-response', (_event, params: { verifyId: string; accept: boolean }) => {
+    const pending = pendingHostVerify.get(params.verifyId)
+    if (pending) {
+      pendingHostVerify.delete(params.verifyId)
+      pending.resolve(params.accept)
+    }
+  })
+
+  // 已知主机列表
+  ipcMain.handle('db:known-hosts:list', () => {
+    return dbAll('SELECT * FROM known_hosts ORDER BY last_seen DESC')
+  })
+
+  // 删除已知主机
+  ipcMain.handle('db:known-hosts:delete', (_event, id: string) => {
+    dbRun('DELETE FROM known_hosts WHERE id = ?', [id])
+    return true
   })
 }
 

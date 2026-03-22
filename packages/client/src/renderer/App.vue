@@ -10,9 +10,10 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessageBox } from 'element-plus'
 import { useUiStore } from './stores/ui.store'
 import { useSettingsStore } from './stores/settings.store'
-import { IPC_WINDOW } from '@shared/types/ipc-channels'
+import { IPC_WINDOW, IPC_SSH } from '@shared/types/ipc-channels'
 
 const { locale } = useI18n()
 const uiStore = useUiStore()
@@ -39,5 +40,38 @@ onMounted(async () => {
   if (compact) {
     document.documentElement.classList.add('compact')
   }
+
+  // 监听主机密钥验证请求
+  window.electronAPI?.ipc.on(IPC_SSH.HOST_VERIFY, async (data: unknown) => {
+    const { verifyId, host, port, keyType, fingerprint, oldFingerprint, type } = data as {
+      verifyId: string; host: string; port: number; keyType: string
+      fingerprint: string; oldFingerprint?: string; type: 'new' | 'changed'
+    }
+
+    try {
+      if (type === 'changed') {
+        await ElMessageBox.confirm(
+          `WARNING: Host key for ${host}:${port} has changed!\n\n` +
+          `Old fingerprint: ${oldFingerprint}\n` +
+          `New fingerprint: ${fingerprint}\n\n` +
+          `This could indicate a man-in-the-middle attack.\nDo you want to continue and update the key?`,
+          'Host Key Changed',
+          { confirmButtonText: 'Accept & Update', cancelButtonText: 'Reject', type: 'warning' }
+        )
+      } else {
+        await ElMessageBox.confirm(
+          `First connection to ${host}:${port}\n\n` +
+          `Key type: ${keyType}\n` +
+          `Fingerprint: ${fingerprint}\n\n` +
+          `Do you want to trust this host and continue?`,
+          'Unknown Host',
+          { confirmButtonText: 'Trust & Connect', cancelButtonText: 'Cancel', type: 'info' }
+        )
+      }
+      window.electronAPI?.ipc.invoke('ssh:host-verify-response', { verifyId, accept: true })
+    } catch {
+      window.electronAPI?.ipc.invoke('ssh:host-verify-response', { verifyId, accept: false })
+    }
+  })
 })
 </script>

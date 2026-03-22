@@ -475,5 +475,11 @@
     "validPasswordNumber": "密码需包含数字",
     "validConfirmRequired": "请确认密码",
     "validConfirmMatch": "两次输入的密码不一致"
+  },
+  "knownHosts": {
+    "desc": "管理已信任的 SSH 主机指纹。删除后下次连接将重新验证。",
+    "empty": "暂无已知主机",
+    "firstSeen": "首次连接",
+    "lastSeen": "最近连接"
   }
 }

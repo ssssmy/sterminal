@@ -311,7 +311,7 @@ function defaultForm(): FormData {
     keepaliveInterval: 60,
     connectTimeout: 10,
     compression: false,
-    strictHostKey: false,
+    strictHostKey: true,
     sshVersion: 'auto',
     notes: '',
     proxyJumpId: '',

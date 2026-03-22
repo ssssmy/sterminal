@@ -475,5 +475,11 @@
     "validPasswordNumber": "Password must contain numbers",
     "validConfirmRequired": "Please confirm your password",
     "validConfirmMatch": "Passwords do not match"
+  },
+  "knownHosts": {
+    "desc": "Manage trusted SSH host fingerprints. Removing an entry will re-verify on next connection.",
+    "empty": "No known hosts",
+    "firstSeen": "First seen",
+    "lastSeen": "Last seen"
   }
 }

@@ -475,5 +475,11 @@
     "validPasswordNumber": "密碼需包含數字",
     "validConfirmRequired": "請確認密碼",
     "validConfirmMatch": "兩次輸入的密碼不一致"
+  },
+  "knownHosts": {
+    "desc": "管理已信任的 SSH 主機指紋。刪除後下次連線將重新驗證。",
+    "empty": "尚無已知主機",
+    "firstSeen": "首次連線",
+    "lastSeen": "最近連線"
   }
 }

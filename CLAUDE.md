@@ -18,7 +18,7 @@ Monorepo 结构：
 |------|------|------|
 | **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
 | **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
-| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 部分完成（片段+端口转发已完成） |
+| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 部分完成（片段+端口转发+设置+i18n 已完成，剩 SFTP+云同步） |
 | **P2 进阶功能** | SSH密钥管理、已知主机、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
 | **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
 
@@ -61,10 +61,13 @@ packages/client/src/
       workspace/WorkspaceView.vue  主工作区（KeepAlive 缓存）
       auth/LoginView.vue           登录页
       auth/RegisterView.vue        注册页
-      settings/SettingsLayout.vue  设置页布局
-      settings/*.vue               账户/终端/外观等设置子页
-    styles/global.scss             全局主题变量
-    i18n/                          国际化（zh-CN/en/zh-TW/ja）
+      settings/SettingsLayout.vue  设置页布局（8 项导航）
+      settings/TerminalSettings.vue  终端设置（字体/光标/行为，实时预览）
+      settings/AppearanceSettings.vue  外观设置（主题/语言/缩放/紧凑模式）
+      settings/LogSettings.vue       日志设置（录制/清理/文件管理）
+      settings/AccountSettings.vue   账户设置（骨架，等云同步）
+    styles/global.scss             全局主题变量 + 紧凑模式 CSS
+    i18n/                          国际化（zh-CN/en/zh-TW，约 400 key/语言）
   shared/types/            # 前后端共享类型定义
     terminal.ts    TabSession, SplitNode, TerminalInstance(含remoteOS/recording), LocalTerminalConfig
     host.ts        Host, HostGroup, Tag（Host 含 30+ 字段）
@@ -171,6 +174,25 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - `SshSession` 接口增加了 `hostId` 字段，支持隧道迁移时按主机匹配
 - `stopAllTunnels()` 在 `app.before-quit` 中调用，强制 destroy 所有 socket 释放端口
 - 主机删除保护：侧边栏删除主机前检查 `portForwardsStore.rules`，有绑定规则时阻止并提示
+
+### 设置系统
+- 通用 KV 存储：`settings` 表 + `settings.store.ts`（`getSetting/setSetting`，自动回退 `DEFAULT_SETTINGS`）
+- 响应式触发：`setSetting` 创建新 Map（`settings.value = new Map(...)`）以触发 Vue watch
+- 终端设置实时预览：`TerminalPane` 的 `<script setup>` 中 watch `settingsStore.settings` 变化，更新所有 xterm options + fit
+- 新终端从 `getXtermBaseOptions()` 读设置，不再硬编码
+- 外观设置：缩放通过 `IPC_WINDOW.SET_ZOOM` → `webContents.setZoomFactor()`，紧凑模式通过 `html.compact` CSS class
+- 日志设置：`session-recorder.ts` 每次录制时从 DB 读取格式/目录/模板/大小上限
+- 自动录制：PTY spawn / SSH shell ready 后检查 `shouldAutoRecord()`，录制后渲染进程通过 `IPC_LOG.IS_RECORDING` 同步状态
+- 自动清理：`autoCleanRecordings()` 在 app 启动时扫描过期录制文件
+- 启动恢复：`App.vue` onMounted 恢复语言/缩放/紧凑模式
+
+### 国际化 (i18n)
+- 使用 vue-i18n Composition API 模式（`legacy: false`）
+- CSP 需要 `unsafe-eval`（vue-i18n 运行时编译消息插值需要 `new Function()`）
+- 3 个语言包：`zh-CN.json` / `en.json` / `zh-TW.json`，各约 400 个 key
+- 所有组件通过 `const { t } = useI18n()` + `t('key')` 访问翻译
+- 模块级代码（如 TerminalPane `<script lang="ts">`）无法用 `useI18n()`，少量文本保持硬编码
+- 语言切换：`locale.value = lang` 即时生效 + `setSetting('app.language', lang)` 持久化
 
 ### 默认终端配置
 - `createTab()` 未指定 `configId` 时自动使用 `terminalsStore.getDefault()`

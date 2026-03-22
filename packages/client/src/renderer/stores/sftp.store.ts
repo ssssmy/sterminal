@@ -1,7 +1,7 @@
 // SFTP Store - 管理 SFTP 会话状态和传输队列
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { useIpc } from '../composables/useIpc'
 import { IPC_SFTP, IPC_LOCAL_FS } from '@shared/types/ipc-channels'
@@ -10,8 +10,8 @@ import type { SftpFileInfo, SftpTabState, SftpTransferItem } from '@shared/types
 export const useSftpStore = defineStore('sftp', () => {
   const { invoke, on } = useIpc()
 
-  // 每个 SFTP tab（以 tabId 为 key）的状态
-  const sessions = ref<Map<string, SftpTabState>>(new Map())
+  // 每个 SFTP tab（以 tabId 为 key）的状态（reactive 对象，属性修改自动触发更新）
+  const sessions = reactive<Record<string, SftpTabState>>({})
   // 全局传输队列
   const transfers = ref<SftpTransferItem[]>([])
 
@@ -67,9 +67,7 @@ export const useSftpStore = defineStore('sftp', () => {
         viewMode: 'list',
       }
       // 先设置 session 再加载目录（否则 navigate 找不到 session）
-      const newMap = new Map(sessions.value)
-      newMap.set(tabId, state)
-      sessions.value = newMap
+      sessions[tabId] = state
 
       // 并行加载初始目录
       await Promise.all([
@@ -78,7 +76,7 @@ export const useSftpStore = defineStore('sftp', () => {
       ])
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      const state = sessions.value.get(tabId)
+      const state = sessions[tabId]
       if (state) {
         state.error = errMsg
       }
@@ -89,14 +87,14 @@ export const useSftpStore = defineStore('sftp', () => {
    * 关闭 SFTP 会话，清理状态
    */
   function closeSession(tabId: string): void {
-    sessions.value.delete(tabId)
+    delete sessions[tabId]
   }
 
   /**
    * 导航到远程目录
    */
   async function navigateRemote(tabId: string, path: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     state.remoteLoading = true
@@ -116,7 +114,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 导航到本地目录
    */
   async function navigateLocal(tabId: string, path: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     state.localLoading = true
@@ -136,7 +134,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 刷新远程目录
    */
   async function refreshRemote(tabId: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
     await navigateRemote(tabId, state.remoteCwd)
   }
@@ -145,7 +143,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 刷新本地目录
    */
   async function refreshLocal(tabId: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
     await navigateLocal(tabId, state.localCwd)
   }
@@ -154,7 +152,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 上传本地文件到远程
    */
   async function uploadFiles(tabId: string, localPaths: string[]): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     for (const localPath of localPaths) {
@@ -199,7 +197,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 下载远程文件到本地
    */
   async function downloadFiles(tabId: string, remotePaths: string[]): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     for (const remotePath of remotePaths) {
@@ -244,7 +242,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 创建远程目录
    */
   async function mkdirRemote(tabId: string, dirName: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     const path = state.remoteCwd.endsWith('/')
@@ -258,7 +256,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 删除远程文件或目录
    */
   async function deleteRemote(tabId: string, paths: string[], recursive = true): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     for (const path of paths) {
@@ -271,7 +269,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 重命名远程文件
    */
   async function renameRemote(tabId: string, oldPath: string, newName: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
 
     const dir = oldPath.substring(0, oldPath.lastIndexOf('/') + 1)
@@ -284,7 +282,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 读取远程文件内容（文本）
    */
   async function readRemoteFile(tabId: string, path: string): Promise<string> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return ''
     const result = await invoke<{ content: string }>(IPC_SFTP.READ_FILE, { sftpId: state.sftpId, path })
     return result?.content || ''
@@ -294,7 +292,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 写入远程文件内容
    */
   async function writeRemoteFile(tabId: string, path: string, content: string): Promise<void> {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
     await invoke(IPC_SFTP.WRITE_FILE, { sftpId: state.sftpId, path, content })
     await refreshRemote(tabId)
@@ -322,7 +320,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 切换显示隐藏文件
    */
   function toggleShowHidden(tabId: string): void {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
     state.showHidden = !state.showHidden
   }
@@ -331,7 +329,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 切换视图模式
    */
   function setViewMode(tabId: string, mode: 'list' | 'grid'): void {
-    const state = sessions.value.get(tabId)
+    const state = sessions[tabId]
     if (!state) return
     state.viewMode = mode
   }

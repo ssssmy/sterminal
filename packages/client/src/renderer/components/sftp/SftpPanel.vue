@@ -156,7 +156,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const sftpStore = useSftpStore()
 
-const sessionState = computed(() => sftpStore.sessions.get(props.tab.id))
+const sessionState = computed(() => sftpStore.sessions[props.tab.id])
 
 // ===== 选择状态 =====
 const selectedLocalPaths = ref<string[]>([])

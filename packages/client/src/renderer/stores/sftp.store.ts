@@ -49,14 +49,15 @@ export const useSftpStore = defineStore('sftp', () => {
    */
   async function openSession(tabId: string, connectionId: string): Promise<void> {
     try {
-      const result = await invoke<{ sftpId: string }>(IPC_SFTP.OPEN, { connectionId })
+      const result = await invoke<{ sftpId: string; homePath: string }>(IPC_SFTP.OPEN, { connectionId })
       if (!result) return
 
       const localHome = (await invoke<string>(IPC_LOCAL_FS.HOME)) || '/'
+      const remoteHome = result.homePath || '/'
 
       const state: SftpTabState = {
         sftpId: result.sftpId,
-        remoteCwd: '~',
+        remoteCwd: remoteHome,
         localCwd: localHome,
         remoteFiles: [],
         localFiles: [],
@@ -71,7 +72,7 @@ export const useSftpStore = defineStore('sftp', () => {
 
       // 并行加载初始目录
       await Promise.all([
-        navigateRemote(tabId, '~'),
+        navigateRemote(tabId, remoteHome),
         navigateLocal(tabId, localHome),
       ])
     } catch (err) {

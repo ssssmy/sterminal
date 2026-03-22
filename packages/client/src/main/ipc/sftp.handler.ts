@@ -134,7 +134,7 @@ export function registerSftpHandlers(): void {
     const session = sshSessions.get(params.connectionId)
     if (!session) throw new Error(`SSH 连接 ${params.connectionId} 不存在`)
 
-    return new Promise<{ sftpId: string }>((resolve, reject) => {
+    return new Promise<{ sftpId: string; homePath: string }>((resolve, reject) => {
       session.client.sftp((err, sftp) => {
         if (err) {
           reject(err)
@@ -152,7 +152,10 @@ export function registerSftpHandlers(): void {
           sftpSessions.delete(sftpId)
         })
 
-        resolve({ sftpId })
+        // 获取远程 home 路径
+        sftp.realpath('.', (rpErr, homePath) => {
+          resolve({ sftpId, homePath: rpErr ? '/' : homePath })
+        })
       })
     })
   })

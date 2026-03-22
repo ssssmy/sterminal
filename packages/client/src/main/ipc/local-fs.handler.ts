@@ -35,7 +35,8 @@ function statsToFileInfo(name: string, filePath: string, stats: fs.Stats): SftpF
  */
 export function registerLocalFsHandlers(): void {
   // 列出本地目录内容
-  ipcMain.handle(IPC_LOCAL_FS.LIST, async (_event, dirPath: string) => {
+  ipcMain.handle(IPC_LOCAL_FS.LIST, async (_event, params: { path: string } | string) => {
+    const dirPath = typeof params === 'string' ? params : params.path
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
     const files: SftpFileInfo[] = []
 

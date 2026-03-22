@@ -437,9 +437,19 @@ const TerminalXterm = defineComponent({
       terminal.onBell(() => {
         const bell = useSettingsStoreModule().settings.get('terminal.bell') || 'none'
         if (bell === 'sound' || bell === 'both') {
-          const audio = new Audio('data:audio/wav;base64,UklGRl9vT19teleQQBGRgAAABAAAA=')
-          audio.volume = 0.3
-          audio.play().catch(() => {})
+          // 用 AudioContext 生成短蜂鸣音（440Hz, 100ms）
+          try {
+            const ctx = new AudioContext()
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain)
+            gain.connect(ctx.destination)
+            osc.frequency.value = 440
+            gain.gain.value = 0.3
+            osc.start()
+            osc.stop(ctx.currentTime + 0.1)
+            osc.onended = () => ctx.close()
+          } catch {}
         }
         if (bell === 'visual' || bell === 'both') {
           wrapperEl.style.opacity = '0.5'

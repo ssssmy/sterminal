@@ -381,6 +381,18 @@ const TerminalXterm = defineComponent({
       containerRef.value.appendChild(wrapperEl)
       fitAddon.fit()
 
+      // 右键行为：根据设置决定粘贴或显示默认菜单
+      wrapperEl.addEventListener('contextmenu', (e) => {
+        const action = useSettingsStoreModule().settings.get('terminal.rightClickAction') || 'paste'
+        if (action === 'paste') {
+          e.preventDefault()
+          navigator.clipboard.readText().then(text => {
+            if (text) terminal.paste(text)
+          })
+        }
+        // contextMenu 模式不阻止默认行为，浏览器右键菜单自然弹出
+      })
+
       // 注册到池
       const pooled: PooledTerminal = {
         wrapperEl,

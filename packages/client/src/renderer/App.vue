@@ -9,16 +9,24 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from './stores/ui.store'
 import { useSettingsStore } from './stores/settings.store'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
 
+const { locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
 
 onMounted(async () => {
   // 从数据库恢复保存的主题设置
   uiStore.restoreTheme()
+
+  // 恢复语言
+  const lang = await settingsStore.getSetting<string>('app.language')
+  if (lang && lang !== 'zh-CN') {
+    locale.value = lang
+  }
 
   // 恢复缩放
   const zoom = await settingsStore.getSetting<number>('app.zoomLevel')

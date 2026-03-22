@@ -1,0 +1,93 @@
+{
+  "app": {
+    "name": "STerminal",
+    "loading": "Loading..."
+  },
+  "nav": {
+    "hosts": "Hosts",
+    "terminals": "Terminals",
+    "snippets": "Snippets",
+    "portForwards": "Port Forwards",
+    "vault": "Vault",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "username": "Username",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginSuccess": "Login successful",
+    "registerSuccess": "Registration successful",
+    "offlineMode": "Continue offline"
+  },
+  "host": {
+    "add": "Add Host",
+    "edit": "Edit Host",
+    "delete": "Delete Host",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "address": "Address",
+    "port": "Port",
+    "username": "Username",
+    "password": "Password",
+    "authType": "Auth Type",
+    "label": "Label",
+    "group": "Group",
+    "noHosts": "No hosts yet, click + to add"
+  },
+  "terminal": {
+    "newTab": "New Tab",
+    "closeTab": "Close Tab",
+    "split": "Split",
+    "splitH": "Split Horizontal",
+    "splitV": "Split Vertical",
+    "clear": "Clear",
+    "copy": "Copy",
+    "paste": "Paste",
+    "search": "Search",
+    "local": "Local Terminal",
+    "noSession": "No active terminal session"
+  },
+  "snippet": {
+    "add": "Add Snippet",
+    "edit": "Edit Snippet",
+    "delete": "Delete Snippet",
+    "name": "Name",
+    "content": "Content",
+    "description": "Description",
+    "send": "Send"
+  },
+  "settings": {
+    "title": "Settings",
+    "account": "Account & Sync",
+    "terminal": "Terminal",
+    "appearance": "Appearance",
+    "keys": "SSH Keys",
+    "knownHosts": "Known Hosts",
+    "vault": "Vault",
+    "logs": "Logs",
+    "data": "Data Management",
+    "save": "Save",
+    "reset": "Reset",
+    "saved": "Saved"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "empty": "No data",
+    "success": "Success",
+    "error": "Error",
+    "deleteConfirm": "Are you sure? This action cannot be undone."
+  }
+}

@@ -2,13 +2,17 @@
 
 import { createI18n } from 'vue-i18n'
 import zhCN from './zh-CN.json'
+import en from './en.json'
+import zhTW from './zh-TW.json'
 
 const i18n = createI18n({
-  legacy: false,                  // 使用 Composition API 模式
-  locale: 'zh-CN',               // 默认语言
-  fallbackLocale: 'zh-CN',       // 回退语言
+  legacy: false,
+  locale: 'zh-CN',
+  fallbackLocale: 'zh-CN',
   messages: {
     'zh-CN': zhCN,
+    'en': en,
+    'zh-TW': zhTW,
   },
 })
 

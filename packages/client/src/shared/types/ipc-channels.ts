@@ -73,6 +73,12 @@ export const IPC_DB = {
   SNIPPETS_CREATE: 'db:snippets:create',
   SNIPPETS_UPDATE: 'db:snippets:update',
   SNIPPETS_DELETE: 'db:snippets:delete',
+  SNIPPETS_INCREMENT_USE: 'db:snippets:increment-use',
+  // 命令片段分组
+  SNIPPET_GROUPS_LIST: 'db:snippet-groups:list',
+  SNIPPET_GROUPS_CREATE: 'db:snippet-groups:create',
+  SNIPPET_GROUPS_UPDATE: 'db:snippet-groups:update',
+  SNIPPET_GROUPS_DELETE: 'db:snippet-groups:delete',
   // 端口转发
   PORT_FORWARDS_LIST: 'db:port-forwards:list',
   PORT_FORWARDS_CREATE: 'db:port-forwards:create',
@@ -141,6 +147,15 @@ export const IPC_KEY = {
   AGENT_UNLOAD: 'key:agent-unload',
 } as const
 
+// ===== 端口转发隧道 =====
+export const IPC_PORT_FORWARD = {
+  START: 'port-forward:start',
+  STOP: 'port-forward:stop',
+  STOP_ALL: 'port-forward:stop-all',
+  STATUS: 'port-forward:status',
+  LIST_ACTIVE: 'port-forward:list-active',
+} as const
+
 // ===== 同步 =====
 export const IPC_SYNC = {
   START: 'sync:start',
@@ -182,4 +197,5 @@ export const IPC_WINDOW = {
   NEW: 'window:new',
   MERGE: 'window:merge',
   SET_TITLE_BAR_OVERLAY: 'window:set-title-bar-overlay',
+  SET_ZOOM: 'window:set-zoom',
 } as const

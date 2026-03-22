@@ -7,7 +7,8 @@ import { initDatabase, closeDatabase, dbGet, dbRun } from './services/db'
 import { registerAllHandlers } from './ipc/index'
 import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
-import { stopAllRecordings } from './services/session-recorder'
+import { stopAllRecordings, autoCleanRecordings } from './services/session-recorder'
+import { stopAllTunnels } from './ipc/port-forward.handler'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -129,6 +130,9 @@ app.whenReady().then(() => {
   // 2. 注册所有 IPC handlers
   registerAllHandlers()
 
+  // 启动时自动清理过期录制文件
+  autoCleanRecordings()
+
   // Windows: 监听主题变更，更新标题栏覆盖层颜色
   if (process.platform === 'win32') {
     ipcMain.handle(IPC_WINDOW.SET_TITLE_BAR_OVERLAY, (_event, overlay: { color: string; symbolColor: string }) => {
@@ -140,6 +144,13 @@ app.whenReady().then(() => {
       }
     })
   }
+
+  // 界面缩放
+  ipcMain.handle(IPC_WINDOW.SET_ZOOM, (_event, level: number) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.setZoomFactor(level)
+    }
+  })
 
   // 3. 创建主窗口
   createWindow()
@@ -163,6 +174,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   saveWindowBounds()
   stopAllRecordings()
+  stopAllTunnels()
   killAllPty()
   disconnectAllSsh()
   closeDatabase()

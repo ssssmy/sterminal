@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 // 暴露给渲染进程的 electronAPI
 const electronAPI = {
   platform: process.platform as 'darwin' | 'win32' | 'linux',
+  homePath: process.env.HOME || process.env.USERPROFILE || '',
 
   ipc: {
     /**

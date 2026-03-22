@@ -46,7 +46,7 @@
         <span v-else class="terminal-tabs__label">{{ tab.label }}</span>
 
         <!-- 录制指示器 -->
-        <span v-if="isTabRecording(tab)" class="terminal-tabs__rec-dot" title="录制中" />
+        <span v-if="isTabRecording(tab)" class="terminal-tabs__rec-dot" :title="t('terminalTabs.recording')" />
 
         <!-- 固定图标 -->
         <el-icon v-if="tab.pinned" :size="11" class="terminal-tabs__pin">
@@ -83,12 +83,14 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted, watch, type Component } from 'vue'
 import { Star, Close, Plus, ArrowLeft, ArrowRight, Monitor, Connection } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import type { TabSession } from '@shared/types/terminal'
 import IconMacOS from '../icons/IconMacOS.vue'
 import IconWindows from '../icons/IconWindows.vue'
 import IconLinux from '../icons/IconLinux.vue'
 
+const { t } = useI18n()
 const sessionsStore = useSessionsStore()
 
 // ===== 滚动状态 =====

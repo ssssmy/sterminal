@@ -6,6 +6,7 @@ import { registerPtyHandlers } from './pty.handler'
 import { registerSshHandlers } from './ssh.handler'
 import { registerSystemHandlers } from './system.handler'
 import { registerLogHandlers } from './log.handler'
+import { registerPortForwardHandlers } from './port-forward.handler'
 
 /**
  * 注册所有 IPC handlers
@@ -17,5 +18,6 @@ export function registerAllHandlers(): void {
   registerSshHandlers()
   registerSystemHandlers()
   registerLogHandlers()
+  registerPortForwardHandlers()
   console.log('[IPC] 所有 handlers 注册完成')
 }

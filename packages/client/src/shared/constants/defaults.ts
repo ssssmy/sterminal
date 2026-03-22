@@ -81,7 +81,7 @@ export const DEFAULT_SETTINGS: Record<string, string | number | boolean> = {
 
   // === 日志 ===
   'log.autoRecord':              false,
-  'log.format':                  'text',
+  'log.format':                  'asciicast',
   'log.directory':               '',
   'log.fileNameTemplate':        '{host}_{datetime}.log',
   'log.maxFileSize':             52428800,

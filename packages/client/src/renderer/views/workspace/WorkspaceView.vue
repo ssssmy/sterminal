@@ -24,8 +24,8 @@
         <!-- 无会话时显示欢迎页 -->
         <div v-if="sessionsStore.tabs.length === 0" class="workspace__empty">
           <div class="workspace__empty-inner">
-            <p class="workspace__empty-hint">按 Ctrl+T 新建本地终端</p>
-            <p class="workspace__empty-hint">或从左侧选择主机连接</p>
+            <p class="workspace__empty-hint">{{ t('workspace.emptyHint1') }}</p>
+            <p class="workspace__empty-hint">{{ t('workspace.emptyHint2') }}</p>
           </div>
         </div>
 
@@ -54,17 +54,36 @@
     <HostConfigDialog v-if="uiStore.showHostConfigDialog" />
     <!-- 终端配置对话框 -->
     <TerminalConfigDialog v-if="uiStore.showTerminalConfigDialog" />
+    <!-- 片段编辑对话框 -->
+    <SnippetEditDialog v-if="uiStore.showSnippetEditDialog" />
+    <!-- 端口转发对话框 -->
+    <PortForwardDialog v-if="uiStore.showPortForwardDialog" />
+    <!-- 片段变量填写对话框 -->
+    <SnippetVariableDialog
+      v-if="uiStore.executingSnippet"
+      v-model="uiStore.showSnippetVariableDialog"
+      :snippet-name="uiStore.executingSnippet.name"
+      :snippet-content="uiStore.executingSnippet.content"
+      :variables="executingSnippetVars"
+      @confirm="handleSnippetVarConfirm"
+      @cancel="uiStore.closeSnippetVariableDialog()"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 defineOptions({ name: 'WorkspaceView' })
 
-import { defineAsyncComponent, onMounted, onBeforeUnmount } from 'vue'
+import { defineAsyncComponent, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
+import { useSnippetsStore } from '../../stores/snippets.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
+import { parseVariables } from '@shared/utils/snippet-variables'
+import { sendCommandToTerminal } from '../../components/terminal/TerminalPane.vue'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
 import AppToolbar from '../../components/toolbar/AppToolbar.vue'
 import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
@@ -74,11 +93,17 @@ const CommandPalette = defineAsyncComponent(() => import('../../components/commo
 const HostConfigDialog = defineAsyncComponent(() => import('../../components/host/HostConfigDialog.vue'))
 const TerminalConfigDialog = defineAsyncComponent(() => import('../../components/terminal/TerminalConfigDialog.vue'))
 const TerminalSearchBar = defineAsyncComponent(() => import('../../components/terminal/TerminalSearchBar.vue'))
+const SnippetEditDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetEditDialog.vue'))
+const PortForwardDialog = defineAsyncComponent(() => import('../../components/port-forward/PortForwardDialog.vue'))
+const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
 
+const { t } = useI18n()
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
 const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
+const snippetsStore = useSnippetsStore()
+const portForwardsStore = usePortForwardsStore()
 
 // ===== 工具栏事件处理 =====
 function handleSftp(): void {
@@ -123,6 +148,23 @@ function handleFullscreen(): void {
   }
 }
 
+// ===== 片段变量执行 =====
+const executingSnippetVars = computed(() => {
+  const snippet = uiStore.executingSnippet
+  if (!snippet) return []
+  return parseVariables(snippet.content)
+})
+
+function handleSnippetVarConfirm(command: string): void {
+  const terminalIds = sessionsStore.getActiveTabTerminalIds()
+  if (terminalIds.length === 0) return
+  sendCommandToTerminal(terminalIds[0], command)
+  if (uiStore.executingSnippet) {
+    snippetsStore.incrementUseCount(uiStore.executingSnippet.id)
+  }
+  uiStore.closeSnippetVariableDialog()
+}
+
 // ===== 键盘快捷键处理 =====
 function handleKeydown(e: KeyboardEvent): void {
   // Ctrl+T: 新建标签页
@@ -154,6 +196,8 @@ onMounted(() => {
     hostsStore.fetchGroups(),
     terminalsStore.fetchTerminals(),
     terminalsStore.fetchGroups(),
+    snippetsStore.init(),
+    portForwardsStore.init(),
   ])
 
   window.addEventListener('keydown', handleKeydown)

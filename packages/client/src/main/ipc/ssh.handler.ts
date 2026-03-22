@@ -2,18 +2,25 @@
 // 使用 ssh2 库管理 SSH 连接生命周期
 
 import { ipcMain, WebContents } from 'electron'
+import crypto from 'crypto'
 import { Client, ClientChannel } from 'ssh2'
 import { IPC_SSH } from '../../shared/types/ipc-channels'
 import type { Host } from '../../shared/types/host'
-import { recordData } from '../services/session-recorder'
+import { recordData, shouldAutoRecord, startRecording } from '../services/session-recorder'
+import { dbGet, dbRun, dbAll } from '../services/db'
+import { v4 as uuidv4 } from 'uuid'
 
-interface SshSession {
+// 待用户确认的主机密钥请求
+const pendingHostVerify = new Map<string, { resolve: (accept: boolean) => void }>()
+
+export interface SshSession {
   client: Client
   stream: ClientChannel | null
   webContents: WebContents
+  hostId: string
 }
 
-const sshSessions = new Map<string, SshSession>()
+export const sshSessions = new Map<string, SshSession>()
 
 /**
  * 注册所有 SSH 相关的 IPC handlers
@@ -67,11 +74,12 @@ export function registerSshHandlers(): void {
         client: conn,
         stream: null,
         webContents,
+        hostId: params.hostId,
       }
       sshSessions.set(connectionId, session)
 
       conn.on('ready', () => {
-        webContents.send(IPC_SSH.STATUS, { connectionId, status: 'connected' })
+        webContents.send(IPC_SSH.STATUS, { connectionId, hostId: params.hostId, status: 'connected' })
 
         conn.shell({ term: 'xterm-256color', cols, rows }, (err, stream) => {
           if (err) {
@@ -109,6 +117,17 @@ export function registerSshHandlers(): void {
           })
 
           if (!settled) { settled = true; resolve({ connectionId }) }
+
+          // 自动录制
+          if (shouldAutoRecord()) {
+            startRecording({
+              terminalKey: connectionId,
+              cols,
+              rows,
+              label: hostConfig.label || hostConfig.address,
+              hostId: params.hostId,
+            })
+          }
 
           // 检测远端操作系统（带超时，不影响主连接）
           conn.exec('uname', (execErr, execStream) => {
@@ -192,6 +211,61 @@ export function registerSshHandlers(): void {
           connectConfig.password = hostConfig.password || ''
       }
 
+      // 主机密钥验证（ssh2 的 hostVerifier 签名: (key, verify) => void）
+      connectConfig.hostVerifier = (key: Buffer, verify: (accept: boolean) => void) => {
+        const fingerprint = crypto.createHash('sha256').update(key).digest('base64')
+        const keyType = 'ssh-key'
+        const host = hostConfig.address
+        const port = hostConfig.port || 22
+
+        // 查询已知主机
+        const known = dbGet<{ fingerprint: string; id: string }>(
+          'SELECT id, fingerprint FROM known_hosts WHERE host = ? AND port = ? AND key_type = ?',
+          [host, port, keyType]
+        )
+
+        if (known) {
+          if (known.fingerprint === fingerprint) {
+            dbRun('UPDATE known_hosts SET last_seen = datetime(\'now\') WHERE id = ?', [known.id])
+            return verify(true)
+          }
+          // 指纹变更 → 弹窗确认
+          const verifyId = uuidv4()
+          webContents.send(IPC_SSH.HOST_VERIFY, {
+            verifyId, host, port, keyType,
+            fingerprint: `SHA256:${fingerprint}`,
+            oldFingerprint: `SHA256:${known.fingerprint}`,
+            type: 'changed',
+          })
+          pendingHostVerify.set(verifyId, { resolve: (accept) => {
+            if (accept) {
+              dbRun('UPDATE known_hosts SET fingerprint = ?, public_key = ?, last_seen = datetime(\'now\') WHERE id = ?',
+                [fingerprint, key.toString('base64'), known.id])
+            }
+            verify(accept)
+          }})
+          return undefined
+        }
+
+        // 首次连接 → 始终弹窗确认（无论 strictHostKey 设置）
+        const verifyId = uuidv4()
+        webContents.send(IPC_SSH.HOST_VERIFY, {
+          verifyId, host, port, keyType,
+          fingerprint: `SHA256:${fingerprint}`,
+          type: 'new',
+        })
+        pendingHostVerify.set(verifyId, { resolve: (accept) => {
+          if (accept) {
+            dbRun(
+              'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
+              [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
+            )
+          }
+          verify(accept)
+        }})
+        return undefined
+      }
+
       conn.connect(connectConfig)
     })
   })
@@ -224,6 +298,26 @@ export function registerSshHandlers(): void {
     const session = sshSessions.get(params.connectionId)
     if (!session?.stream) return
     session.stream.setWindow(params.rows, params.cols, 0, 0)
+  })
+
+  // 用户响应主机密钥验证
+  ipcMain.handle('ssh:host-verify-response', (_event, params: { verifyId: string; accept: boolean }) => {
+    const pending = pendingHostVerify.get(params.verifyId)
+    if (pending) {
+      pendingHostVerify.delete(params.verifyId)
+      pending.resolve(params.accept)
+    }
+  })
+
+  // 已知主机列表
+  ipcMain.handle('db:known-hosts:list', () => {
+    return dbAll('SELECT * FROM known_hosts ORDER BY last_seen DESC')
+  })
+
+  // 删除已知主机
+  ipcMain.handle('db:known-hosts:delete', (_event, id: string) => {
+    dbRun('DELETE FROM known_hosts WHERE id = ?', [id])
+    return true
   })
 }
 

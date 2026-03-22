@@ -12,9 +12,9 @@
           class="settings-layout__back"
           @click="router.push('/')"
         >
-          返回
+          {{ t('settings.back') }}
         </el-button>
-        <h2 class="settings-layout__title">设置</h2>
+        <h2 class="settings-layout__title">{{ t('settings.title') }}</h2>
       </div>
 
       <el-menu
@@ -24,35 +24,35 @@
       >
         <el-menu-item index="account">
           <el-icon><User /></el-icon>
-          <span>账号与同步</span>
+          <span>{{ t('settings.account') }}</span>
         </el-menu-item>
         <el-menu-item index="terminal">
           <el-icon><Monitor /></el-icon>
-          <span>终端</span>
+          <span>{{ t('settings.terminal') }}</span>
         </el-menu-item>
         <el-menu-item index="appearance">
           <el-icon><Brush /></el-icon>
-          <span>外观</span>
+          <span>{{ t('settings.appearance') }}</span>
         </el-menu-item>
         <el-menu-item index="keys">
           <el-icon><Key /></el-icon>
-          <span>SSH 密钥</span>
+          <span>{{ t('settings.keys') }}</span>
         </el-menu-item>
         <el-menu-item index="known-hosts">
           <el-icon><Connection /></el-icon>
-          <span>已知主机</span>
+          <span>{{ t('settings.knownHosts') }}</span>
         </el-menu-item>
         <el-menu-item index="vault">
           <el-icon><Lock /></el-icon>
-          <span>密钥库</span>
+          <span>{{ t('settings.vault') }}</span>
         </el-menu-item>
         <el-menu-item index="logs">
           <el-icon><Document /></el-icon>
-          <span>日志</span>
+          <span>{{ t('settings.logs') }}</span>
         </el-menu-item>
         <el-menu-item index="data">
           <el-icon><DataAnalysis /></el-icon>
-          <span>数据管理</span>
+          <span>{{ t('settings.data') }}</span>
         </el-menu-item>
       </el-menu>
     </nav>
@@ -65,8 +65,10 @@
           <AccountSettings v-if="activeSection === 'account'" />
           <TerminalSettings v-else-if="activeSection === 'terminal'" />
           <AppearanceSettings v-else-if="activeSection === 'appearance'" />
+          <LogSettings v-else-if="activeSection === 'logs'" />
+          <KnownHostsSettings v-else-if="activeSection === 'known-hosts'" />
           <div v-else class="settings-layout__placeholder">
-            <el-empty description="功能开发中" />
+            <el-empty :description="t('settings.underDevelopment')" />
           </div>
         </KeepAlive>
       </div>
@@ -77,14 +79,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   ArrowLeft, User, Monitor, Brush, Key, Connection, Lock, Document, DataAnalysis
 } from '@element-plus/icons-vue'
 import AccountSettings from './AccountSettings.vue'
 import TerminalSettings from './TerminalSettings.vue'
 import AppearanceSettings from './AppearanceSettings.vue'
+import LogSettings from './LogSettings.vue'
+import KnownHostsSettings from './KnownHostsSettings.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 const isMacOS = window.electronAPI?.platform === 'darwin'
 const activeSection = ref('account')
 

@@ -14,6 +14,8 @@ import { SearchAddon } from '@xterm/addon-search'
 import { IPC_PTY, IPC_SSH, IPC_LOG } from '@shared/types/ipc-channels'
 import { useSessionsStore } from '@/stores/sessions.store'
 import { useUiStore } from '@/stores/ui.store'
+import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
+import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { nextTick } from 'vue'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
@@ -99,6 +101,20 @@ export function terminalClearSearch(terminalIds: string[]): void {
   for (const id of terminalIds) {
     const pooled = terminalPool.get(id)
     pooled?.searchAddon.clearDecorations()
+  }
+}
+
+/**
+ * 向指定终端发送命令（用 \r 发送）
+ */
+export function sendCommandToTerminal(terminalId: string, command: string): void {
+  const pooled = terminalPool.get(terminalId)
+  if (!pooled) return
+  const data = command + '\r'
+  if (pooled.isSSH && pooled.sshConnectionId) {
+    ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
+  } else if (pooled.ptyId) {
+    ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
   }
 }
 
@@ -222,13 +238,19 @@ function getXtermTheme(): typeof XTERM_THEME_DARK {
   return getResolvedTheme() === 'light' ? XTERM_THEME_LIGHT : XTERM_THEME_DARK
 }
 
-const XTERM_BASE_OPTIONS = {
-  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
-  fontSize: 14,
-  lineHeight: 1.2,
-  cursorBlink: true,
-  cursorStyle: 'block' as const,
-  allowProposedApi: true,
+function getXtermBaseOptions() {
+  const s = useSettingsStoreModule().settings
+  return {
+    fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
+    fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
+    lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
+    fontLigatures: (s.get('terminal.fontLigatures') ?? DEFAULT_SETTINGS['terminal.fontLigatures']) as boolean,
+    cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
+    cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
+    scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
+    scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
+    allowProposedApi: true,
+  }
 }
 
 // 监听系统主题切换（模块级，只注册一次）
@@ -278,6 +300,34 @@ watch(
 // 注册系统主题监听（模块级，仅首次生效）
 registerSystemThemeListener()
 
+// 监听终端设置变化，实时更新所有终端
+const settingsStore = useSettingsStoreModule()
+const terminalSettingKeys = [
+  'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
+  'terminal.cursorStyle', 'terminal.cursorBlink',
+  'terminal.scrollback', 'terminal.scrollSensitivity',
+]
+watch(
+  () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
+  () => {
+    const s = settingsStore.settings
+    const opts = {
+      fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
+      fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
+      lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
+      cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
+      cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
+      scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
+      scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
+    }
+    for (const pooled of terminalPool.values()) {
+      Object.assign(pooled.terminal.options, opts)
+      pooled.fitAddon.fit()
+    }
+  },
+  { deep: true },
+)
+
 // ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
   name: 'TerminalXterm',
@@ -321,7 +371,7 @@ const TerminalXterm = defineComponent({
       const wrapperEl = document.createElement('div')
       wrapperEl.className = 'terminal-xterm'
 
-      const terminal = new Terminal({ ...XTERM_BASE_OPTIONS, theme: getXtermTheme() })
+      const terminal = new Terminal({ ...getXtermBaseOptions(), theme: getXtermTheme() })
       const fitAddon = new FitAddon()
       const searchAddon = new SearchAddon()
       terminal.loadAddon(fitAddon)
@@ -331,6 +381,17 @@ const TerminalXterm = defineComponent({
       terminal.open(wrapperEl)
       containerRef.value.appendChild(wrapperEl)
       fitAddon.fit()
+
+      // 右键粘贴
+      wrapperEl.addEventListener('contextmenu', (e) => {
+        const action = useSettingsStoreModule().settings.get('terminal.rightClickAction') || 'paste'
+        if (action === 'paste') {
+          e.preventDefault()
+          navigator.clipboard.readText().then(text => {
+            if (text) terminal.paste(text)
+          })
+        }
+      })
 
       // 注册到池
       const pooled: PooledTerminal = {
@@ -345,6 +406,67 @@ const TerminalXterm = defineComponent({
         dirtyWhileHidden: false,
       }
       terminalPool.set(xtermProps.terminalId, pooled)
+
+      // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
+      terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
+          const s = useSettingsStoreModule().settings
+          const trimNewlines = s.get('terminal.trimPasteNewlines') ?? DEFAULT_SETTINGS['terminal.trimPasteNewlines']
+          const pasteWarning = s.get('terminal.pasteWarning') ?? DEFAULT_SETTINGS['terminal.pasteWarning']
+
+          // 没有启用任何粘贴处理，让 xterm 自己处理
+          if (!trimNewlines && !pasteWarning) return true
+
+          e.preventDefault()
+          navigator.clipboard.readText().then(text => {
+            if (!text) return
+
+            let processed = text
+            if (trimNewlines) {
+              processed = processed.replace(/[\r\n]+$/, '')
+            }
+
+            if (pasteWarning && processed.includes('\n')) {
+              const preview = processed.length > 100 ? processed.substring(0, 100) + '...' : processed
+              if (!confirm(`粘贴内容包含换行符，确定执行？\n\n${preview}`)) return
+            }
+
+            terminal.paste(processed)
+          })
+          return false
+        }
+        return true
+      })
+
+      // 响铃处理
+      terminal.onBell(() => {
+        const bell = useSettingsStoreModule().settings.get('terminal.bell') || 'none'
+        if (bell === 'sound' || bell === 'both') {
+          // 用 AudioContext 生成短蜂鸣音（440Hz, 100ms）
+          try {
+            const ctx = new AudioContext()
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain)
+            gain.connect(ctx.destination)
+            osc.frequency.value = 440
+            gain.gain.value = 0.3
+            osc.start()
+            osc.stop(ctx.currentTime + 0.1)
+            osc.onended = () => ctx.close()
+          } catch {}
+        }
+        if (bell === 'visual' || bell === 'both') {
+          wrapperEl.style.opacity = '0.5'
+          setTimeout(() => { wrapperEl.style.opacity = '1' }, 150)
+        }
+      })
+
+      // 焦点跟随鼠标
+      wrapperEl.addEventListener('mouseenter', () => {
+        const followMouse = useSettingsStoreModule().settings.get('terminal.focusFollowMouse')
+        if (followMouse) terminal.focus()
+      })
 
       // 注册 IPC 监听的辅助函数（自动记录以便清理）
       function trackOn(channel: string, callback: (data: unknown) => void): void {
@@ -426,6 +548,9 @@ const TerminalXterm = defineComponent({
             if (instance) {
               instance.sshConnectionId = result.connectionId
               instance.sshStatus = 'connected'
+              // 检查主进程是否已自动开始录制
+              const isRec = await ipcInvoke<boolean>(IPC_LOG.IS_RECORDING, { terminalKey: result.connectionId })
+              if (isRec) instance.recording = true
             }
             if (hostConfig.startupCommand) {
               sshPendingStartupCmd = hostConfig.startupCommand
@@ -463,7 +588,12 @@ const TerminalXterm = defineComponent({
         const result = await ipcInvoke<{ ptyId: string }>(IPC_PTY.SPAWN, spawnParams)
         if (result?.ptyId) {
           pooled.ptyId = result.ptyId
-          if (instance) instance.ptyId = result.ptyId
+          if (instance) {
+            instance.ptyId = result.ptyId
+            // 检查主进程是否已自动开始录制
+            const isRec = await ipcInvoke<boolean>(IPC_LOG.IS_RECORDING, { terminalKey: result.ptyId })
+            if (isRec) instance.recording = true
+          }
         }
 
         const ptyDataCallback = (payload: unknown) => {
@@ -788,3 +918,4 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   }
 }
 </style>
+

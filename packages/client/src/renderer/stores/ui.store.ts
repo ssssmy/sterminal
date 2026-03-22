@@ -4,6 +4,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { useSettingsStore } from './settings.store'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
+import type { Snippet } from '@shared/types/snippet'
 
 export type AppTheme = 'light' | 'dark' | 'system'
 export type SidebarPanel = 'hosts' | 'terminals' | 'snippets' | 'portForwards' | 'vault'
@@ -20,6 +21,8 @@ export const useUiStore = defineStore('ui', () => {
   const showTerminalConfigDialog = ref(false)
   const editingTerminalId = ref<string | null>(null)
   const showTerminalSearch = ref(false)
+  const showSnippetEditDialog = ref(false)
+  const editingSnippetId = ref<string | null>(null)
 
   // ===== 主题操作 =====
 
@@ -120,6 +123,46 @@ export const useUiStore = defineStore('ui', () => {
     editingTerminalId.value = null
   }
 
+  // ===== 片段编辑对话框 =====
+
+  function openSnippetEditDialog(snippetId?: string): void {
+    editingSnippetId.value = snippetId || null
+    showSnippetEditDialog.value = true
+  }
+
+  function closeSnippetEditDialog(): void {
+    showSnippetEditDialog.value = false
+    editingSnippetId.value = null
+  }
+
+  // ===== 片段变量对话框 =====
+  const showSnippetVariableDialog = ref(false)
+  const executingSnippet = ref<Snippet | null>(null)
+
+  function openSnippetVariableDialog(snippet: Snippet): void {
+    executingSnippet.value = snippet
+    showSnippetVariableDialog.value = true
+  }
+
+  function closeSnippetVariableDialog(): void {
+    showSnippetVariableDialog.value = false
+    executingSnippet.value = null
+  }
+
+  // ===== 端口转发对话框 =====
+  const showPortForwardDialog = ref(false)
+  const editingPortForwardId = ref<string | null>(null)
+
+  function openPortForwardDialog(portForwardId?: string): void {
+    editingPortForwardId.value = portForwardId || null
+    showPortForwardDialog.value = true
+  }
+
+  function closePortForwardDialog(): void {
+    showPortForwardDialog.value = false
+    editingPortForwardId.value = null
+  }
+
   return {
     sidebarWidth,
     sidebarCollapsed,
@@ -130,6 +173,8 @@ export const useUiStore = defineStore('ui', () => {
     editingHostId,
     showTerminalConfigDialog,
     editingTerminalId,
+    showSnippetEditDialog,
+    editingSnippetId,
     setTheme,
     restoreTheme,
     toggleSidebar,
@@ -142,5 +187,15 @@ export const useUiStore = defineStore('ui', () => {
     showTerminalSearch,
     openTerminalConfigDialog,
     closeTerminalConfigDialog,
+    openSnippetEditDialog,
+    closeSnippetEditDialog,
+    showSnippetVariableDialog,
+    executingSnippet,
+    openSnippetVariableDialog,
+    closeSnippetVariableDialog,
+    showPortForwardDialog,
+    editingPortForwardId,
+    openPortForwardDialog,
+    closePortForwardDialog,
   }
 })

@@ -12,9 +12,9 @@
           </svg>
         </div>
         <!-- 页面标题 -->
-        <span class="register-card__title">创建账户</span>
+        <span class="register-card__title">{{ t('registerView.title') }}</span>
         <!-- 副标题 -->
-        <span class="register-card__subtitle">注册即可免费使用所有功能</span>
+        <span class="register-card__subtitle">{{ t('registerView.subtitle') }}</span>
       </div>
 
       <!-- 注册表单 -->
@@ -27,10 +27,10 @@
       >
         <!-- 用户名 -->
         <el-form-item prop="username">
-          <label class="field-label">用户名</label>
+          <label class="field-label">{{ t('registerView.usernameLabel') }}</label>
           <el-input
             v-model="form.username"
-            placeholder="3-32 个字符"
+            :placeholder="t('registerView.usernamePlaceholder')"
             :prefix-icon="User"
             autocomplete="username"
           />
@@ -38,10 +38,10 @@
 
         <!-- 邮箱地址 -->
         <el-form-item prop="email">
-          <label class="field-label">邮箱地址</label>
+          <label class="field-label">{{ t('registerView.emailLabel') }}</label>
           <el-input
             v-model="form.email"
-            placeholder="请输入邮箱地址"
+            :placeholder="t('registerView.emailPlaceholder')"
             :prefix-icon="Message"
             autocomplete="email"
           />
@@ -49,11 +49,11 @@
 
         <!-- 密码 -->
         <el-form-item prop="password">
-          <label class="field-label">密码</label>
+          <label class="field-label">{{ t('registerView.passwordLabel') }}</label>
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="至少 8 位，含大小写字母和数字"
+            :placeholder="t('registerView.passwordPlaceholder')"
             :prefix-icon="Lock"
             show-password
             autocomplete="new-password"
@@ -77,11 +77,11 @@
 
         <!-- 确认密码 -->
         <el-form-item prop="confirmPassword">
-          <label class="field-label">确认密码</label>
+          <label class="field-label">{{ t('registerView.confirmPasswordLabel') }}</label>
           <el-input
             v-model="form.confirmPassword"
             type="password"
-            placeholder="再次输入密码"
+            :placeholder="t('registerView.confirmPasswordPlaceholder')"
             :prefix-icon="Lock"
             show-password
             autocomplete="new-password"
@@ -95,12 +95,12 @@
           class="register-card__submit"
           native-type="submit"
         >
-          注册
+          {{ t('registerView.registerBtn') }}
         </el-button>
 
         <!-- "或" 分割线 -->
         <div class="register-card__divider">
-          <span>或</span>
+          <span>{{ t('registerView.or') }}</span>
         </div>
 
         <!-- OAuth 按钮行 -->
@@ -131,8 +131,8 @@
 
       <!-- 底部：登录入口 -->
       <div class="register-card__footer">
-        <span class="footer-text">已有账户？</span>
-        <router-link to="/login" class="footer-link">立即登录</router-link>
+        <span class="footer-text">{{ t('registerView.hasAccount') }}</span>
+        <router-link to="/login" class="footer-link">{{ t('registerView.loginLink') }}</router-link>
       </div>
     </div>
   </div>
@@ -144,7 +144,10 @@ import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { User, Message, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth.store'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -167,7 +170,7 @@ const form = reactive({
 
 // 密码强度文字标签
 const passwordStrengthLabel = computed(() => {
-  const labels: Record<number, string> = { 0: '', 1: '弱', 2: '中', 3: '强' }
+  const labels: Record<number, string> = { 0: '', 1: t('registerView.strengthWeak'), 2: t('registerView.strengthMedium'), 3: t('registerView.strengthStrong') }
   return labels[passwordStrength.value]
 })
 
@@ -214,9 +217,9 @@ const validateConfirmPassword = (
   callback: (error?: Error) => void
 ): void => {
   if (!value) {
-    callback(new Error('请确认密码'))
+    callback(new Error(t('registerView.validConfirmRequired')))
   } else if (value !== form.password) {
-    callback(new Error('两次输入的密码不一致'))
+    callback(new Error(t('registerView.validConfirmMatch')))
   } else {
     callback()
   }
@@ -229,23 +232,23 @@ const validatePassword = (
   callback: (error?: Error) => void
 ): void => {
   if (!value) {
-    callback(new Error('请输入密码'))
+    callback(new Error(t('registerView.validPasswordRequired')))
     return
   }
   if (value.length < 8) {
-    callback(new Error('密码至少 8 位'))
+    callback(new Error(t('registerView.validPasswordLength')))
     return
   }
   if (!/[a-z]/.test(value)) {
-    callback(new Error('密码需包含小写字母'))
+    callback(new Error(t('registerView.validPasswordLower')))
     return
   }
   if (!/[A-Z]/.test(value)) {
-    callback(new Error('密码需包含大写字母'))
+    callback(new Error(t('registerView.validPasswordUpper')))
     return
   }
   if (!/[0-9]/.test(value)) {
-    callback(new Error('密码需包含数字'))
+    callback(new Error(t('registerView.validPasswordNumber')))
     return
   }
   callback()
@@ -254,17 +257,17 @@ const validatePassword = (
 // 表单验证规则
 const rules: FormRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 32, message: '用户名需 3-32 个字符', trigger: ['blur', 'change'] },
+    { required: true, message: t('registerView.validUsernameRequired'), trigger: 'blur' },
+    { min: 3, max: 32, message: t('registerView.validUsernameLength'), trigger: ['blur', 'change'] },
     {
       pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
-      message: '用户名只能包含字母、数字、下划线或中文',
+      message: t('registerView.validUsernamePattern'),
       trigger: 'blur',
     },
   ],
   email: [
-    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] },
+    { required: true, message: t('registerView.validEmailRequired'), trigger: 'blur' },
+    { type: 'email', message: t('registerView.validEmailFormat'), trigger: ['blur', 'change'] },
   ],
   password: [
     { required: true, validator: validatePassword, trigger: 'blur' },
@@ -282,10 +285,10 @@ async function handleRegister(): Promise<void> {
   loading.value = true
   try {
     await authStore.register(form.username, form.email, form.password)
-    ElMessage.success('注册成功，请验证邮箱后登录')
+    ElMessage.success(t('registerView.registerSuccess'))
     router.push('/login')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '注册失败，请重试')
+    ElMessage.error(error instanceof Error ? error.message : t('registerView.registerFailed'))
   } finally {
     loading.value = false
   }
@@ -293,7 +296,7 @@ async function handleRegister(): Promise<void> {
 
 // OAuth 注册占位处理
 function handleOAuth(provider: 'github' | 'google'): void {
-  ElMessage.info(`${provider === 'github' ? 'GitHub' : 'Google'} 登录功能即将上线`)
+  ElMessage.info(t('registerView.oauthTip', { provider: provider === 'github' ? 'GitHub' : 'Google' }))
 }
 </script>
 

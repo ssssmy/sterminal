@@ -14,17 +14,17 @@
         <div class="app-sidebar__avatar">
           <span class="app-sidebar__avatar-text">{{ userInitial }}</span>
         </div>
-        <span class="app-sidebar__username">{{ authStore.user?.username || '本地用户' }}</span>
+        <span class="app-sidebar__username">{{ authStore.user?.username || t('sidebar.localUser') }}</span>
       </div>
       <div class="app-sidebar__header-right">
         <!-- 同步状态图标 -->
-        <el-tooltip content="同步状态" placement="bottom">
+        <el-tooltip :content="t('sidebar.syncStatus')" placement="bottom">
           <button class="app-sidebar__icon-btn" @click="handleSync">
             <el-icon :size="15"><Refresh /></el-icon>
           </button>
         </el-tooltip>
         <!-- 设置入口 -->
-        <el-tooltip content="设置" placement="bottom" :disabled="settingsTooltipDisabled">
+        <el-tooltip :content="t('sidebar.settings')" placement="bottom" :disabled="settingsTooltipDisabled">
           <button class="app-sidebar__icon-btn" @click="goToSettings">
             <el-icon :size="15"><Setting /></el-icon>
           </button>
@@ -39,7 +39,7 @@
         <input
           v-model="searchQuery"
           class="app-sidebar__search-input"
-          placeholder="搜索主机和终端…"
+          :placeholder="t('sidebar.searchPlaceholder')"
           @input="handleSearch"
         />
       </div>
@@ -53,13 +53,13 @@
         <!-- 区域标题 -->
         <div class="app-sidebar__collapse-row" @click="toggleCollapse('hosts')">
           <el-icon :size="13" class="app-sidebar__section-icon"><Monitor /></el-icon>
-          <span class="app-sidebar__collapse-label">主机</span>
-          <el-tooltip content="新建分组" placement="top">
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.hosts') }}</span>
+          <el-tooltip :content="t('sidebar.addGroup')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="handleAddGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
-          <el-tooltip content="新增主机" placement="top">
+          <el-tooltip :content="t('sidebar.addHost')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="uiStore.openHostConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
@@ -101,8 +101,8 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除分组</el-dropdown-item>
+                  <el-dropdown-item command="rename">{{ t('sidebar.groupRename') }}</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.groupDelete') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -144,11 +144,11 @@
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
-                    <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">{{ t('sidebar.hostConnect') }}</el-dropdown-item>
+                    <el-dropdown-item v-else command="connect">{{ t('sidebar.hostNewConnect') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit">{{ t('sidebar.hostEdit') }}</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">{{ t('sidebar.hostDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.hostDelete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -191,11 +191,11 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
-                <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
-                <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">{{ t('sidebar.hostConnect') }}</el-dropdown-item>
+                <el-dropdown-item v-else command="connect">{{ t('sidebar.hostNewConnect') }}</el-dropdown-item>
+                <el-dropdown-item command="edit">{{ t('sidebar.hostEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.hostDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.hostDelete') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -209,12 +209,12 @@
             @dragleave="dragOverUngrouped = false"
             @drop.prevent.stop="onDropToUngrouped"
           >
-            拖放到此处移为未分组
+            {{ t('sidebar.dragToUngrouped') }}
           </div>
 
           <!-- 空状态 -->
           <div v-if="!draggedHostId && filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty">
-            暂无主机
+            {{ t('sidebar.noHosts') }}
           </div>
         </div>
       </div>
@@ -224,13 +224,13 @@
         <!-- 区域标题 -->
         <div class="app-sidebar__collapse-row" @click="toggleCollapse('terminals')">
           <el-icon :size="13" class="app-sidebar__section-icon"><Cpu /></el-icon>
-          <span class="app-sidebar__collapse-label">本地终端</span>
-          <el-tooltip content="新建分组" placement="top">
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.terminals') }}</span>
+          <el-tooltip :content="t('sidebar.addTerminalGroup')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="handleAddTerminalGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
-          <el-tooltip content="新建终端配置" placement="top">
+          <el-tooltip :content="t('sidebar.addTerminal')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="uiStore.openTerminalConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
@@ -272,8 +272,8 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除分组</el-dropdown-item>
+                  <el-dropdown-item command="rename">{{ t('sidebar.groupRename') }}</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.groupDelete') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -307,10 +307,10 @@
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="open">打开</el-dropdown-item>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="open">{{ t('sidebar.terminalOpen') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit">{{ t('sidebar.terminalEdit') }}</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">{{ t('sidebar.terminalDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.terminalDelete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -345,10 +345,10 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="open">打开</el-dropdown-item>
-                <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item command="open">{{ t('sidebar.terminalOpen') }}</el-dropdown-item>
+                <el-dropdown-item command="edit">{{ t('sidebar.terminalEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.terminalDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.terminalDelete') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -362,12 +362,12 @@
             @dragleave="termDragOverUngrouped = false"
             @drop.prevent.stop="onTerminalDropToUngrouped"
           >
-            拖放到此处移为未分组
+            {{ t('sidebar.dragToUngrouped') }}
           </div>
 
           <!-- 空状态 -->
           <div v-if="!draggedTerminalId && filteredTerminalGroups.length === 0 && filteredUngroupedTerminals.length === 0" class="app-sidebar__empty">
-            暂无终端配置
+            {{ t('sidebar.noTerminals') }}
           </div>
         </div>
       </div>
@@ -375,27 +375,234 @@
       <!-- ===== 功能折叠区 ===== -->
 
       <!-- 命令片段 -->
-      <div
-        class="app-sidebar__collapse-row"
-        @click="toggleCollapse('snippets')"
-      >
-        <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
-        <span class="app-sidebar__collapse-label">命令片段</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('snippets') }">
-          <ArrowRight />
-        </el-icon>
+      <div class="app-sidebar__section">
+        <div
+          class="app-sidebar__collapse-row"
+          @click="toggleCollapse('snippets')"
+        >
+          <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.snippets') }}</span>
+          <el-tooltip :content="t('sidebar.addSnippetGroup')" placement="top">
+            <button class="app-sidebar__add-btn" @click.stop="handleAddSnippetGroup">
+              <el-icon :size="13"><FolderAdd /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-tooltip :content="t('sidebar.addSnippet')" placement="top">
+            <button class="app-sidebar__add-btn" @click.stop="uiStore.openSnippetEditDialog()">
+              <el-icon :size="13"><Plus /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('snippets') }">
+            <ArrowRight />
+          </el-icon>
+        </div>
+
+        <!-- 片段列表 -->
+        <div
+          v-show="!collapsedSections.has('snippets')"
+          class="app-sidebar__snippet-list"
+          @dragover.prevent="onSnipTreeDragOver"
+          @drop.prevent="onSnipTreeDrop"
+          @dragleave="onSnipTreeDragLeave"
+        >
+          <!-- 分组 -->
+          <template v-for="group in filteredSnippetGroups" :key="group.id">
+            <el-dropdown
+              trigger="contextmenu"
+              popper-class="sidebar-context-menu"
+              @command="(cmd: string) => handleSnippetGroupCmd(cmd, group.id)"
+            >
+              <div
+                class="app-sidebar__group-row"
+                :class="{ 'app-sidebar__group-row--drag-over': snipDragOverGroupId === group.id }"
+                @click="toggleSnippetGroup(group.id)"
+                @dragover.prevent.stop="onSnipGroupDragOver($event, group.id)"
+                @dragleave="onSnipGroupDragLeave(group.id)"
+                @drop.prevent.stop="onSnipGroupDrop($event, group.id)"
+              >
+                <el-icon :size="12" class="app-sidebar__arrow" :class="{ 'app-sidebar__arrow--expanded': !collapsedSnippetGroups.has(group.id) }">
+                  <ArrowRight />
+                </el-icon>
+                <el-icon :size="14" class="app-sidebar__folder-icon" :style="group.color ? { color: group.color } : {}"><Folder /></el-icon>
+                <span class="app-sidebar__group-name">{{ group.name }}</span>
+                <span class="app-sidebar__group-count">{{ getSnippetGroupCount(group.id) }}</span>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="rename">{{ t('sidebar.groupRename') }}</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.groupDelete') }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+
+            <!-- 分组内片段 -->
+            <div v-if="!collapsedSnippetGroups.has(group.id)" class="app-sidebar__group-children">
+              <el-dropdown
+                v-for="(snippet, idx) in getGroupSnippets(group.id)"
+                :key="snippet.id"
+                trigger="contextmenu"
+                popper-class="sidebar-context-menu"
+                @command="(cmd: string) => handleSnippetCmd(cmd, snippet)"
+              >
+                <div
+                  class="app-sidebar__snippet-item"
+                  :class="{
+                    'app-sidebar__snippet-item--drop-before': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'before',
+                    'app-sidebar__snippet-item--drop-after': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'after',
+                  }"
+                  :title="snippetTitle(snippet)"
+                  draggable="true"
+                  @dragstart="onSnipDragStart($event, snippet)"
+                  @dragend="onSnipDragEnd"
+                  @dragover.prevent.stop="onSnipDragOver($event, snippet, group.id, idx)"
+                  @dragleave="onSnipDragLeaveItem"
+                  @drop.prevent.stop="onSnipDrop($event, snippet, group.id, idx)"
+                  @dblclick="executeSnippet(snippet)"
+                >
+                  <el-icon :size="13" class="app-sidebar__snippet-icon"><DocumentCopy /></el-icon>
+                  <span class="app-sidebar__snippet-name">{{ snippet.name }}</span>
+                  <span v-if="snippet.useCount" class="app-sidebar__snippet-count">{{ snippet.useCount }}</span>
+                </div>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="execute">{{ t('sidebar.snippetExecute') }}</el-dropdown-item>
+                    <el-dropdown-item command="copy">{{ t('sidebar.snippetCopyCommand') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit" divided>{{ t('sidebar.snippetEdit') }}</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">{{ t('sidebar.snippetDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.snippetDelete') }}</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </template>
+
+          <!-- 未分组片段 -->
+          <el-dropdown
+            v-for="(snippet, idx) in filteredUngroupedSnippets"
+            :key="snippet.id"
+            trigger="contextmenu"
+            popper-class="sidebar-context-menu"
+            @command="(cmd: string) => handleSnippetCmd(cmd, snippet)"
+          >
+            <div
+              class="app-sidebar__snippet-item app-sidebar__snippet-item--root"
+              :class="{
+                'app-sidebar__snippet-item--drop-before': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'before',
+                'app-sidebar__snippet-item--drop-after': snipDropIndicator?.snippetId === snippet.id && snipDropIndicator?.position === 'after',
+              }"
+              :title="snippetTitle(snippet)"
+              draggable="true"
+              @dragstart="onSnipDragStart($event, snippet)"
+              @dragend="onSnipDragEnd"
+              @dragover.prevent.stop="onSnipDragOver($event, snippet, null, idx)"
+              @dragleave="onSnipDragLeaveItem"
+              @drop.prevent.stop="onSnipDrop($event, snippet, null, idx)"
+              @dblclick="executeSnippet(snippet)"
+            >
+              <el-icon :size="13" class="app-sidebar__snippet-icon"><DocumentCopy /></el-icon>
+              <span class="app-sidebar__snippet-name">{{ snippet.name }}</span>
+              <span v-if="snippet.useCount" class="app-sidebar__snippet-count">{{ snippet.useCount }}</span>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="execute">{{ t('sidebar.snippetExecute') }}</el-dropdown-item>
+                <el-dropdown-item command="copy">{{ t('sidebar.snippetCopyCommand') }}</el-dropdown-item>
+                <el-dropdown-item command="edit" divided>{{ t('sidebar.snippetEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.snippetDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.snippetDelete') }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <!-- 拖到此处移出分组 -->
+          <div
+            v-if="draggedSnippetId"
+            class="app-sidebar__drop-ungrouped"
+            :class="{ 'app-sidebar__drop-ungrouped--active': snipDragOverUngrouped }"
+            @dragover.prevent.stop="snipDragOverUngrouped = true"
+            @dragleave="snipDragOverUngrouped = false"
+            @drop.prevent.stop="onSnipDropToUngrouped"
+          >
+            {{ t('sidebar.dragToUngrouped') }}
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
+            {{ t('sidebar.noSnippets') }}
+          </div>
+        </div>
       </div>
 
       <!-- 端口转发 -->
-      <div
-        class="app-sidebar__collapse-row"
-        @click="toggleCollapse('portForwards')"
-      >
-        <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
-        <span class="app-sidebar__collapse-label">端口转发</span>
-        <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('portForwards') }">
-          <ArrowRight />
-        </el-icon>
+      <div class="app-sidebar__section">
+        <div
+          class="app-sidebar__collapse-row"
+          @click="toggleCollapse('portForwards')"
+        >
+          <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.portForwards') }}</span>
+          <el-tooltip :content="t('sidebar.addPortForward')" placement="top">
+            <button class="app-sidebar__add-btn" @click.stop="uiStore.openPortForwardDialog()">
+              <el-icon :size="13"><Plus /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('portForwards') }">
+            <ArrowRight />
+          </el-icon>
+        </div>
+
+        <!-- 端口转发列表 -->
+        <div
+          v-show="!collapsedSections.has('portForwards')"
+          class="app-sidebar__pf-list"
+        >
+          <el-dropdown
+            v-for="rule in portForwardRules"
+            :key="rule.id"
+            trigger="contextmenu"
+            popper-class="sidebar-context-menu"
+            @command="(cmd: string) => handlePortForwardCmd(cmd, rule)"
+          >
+            <div
+              class="app-sidebar__pf-item"
+              :title="portForwardTitle(rule)"
+            >
+              <span
+                class="app-sidebar__pf-status"
+                :class="{
+                  'app-sidebar__pf-status--active': getPortForwardStatus(rule.id) === 'active',
+                  'app-sidebar__pf-status--error': getPortForwardStatus(rule.id) === 'error',
+                  'app-sidebar__pf-status--starting': getPortForwardStatus(rule.id) === 'starting',
+                }"
+              />
+              <span class="app-sidebar__pf-type">{{ rule.type === 'local' ? 'L' : 'R' }}</span>
+              <div class="app-sidebar__pf-info">
+                <span class="app-sidebar__pf-name">{{ portForwardLabel(rule) }}</span>
+                <span class="app-sidebar__pf-host">{{ getHostLabel(rule.hostId) }}</span>
+              </div>
+              <button
+                class="app-sidebar__pf-toggle"
+                :class="{ 'app-sidebar__pf-toggle--active': getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' }"
+                @click.stop="togglePortForward(rule)"
+              >
+                {{ getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' ? t('sidebar.portForwardToggleStop') : t('sidebar.portForwardToggleStart') }}
+              </button>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="getPortForwardStatus(rule.id) !== 'active'" command="start">{{ t('sidebar.portForwardStart') }}</el-dropdown-item>
+                <el-dropdown-item v-else command="stop">{{ t('sidebar.portForwardStop') }}</el-dropdown-item>
+                <el-dropdown-item command="edit" divided>{{ t('sidebar.portForwardEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.portForwardDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.portForwardDelete') }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <div v-if="portForwardRules.length === 0" class="app-sidebar__empty">
+            {{ t('sidebar.noPortForwards') }}
+          </div>
+        </div>
       </div>
 
       <!-- 密钥库 -->
@@ -404,7 +611,7 @@
         @click="toggleCollapse('vault')"
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><Lock /></el-icon>
-        <span class="app-sidebar__collapse-label">密钥库</span>
+        <span class="app-sidebar__collapse-label">{{ t('sidebar.vault') }}</span>
         <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('vault') }">
           <ArrowRight />
         </el-icon>
@@ -423,7 +630,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   Monitor, Plus, Search, Setting, Refresh,
   Cpu, DocumentCopy, Share, Lock, ArrowRight, FolderAdd,
@@ -435,8 +643,16 @@ import { useTerminalsStore } from '../../stores/terminals.store'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useSnippetsStore } from '../../stores/snippets.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
+import type { Snippet, SnippetGroup } from '@shared/types/snippet'
+import type { PortForward } from '@shared/types/port-forward'
+import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
+import { hasVariables, replaceVariables } from '@shared/utils/snippet-variables'
+
+const { t } = useI18n()
 
 // ===== 平台检测 =====
 const isMacOS = window.electronAPI?.platform === 'darwin'
@@ -459,6 +675,8 @@ const terminalsStore = useTerminalsStore()
 const sessionsStore = useSessionsStore()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
+const snippetsStore = useSnippetsStore()
+const portForwardsStore = usePortForwardsStore()
 
 // ===== 右键菜单：关闭已打开的下拉菜单 =====
 function closeOpenDropdowns(): void {
@@ -482,7 +700,7 @@ function handleSearch(): void {
 
 // ===== 用户头像首字母 =====
 const userInitial = computed(() => {
-  const name = authStore.user?.username || '本地用户'
+  const name = authStore.user?.username || t('sidebar.localUser')
   return name.charAt(0).toUpperCase()
 })
 
@@ -506,6 +724,17 @@ function toggleTerminalGroup(groupId: string): void {
     collapsedTerminalGroups.delete(groupId)
   } else {
     collapsedTerminalGroups.add(groupId)
+  }
+}
+
+// ===== 片段分组折叠状态 =====
+const collapsedSnippetGroups = reactive<Set<string>>(new Set())
+
+function toggleSnippetGroup(groupId: string): void {
+  if (collapsedSnippetGroups.has(groupId)) {
+    collapsedSnippetGroups.delete(groupId)
+  } else {
+    collapsedSnippetGroups.add(groupId)
   }
 }
 
@@ -844,11 +1073,11 @@ function getGroupHostCount(groupId: string): number {
 // ===== 分组管理 =====
 async function handleAddGroup(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('请输入分组名称', '新建分组', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('sidebar.newGroupPrompt'), t('sidebar.newGroupTitle'), {
+      confirmButtonText: t('sidebar.newGroupCreate'),
+      cancelButtonText: t('common.cancel'),
       inputPattern: /^.{1,64}$/,
-      inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+      inputErrorMessage: t('sidebar.groupNameError'),
     })
     if (value) {
       await hostsStore.createGroup({ name: value.trim(), sortOrder: hostsStore.groups.length })
@@ -864,12 +1093,12 @@ async function handleGroupCmd(cmd: string, groupId: string): Promise<void> {
 
   if (cmd === 'rename') {
     try {
-      const { value } = await ElMessageBox.prompt('请输入新的分组名称', '重命名分组', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      const { value } = await ElMessageBox.prompt(t('sidebar.renameGroupPrompt'), t('sidebar.renameGroupTitle'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         inputValue: group.name,
         inputPattern: /^.{1,64}$/,
-        inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+        inputErrorMessage: t('sidebar.groupNameError'),
       })
       if (value) {
         await hostsStore.updateGroup(groupId, { name: value.trim() })
@@ -880,12 +1109,12 @@ async function handleGroupCmd(cmd: string, groupId: string): Promise<void> {
   } else if (cmd === 'delete') {
     const count = hostsStore.hosts.filter(h => h.groupId === groupId).length
     const msg = count > 0
-      ? `该分组下有 ${count} 台主机，删除后它们将变为未分组。确定删除？`
-      : '确定删除该分组？'
+      ? t('sidebar.deleteGroupWithHostsMsg', { count })
+      : t('sidebar.deleteGroupEmptyMsg')
     try {
-      await ElMessageBox.confirm(msg, '删除分组', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(msg, t('sidebar.deleteGroupTitle'), {
+        confirmButtonText: t('sidebar.deleteGroupConfirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
       })
       await hostsStore.deleteGroup(groupId)
@@ -898,11 +1127,11 @@ async function handleGroupCmd(cmd: string, groupId: string): Promise<void> {
 // ===== 终端分组管理 =====
 async function handleAddTerminalGroup(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('请输入分组名称', '新建分组', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('sidebar.newGroupPrompt'), t('sidebar.newGroupTitle'), {
+      confirmButtonText: t('sidebar.newGroupCreate'),
+      cancelButtonText: t('common.cancel'),
       inputPattern: /^.{1,64}$/,
-      inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+      inputErrorMessage: t('sidebar.groupNameError'),
     })
     if (value) {
       await terminalsStore.createGroup({ name: value.trim(), sortOrder: terminalsStore.groups.length })
@@ -918,12 +1147,12 @@ async function handleTerminalGroupCmd(cmd: string, groupId: string): Promise<voi
 
   if (cmd === 'rename') {
     try {
-      const { value } = await ElMessageBox.prompt('请输入新的分组名称', '重命名分组', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      const { value } = await ElMessageBox.prompt(t('sidebar.renameGroupPrompt'), t('sidebar.renameGroupTitle'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         inputValue: group.name,
         inputPattern: /^.{1,64}$/,
-        inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+        inputErrorMessage: t('sidebar.groupNameError'),
       })
       if (value) {
         await terminalsStore.updateGroup(groupId, { name: value.trim() })
@@ -932,14 +1161,14 @@ async function handleTerminalGroupCmd(cmd: string, groupId: string): Promise<voi
       // 用户取消
     }
   } else if (cmd === 'delete') {
-    const count = terminalsStore.terminals.filter(t => t.groupId === groupId).length
+    const count = terminalsStore.terminals.filter(term => term.groupId === groupId).length
     const msg = count > 0
-      ? `该分组下有 ${count} 个终端配置，删除后它们将变为未分组。确定删除？`
-      : '确定删除该分组？'
+      ? t('sidebar.deleteGroupWithTerminalsMsg', { count })
+      : t('sidebar.deleteGroupEmptyMsg')
     try {
-      await ElMessageBox.confirm(msg, '删除分组', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(msg, t('sidebar.deleteGroupTitle'), {
+        confirmButtonText: t('sidebar.deleteGroupConfirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
       })
       await terminalsStore.deleteGroup(groupId)
@@ -952,9 +1181,9 @@ async function handleTerminalGroupCmd(cmd: string, groupId: string): Promise<voi
 function terminalTitle(terminal: LocalTerminalConfig): string {
   const lines: string[] = [terminal.name]
   if (terminal.shell) lines.push(`Shell: ${terminal.shell}`)
-  if (terminal.cwd) lines.push(`目录: ${terminal.cwd}`)
-  if (terminal.startupCommand) lines.push(`启动命令: ${terminal.startupCommand}`)
-  if (terminal.isDefault) lines.push('(默认终端)')
+  if (terminal.cwd) lines.push(`${t('sidebar.terminalDirLabel')}: ${terminal.cwd}`)
+  if (terminal.startupCommand) lines.push(`${t('sidebar.terminalStartupLabel')}: ${terminal.startupCommand}`)
+  if (terminal.isDefault) lines.push(t('sidebar.terminalDefaultLabel'))
   return lines.join('\n')
 }
 
@@ -967,9 +1196,9 @@ function hostTitle(host: Host): string {
   const lines: string[] = []
   if (host.label) lines.push(host.label)
   lines.push(`${host.address}:${host.port}`)
-  if (host.username) lines.push(`用户: ${host.username}`)
-  if (host.protocol && host.protocol !== 'ssh') lines.push(`协议: ${host.protocol}`)
-  if (host.notes) lines.push(`备注: ${host.notes}`)
+  if (host.username) lines.push(`${t('sidebar.hostUserLabel')}: ${host.username}`)
+  if (host.protocol && host.protocol !== 'ssh') lines.push(`${t('sidebar.hostProtocolLabel')}: ${host.protocol}`)
+  if (host.notes) lines.push(`${t('sidebar.hostNotesLabel')}: ${host.notes}`)
   return lines.join('\n')
 }
 
@@ -986,7 +1215,7 @@ async function handleHostCmd(cmd: string, host: Host): Promise<void> {
     uiStore.openHostConfigDialog(host.id)
   } else if (cmd === 'duplicate') {
     await hostsStore.createHost({
-      label: `${host.label || host.address} 副本`,
+      label: `${host.label || host.address} ${t('sidebar.duplicateSuffix')}`,
       address: host.address,
       port: host.port,
       protocol: host.protocol,
@@ -1009,6 +1238,12 @@ async function handleHostCmd(cmd: string, host: Host): Promise<void> {
       httpProxy: host.httpProxy,
     })
   } else if (cmd === 'delete') {
+    // 检查是否有端口转发规则绑定该主机
+    const boundRules = portForwardsStore.rules.filter(r => r.hostId === host.id)
+    if (boundRules.length > 0) {
+      ElMessage.warning(t('sidebar.hostDeleteBlockedMsg', { count: boundRules.length }))
+      return
+    }
     sessionsStore.closeTabsByHostId(host.id)
     await hostsStore.deleteHost(host.id)
   }
@@ -1026,7 +1261,7 @@ async function handleTerminalCmd(cmd: string, terminal: LocalTerminalConfig): Pr
     uiStore.openTerminalConfigDialog(terminal.id)
   } else if (cmd === 'duplicate') {
     await terminalsStore.createTerminal({
-      name: `${terminal.name} 副本`,
+      name: `${terminal.name} ${t('sidebar.duplicateSuffix')}`,
       shell: terminal.shell,
       cwd: terminal.cwd,
       startupCommand: terminal.startupCommand,
@@ -1055,6 +1290,316 @@ function goToSettings(): void {
     // 路由切换后恢复，以便返回时 tooltip 正常工作
     setTimeout(() => { settingsTooltipDisabled.value = false }, 300)
   })
+}
+
+// ===== 片段拖拽排序 =====
+const draggedSnippetId = ref<string | null>(null)
+const snipDragOverGroupId = ref<string | null>(null)
+const snipDragOverUngrouped = ref(false)
+const snipDropIndicator = ref<{ snippetId: string; position: 'before' | 'after' } | null>(null)
+
+function onSnipDragStart(e: DragEvent, snippet: Snippet): void {
+  draggedSnippetId.value = snippet.id
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', snippet.id)
+  }
+}
+
+function onSnipDragEnd(): void {
+  draggedSnippetId.value = null
+  snipDragOverGroupId.value = null
+  snipDragOverUngrouped.value = false
+  snipDropIndicator.value = null
+}
+
+function onSnipGroupDragOver(e: DragEvent, groupId: string): void {
+  if (!draggedSnippetId.value) return
+  snipDragOverGroupId.value = groupId
+  snipDropIndicator.value = null
+  collapsedSnippetGroups.delete(groupId)
+}
+
+function onSnipGroupDragLeave(groupId: string): void {
+  if (snipDragOverGroupId.value === groupId) snipDragOverGroupId.value = null
+}
+
+async function onSnipGroupDrop(e: DragEvent, groupId: string): Promise<void> {
+  if (!draggedSnippetId.value) return
+  const snippet = snippetsStore.snippets.find(s => s.id === draggedSnippetId.value)
+  if (!snippet || snippet.groupId === groupId) { onSnipDragEnd(); return }
+  const count = snippetsStore.snippets.filter(s => s.groupId === groupId).length
+  await snippetsStore.moveSnippet(draggedSnippetId.value, groupId, count)
+  onSnipDragEnd()
+}
+
+function onSnipDragOver(e: DragEvent, target: Snippet, groupId: string | null, idx: number): void {
+  if (!draggedSnippetId.value || draggedSnippetId.value === target.id) return
+  snipDragOverGroupId.value = null
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const midY = rect.top + rect.height / 2
+  snipDropIndicator.value = { snippetId: target.id, position: e.clientY < midY ? 'before' : 'after' }
+}
+
+function onSnipDragLeaveItem(): void { /* 不清空避免闪烁 */ }
+
+async function onSnipDrop(e: DragEvent, target: Snippet, groupId: string | null, idx: number): Promise<void> {
+  if (!draggedSnippetId.value || draggedSnippetId.value === target.id) { onSnipDragEnd(); return }
+  const position = snipDropIndicator.value?.position || 'after'
+  let targetIndex = position === 'before' ? idx : idx + 1
+  const dragged = snippetsStore.snippets.find(s => s.id === draggedSnippetId.value)
+  if (dragged && (dragged.groupId || null) === groupId) {
+    const sorted = snippetsStore.snippets
+      .filter(s => (s.groupId || null) === groupId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+    const draggedIdx = sorted.findIndex(s => s.id === draggedSnippetId.value)
+    if (draggedIdx !== -1 && draggedIdx < idx) targetIndex--
+  }
+  await snippetsStore.moveSnippet(draggedSnippetId.value, groupId, targetIndex)
+  onSnipDragEnd()
+}
+
+function onSnipTreeDragOver(): void { /* 允许 drop */ }
+function onSnipTreeDragLeave(): void { snipDragOverGroupId.value = null }
+function onSnipTreeDrop(): void {
+  if (!draggedSnippetId.value) return
+  onSnipDropToUngrouped()
+}
+
+async function onSnipDropToUngrouped(): Promise<void> {
+  if (!draggedSnippetId.value) return
+  const snippet = snippetsStore.snippets.find(s => s.id === draggedSnippetId.value)
+  if (!snippet || !snippet.groupId) { onSnipDragEnd(); return }
+  const count = snippetsStore.snippets.filter(s => !s.groupId).length
+  await snippetsStore.moveSnippet(draggedSnippetId.value, null, count)
+  onSnipDragEnd()
+}
+
+// ===== 命令片段 =====
+
+const filteredSnippetGroups = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return snippetsStore.groups
+  return snippetsStore.groups.filter(g =>
+    snippetsStore.snippets.some(s =>
+      s.groupId === g.id && matchesSnippet(s, q)
+    )
+  )
+})
+
+const filteredUngroupedSnippets = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  const ungrouped = snippetsStore.ungroupedSnippets
+  if (!q) return ungrouped
+  return ungrouped.filter(s => matchesSnippet(s, q))
+})
+
+function matchesSnippet(snippet: Snippet, q: string): boolean {
+  return (
+    snippet.name.toLowerCase().includes(q) ||
+    snippet.content.toLowerCase().includes(q) ||
+    (snippet.description || '').toLowerCase().includes(q) ||
+    snippet.tags.some(t => t.toLowerCase().includes(q))
+  )
+}
+
+function getGroupSnippets(groupId: string): Snippet[] {
+  const q = searchQuery.value.trim().toLowerCase()
+  const items = snippetsStore.snippetsByGroup.get(groupId) || []
+  if (!q) return items
+  return items.filter(s => matchesSnippet(s, q))
+}
+
+function getSnippetGroupCount(groupId: string): number {
+  return snippetsStore.snippets.filter(s => s.groupId === groupId).length
+}
+
+function snippetTitle(snippet: Snippet): string {
+  const lines: string[] = [snippet.name]
+  if (snippet.description) lines.push(snippet.description)
+  lines.push(`${t('sidebar.snippetCommandLabel')}: ${snippet.content}`)
+  if (snippet.tags.length) lines.push(`${t('sidebar.snippetTagsLabel')}: ${snippet.tags.join(', ')}`)
+  if (snippet.useCount) lines.push(`${t('sidebar.snippetUseCountLabel')}: ${snippet.useCount}`)
+  return lines.join('\n')
+}
+
+function executeSnippet(snippet: Snippet): void {
+  const terminalIds = sessionsStore.getActiveTabTerminalIds()
+  if (terminalIds.length === 0) return
+
+  if (hasVariables(snippet.content)) {
+    // 有变量 → 弹出变量填写对话框
+    uiStore.openSnippetVariableDialog(snippet)
+  } else {
+    // 无变量 → 直接替换内置变量并执行
+    const command = replaceVariables(snippet.content, {})
+    sendCommandToTerminal(terminalIds[0], command)
+    snippetsStore.incrementUseCount(snippet.id)
+  }
+}
+
+async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {
+  if (cmd === 'execute') {
+    executeSnippet(snippet)
+  } else if (cmd === 'copy') {
+    if (window.electronAPI?.ipc) {
+      await navigator.clipboard.writeText(snippet.content)
+    }
+  } else if (cmd === 'edit') {
+    uiStore.openSnippetEditDialog(snippet.id)
+  } else if (cmd === 'duplicate') {
+    await snippetsStore.createSnippet({
+      name: `${snippet.name} ${t('sidebar.duplicateSuffix')}`,
+      content: snippet.content,
+      description: snippet.description,
+      groupId: snippet.groupId,
+      tags: [...snippet.tags],
+    })
+  } else if (cmd === 'delete') {
+    await snippetsStore.deleteSnippet(snippet.id)
+  }
+}
+
+async function handleAddSnippetGroup(): Promise<void> {
+  try {
+    const { value } = await ElMessageBox.prompt(t('sidebar.newGroupPrompt'), t('sidebar.newGroupTitle'), {
+      confirmButtonText: t('sidebar.newGroupCreate'),
+      cancelButtonText: t('common.cancel'),
+      inputPattern: /^.{1,64}$/,
+      inputErrorMessage: t('sidebar.groupNameError'),
+    })
+    if (value) {
+      await snippetsStore.createGroup({ name: value.trim(), sortOrder: snippetsStore.groups.length })
+    }
+  } catch {
+    // 用户取消
+  }
+}
+
+async function handleSnippetGroupCmd(cmd: string, groupId: string): Promise<void> {
+  const group = snippetsStore.groups.find(g => g.id === groupId)
+  if (!group) return
+
+  if (cmd === 'rename') {
+    try {
+      const { value } = await ElMessageBox.prompt(t('sidebar.renameGroupPrompt'), t('sidebar.renameGroupTitle'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        inputValue: group.name,
+        inputPattern: /^.{1,64}$/,
+        inputErrorMessage: t('sidebar.groupNameError'),
+      })
+      if (value) {
+        await snippetsStore.updateGroup(groupId, { name: value.trim() })
+      }
+    } catch {
+      // 用户取消
+    }
+  } else if (cmd === 'delete') {
+    const count = snippetsStore.snippets.filter(s => s.groupId === groupId).length
+    const msg = count > 0
+      ? t('sidebar.deleteGroupWithSnippetsMsg', { count })
+      : t('sidebar.deleteGroupEmptyMsg')
+    try {
+      await ElMessageBox.confirm(msg, t('sidebar.deleteGroupTitle'), {
+        confirmButtonText: t('sidebar.deleteGroupConfirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      })
+      await snippetsStore.deleteGroup(groupId)
+    } catch {
+      // 用户取消
+    }
+  }
+}
+
+// ===== 端口转发 =====
+
+const portForwardRules = computed(() =>
+  [...portForwardsStore.rules].sort((a, b) => a.sortOrder - b.sortOrder)
+)
+
+function getPortForwardStatus(ruleId: string): string {
+  return portForwardsStore.getTunnelStatus(ruleId)?.status || 'inactive'
+}
+
+function getHostLabel(hostId: string): string {
+  const host = hostsStore.hosts.find(h => h.id === hostId)
+  if (!host) return t('sidebar.unknownHost')
+  const userPart = host.username ? `${host.username}@` : ''
+  const portPart = host.port && host.port !== 22 ? `:${host.port}` : ''
+  const connStr = `${userPart}${host.address}${portPart}`
+  if (host.label) return `${host.label} (${connStr})`
+  return connStr
+}
+
+function portForwardLabel(rule: PortForward): string {
+  if (rule.name) return rule.name
+  if (rule.type === 'local') {
+    return `${rule.localPort || '?'} → ${rule.remoteTargetAddr || '?'}:${rule.remoteTargetPort || '?'}`
+  }
+  return `${rule.remotePort || '?'} → ${rule.localTargetAddr || '?'}:${rule.localTargetPort || '?'}`
+}
+
+function portForwardTitle(rule: PortForward): string {
+  const host = hostsStore.hosts.find(h => h.id === rule.hostId)
+  const hostName = host ? (host.label || host.address) : t('sidebar.unknownHost')
+  const lines: string[] = []
+  if (rule.name) lines.push(rule.name)
+  lines.push(`${t('sidebar.portForwardHostLabel')}: ${hostName}`)
+  lines.push(`${t('sidebar.portForwardTypeLabel')}: ${rule.type === 'local' ? 'Local (-L)' : 'Remote (-R)'}`)
+  if (rule.type === 'local') {
+    lines.push(`${rule.localBindAddr}:${rule.localPort} → ${rule.remoteTargetAddr}:${rule.remoteTargetPort}`)
+  } else {
+    lines.push(`${rule.remoteBindAddr}:${rule.remotePort} → ${rule.localTargetAddr}:${rule.localTargetPort}`)
+  }
+  const status = getPortForwardStatus(rule.id)
+  if (status !== 'inactive') lines.push(`${t('sidebar.portForwardStatusLabel')}: ${status}`)
+  return lines.join('\n')
+}
+
+async function startPortForwardWithFeedback(ruleId: string): Promise<void> {
+  const result = await portForwardsStore.startTunnel(ruleId)
+  if (!result.success) {
+    ElMessage.error(`${t('sidebar.portForwardStart')} ${t('common.error')}: ${result.error || t('common.error')}`)
+  }
+}
+
+async function togglePortForward(rule: PortForward): Promise<void> {
+  const status = getPortForwardStatus(rule.id)
+  if (status === 'active' || status === 'starting') {
+    await portForwardsStore.stopTunnel(rule.id)
+  } else {
+    await startPortForwardWithFeedback(rule.id)
+  }
+}
+
+async function handlePortForwardCmd(cmd: string, rule: PortForward): Promise<void> {
+  if (cmd === 'start') {
+    await startPortForwardWithFeedback(rule.id)
+  } else if (cmd === 'stop') {
+    await portForwardsStore.stopTunnel(rule.id)
+  } else if (cmd === 'edit') {
+    uiStore.openPortForwardDialog(rule.id)
+  } else if (cmd === 'duplicate') {
+    await portForwardsStore.createRule({
+      name: rule.name ? `${rule.name} ${t('sidebar.duplicateSuffix')}` : undefined,
+      type: rule.type,
+      hostId: rule.hostId,
+      localBindAddr: rule.localBindAddr,
+      localPort: rule.localPort,
+      remoteTargetAddr: rule.remoteTargetAddr,
+      remoteTargetPort: rule.remoteTargetPort,
+      remoteBindAddr: rule.remoteBindAddr,
+      remotePort: rule.remotePort,
+      localTargetAddr: rule.localTargetAddr,
+      localTargetPort: rule.localTargetPort,
+      autoStart: rule.autoStart,
+      appStart: rule.appStart,
+    })
+  } else if (cmd === 'delete') {
+    await portForwardsStore.deleteRule(rule.id)
+  }
 }
 
 // ===== 侧边栏宽度拖拽调整 =====
@@ -1492,6 +2037,187 @@ onBeforeUnmount(() => {
     font-size: 12px;
     font-weight: 500;
     color: var(--text-primary);
+  }
+
+  // ===== 片段列表 =====
+  &__snippet-list {
+    padding: 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    :deep(.el-dropdown) {
+      display: block;
+      width: 100%;
+    }
+  }
+
+  &__snippet-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.15s;
+    position: relative;
+
+    &--root {
+      padding-left: 28px;
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+    }
+
+    &--drop-before {
+      box-shadow: inset 0 2px 0 0 var(--accent);
+    }
+
+    &--drop-after {
+      box-shadow: inset 0 -2px 0 0 var(--accent);
+    }
+  }
+
+  &__snippet-icon {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  &__snippet-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  &__snippet-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    background-color: var(--bg-hover);
+    padding: 0 5px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  // ===== 端口转发列表 =====
+  &__pf-list {
+    padding: 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    :deep(.el-dropdown) {
+      display: block;
+      width: 100%;
+    }
+  }
+
+  &__pf-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: var(--bg-hover);
+    }
+  }
+
+  &__pf-status {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: var(--text-tertiary);
+
+    &--active {
+      background-color: var(--success);
+      box-shadow: 0 0 4px var(--success);
+    }
+
+    &--error {
+      background-color: #ef4444;
+    }
+
+    &--starting {
+      background-color: #eab308;
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+  }
+
+  &__pf-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    background-color: rgba(99, 102, 241, 0.1);
+    padding: 1px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  &__pf-info {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  &__pf-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+  }
+
+  &__pf-host {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  &__pf-toggle {
+    font-size: 10px;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: all 0.15s;
+
+    .app-sidebar__pf-item:hover & {
+      opacity: 1;
+    }
+
+    &--active {
+      opacity: 1 !important;
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
   }
 
   // ===== 分割线 =====

@@ -247,16 +247,7 @@ export function registerSshHandlers(): void {
           return undefined
         }
 
-        // 首次连接
-        if (!hostConfig.strictHostKey) {
-          dbRun(
-            'INSERT INTO known_hosts (id, host, port, key_type, fingerprint, public_key) VALUES (?, ?, ?, ?, ?, ?)',
-            [uuidv4(), host, port, keyType, fingerprint, key.toString('base64')]
-          )
-          return verify(true)
-        }
-
-        // 严格检查 → 弹窗确认
+        // 首次连接 → 始终弹窗确认（无论 strictHostKey 设置）
         const verifyId = uuidv4()
         webContents.send(IPC_SSH.HOST_VERIFY, {
           verifyId, host, port, keyType,

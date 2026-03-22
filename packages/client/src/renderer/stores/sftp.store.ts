@@ -52,12 +52,12 @@ export const useSftpStore = defineStore('sftp', () => {
       const result = await invoke<{ sftpId: string }>(IPC_SFTP.OPEN, { connectionId })
       if (!result) return
 
-      const localHome = await invoke<string>(IPC_LOCAL_FS.HOME)
+      const localHome = (await invoke<string>(IPC_LOCAL_FS.HOME)) || '/'
 
       const state: SftpTabState = {
         sftpId: result.sftpId,
-        remoteCwd: '/',
-        localCwd: localHome || '~',
+        remoteCwd: '~',
+        localCwd: localHome,
         remoteFiles: [],
         localFiles: [],
         loading: false,
@@ -66,12 +66,15 @@ export const useSftpStore = defineStore('sftp', () => {
         showHidden: false,
         viewMode: 'list',
       }
-      sessions.value.set(tabId, state)
+      // 先设置 session 再加载目录（否则 navigate 找不到 session）
+      const newMap = new Map(sessions.value)
+      newMap.set(tabId, state)
+      sessions.value = newMap
 
       // 并行加载初始目录
       await Promise.all([
-        navigateRemote(tabId, '/'),
-        navigateLocal(tabId, state.localCwd),
+        navigateRemote(tabId, '~'),
+        navigateLocal(tabId, localHome),
       ])
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)

@@ -42,7 +42,7 @@
             :step="1"
             :show-tooltip="false"
             style="width: 160px"
-            @change="(v: unknown) => set('terminal.fontSize', v)"
+            @input="(v: unknown) => set('terminal.fontSize', v)"
           />
           <el-input-number
             :model-value="getNum('terminal.fontSize')"
@@ -69,7 +69,7 @@
             :step="0.1"
             :show-tooltip="false"
             style="width: 160px"
-            @change="(v: unknown) => set('terminal.lineHeight', v)"
+            @input="(v: unknown) => set('terminal.lineHeight', v)"
           />
           <span class="settings-row__value">{{ (getNum('terminal.lineHeight')).toFixed(1) }}</span>
         </div>
@@ -222,7 +222,7 @@
             :step="1"
             :show-tooltip="false"
             style="width: 160px"
-            @change="(v: unknown) => set('terminal.scrollSensitivity', v)"
+            @input="(v: unknown) => set('terminal.scrollSensitivity', v)"
           />
           <span class="settings-row__value">{{ getNum('terminal.scrollSensitivity') }}x</span>
         </div>

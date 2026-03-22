@@ -192,9 +192,9 @@ const { t } = useI18n()
 
 const settingsStore = useSettingsStore()
 const { invoke } = useIpc()
-const defaultLogDir = (window.electronAPI?.platform === 'win32'
-  ? `${process.env.USERPROFILE || 'C:\\Users'}\\STerminal\\logs`
-  : `${process.env.HOME || '~'}/STerminal/logs`)
+const home = window.electronAPI?.homePath || '~'
+const sep = window.electronAPI?.platform === 'win32' ? '\\' : '/'
+const defaultLogDir = `${home}${sep}STerminal${sep}logs`
 
 function getStr(key: string): string {
   const v = settingsStore.settings.has(key) ? settingsStore.settings.get(key) : DEFAULT_SETTINGS[key]

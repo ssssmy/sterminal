@@ -40,8 +40,8 @@
         </div>
         <div class="settings-row__input-group">
           <el-input
-            :model-value="getStr('log.directory')"
-            :placeholder="t('settings.logDirectoryDefault')"
+            :model-value="getStr('log.directory') || defaultLogDir"
+            :placeholder="defaultLogDir"
             style="width: 260px"
             @change="(v: unknown) => set('log.directory', v)"
           />
@@ -192,6 +192,9 @@ const { t } = useI18n()
 
 const settingsStore = useSettingsStore()
 const { invoke } = useIpc()
+const defaultLogDir = (window.electronAPI?.platform === 'win32'
+  ? `${process.env.USERPROFILE || 'C:\\Users'}\\STerminal\\logs`
+  : `${process.env.HOME || '~'}/STerminal/logs`)
 
 function getStr(key: string): string {
   const v = settingsStore.settings.has(key) ? settingsStore.settings.get(key) : DEFAULT_SETTINGS[key]

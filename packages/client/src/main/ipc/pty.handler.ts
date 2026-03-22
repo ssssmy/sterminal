@@ -6,7 +6,7 @@ import * as pty from 'node-pty'
 import * as fs from 'fs'
 import * as path from 'path'
 import { IPC_PTY } from '../../shared/types/ipc-channels'
-import { recordData } from '../services/session-recorder'
+import { recordData, shouldAutoRecord, startRecording } from '../services/session-recorder'
 import { getDefaultShell } from '../utils/platform'
 
 // PTY 实例映射表（ptyId → 进程实例）
@@ -25,6 +25,8 @@ export function registerPtyHandlers(): void {
     env?: Record<string, string>
     cols: number
     rows: number
+    label?: string
+    configId?: string
   }) => {
     const ptyId = `pty_${++idCounter}_${Date.now()}`
 
@@ -72,6 +74,17 @@ export function registerPtyHandlers(): void {
         webContents.send(IPC_PTY.EXIT, { ptyId, exitCode })
       }
     })
+
+    // 自动录制
+    if (shouldAutoRecord()) {
+      startRecording({
+        terminalKey: ptyId,
+        cols: params.cols || 80,
+        rows: params.rows || 24,
+        label: params.label || 'local',
+        localTerminalId: params.configId,
+      })
+    }
 
     return { ptyId }
   })

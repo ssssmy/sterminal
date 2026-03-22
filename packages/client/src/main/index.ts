@@ -7,7 +7,7 @@ import { initDatabase, closeDatabase, dbGet, dbRun } from './services/db'
 import { registerAllHandlers } from './ipc/index'
 import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
-import { stopAllRecordings } from './services/session-recorder'
+import { stopAllRecordings, autoCleanRecordings } from './services/session-recorder'
 import { stopAllTunnels } from './ipc/port-forward.handler'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
@@ -129,6 +129,9 @@ app.whenReady().then(() => {
 
   // 2. 注册所有 IPC handlers
   registerAllHandlers()
+
+  // 启动时自动清理过期录制文件
+  autoCleanRecordings()
 
   // Windows: 监听主题变更，更新标题栏覆盖层颜色
   if (process.platform === 'win32') {

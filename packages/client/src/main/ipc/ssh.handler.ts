@@ -5,7 +5,7 @@ import { ipcMain, WebContents } from 'electron'
 import { Client, ClientChannel } from 'ssh2'
 import { IPC_SSH } from '../../shared/types/ipc-channels'
 import type { Host } from '../../shared/types/host'
-import { recordData } from '../services/session-recorder'
+import { recordData, shouldAutoRecord, startRecording } from '../services/session-recorder'
 
 export interface SshSession {
   client: Client
@@ -111,6 +111,17 @@ export function registerSshHandlers(): void {
           })
 
           if (!settled) { settled = true; resolve({ connectionId }) }
+
+          // 自动录制
+          if (shouldAutoRecord()) {
+            startRecording({
+              terminalKey: connectionId,
+              cols,
+              rows,
+              label: hostConfig.label || hostConfig.address,
+              hostId: params.hostId,
+            })
+          }
 
           // 检测远端操作系统（带超时，不影响主连接）
           conn.exec('uname', (execErr, execStream) => {

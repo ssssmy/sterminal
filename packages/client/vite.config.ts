@@ -52,10 +52,16 @@ export default defineConfig({
     // 渲染进程中使用 Node.js API 的支持
     renderer(),
   ],
+  define: {
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_JIT_COMPILATION__: false,
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
       '@shared': resolve(__dirname, 'src/shared'),
+      'vue-i18n': 'vue-i18n/dist/vue-i18n.esm-bundler.js',
     },
   },
   server: {

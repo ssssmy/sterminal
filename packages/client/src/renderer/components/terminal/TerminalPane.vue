@@ -2,6 +2,21 @@
   <!-- 终端面板：渲染分屏树 -->
   <div class="terminal-pane">
     <SplitView :node="tab.root" :in-split="tab.root.type === 'split'" />
+    <!-- 终端右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="ctxMenu.visible"
+        class="terminal-ctx-menu"
+        :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
+        @click="ctxMenu.visible = false"
+      >
+        <div class="terminal-ctx-menu__item" @click="ctxMenuCopy">复制</div>
+        <div class="terminal-ctx-menu__item" @click="ctxMenuPaste">粘贴</div>
+        <div class="terminal-ctx-menu__divider" />
+        <div class="terminal-ctx-menu__item" @click="ctxMenuSelectAll">全选</div>
+        <div class="terminal-ctx-menu__item" @click="ctxMenuClear">清屏</div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -327,6 +342,42 @@ watch(
   { deep: true },
 )
 
+// ===== 右键菜单 =====
+const ctxMenu = ref({ visible: false, x: 0, y: 0, terminalId: '' })
+
+// 点击其他地方关闭菜单
+onMounted(() => {
+  document.addEventListener('click', () => { ctxMenu.value.visible = false })
+  document.addEventListener('contextmenu', () => { ctxMenu.value.visible = false })
+})
+
+function ctxMenuCopy(): void {
+  const pooled = terminalPool.get(ctxMenu.value.terminalId)
+  if (!pooled) return
+  const sel = pooled.terminal.getSelection()
+  if (sel) navigator.clipboard.writeText(sel)
+}
+
+function ctxMenuPaste(): void {
+  const pooled = terminalPool.get(ctxMenu.value.terminalId)
+  if (!pooled) return
+  navigator.clipboard.readText().then(text => {
+    if (text) pooled.terminal.paste(text)
+  })
+}
+
+function ctxMenuSelectAll(): void {
+  const pooled = terminalPool.get(ctxMenu.value.terminalId)
+  if (!pooled) return
+  pooled.terminal.selectAll()
+}
+
+function ctxMenuClear(): void {
+  const pooled = terminalPool.get(ctxMenu.value.terminalId)
+  if (!pooled) return
+  pooled.terminal.clear()
+}
+
 // ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
   name: 'TerminalXterm',
@@ -381,16 +432,17 @@ const TerminalXterm = defineComponent({
       containerRef.value.appendChild(wrapperEl)
       fitAddon.fit()
 
-      // 右键行为：根据设置决定粘贴或显示默认菜单
+      // 右键行为：根据设置决定粘贴或弹出右键菜单
       wrapperEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault()
         const action = useSettingsStoreModule().settings.get('terminal.rightClickAction') || 'paste'
         if (action === 'paste') {
-          e.preventDefault()
           navigator.clipboard.readText().then(text => {
             if (text) terminal.paste(text)
           })
+        } else {
+          ctxMenu.value = { visible: true, x: e.clientX, y: e.clientY, terminalId: xtermProps.terminalId }
         }
-        // contextMenu 模式不阻止默认行为，浏览器右键菜单自然弹出
       })
 
       // 注册到池
@@ -847,5 +899,54 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
     opacity: 1;
     background: rgba(239, 68, 68, 1);
   }
+}
+</style>
+
+<style lang="scss">
+.terminal-ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 140px;
+  padding: 4px;
+  border-radius: 10px;
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 16px 40px -4px rgba(0, 0, 0, 0.5);
+
+  &__item {
+    padding: 6px 16px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s;
+    line-height: 1.5;
+    margin: 1px 0;
+  }
+
+  &__divider {
+    height: 1px;
+    margin: 4px 8px;
+  }
+}
+
+html[data-theme="dark"] .terminal-ctx-menu {
+  background: #1c1d32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+
+  .terminal-ctx-menu__item {
+    color: #c8c9d6;
+    &:hover { background: rgba(99, 102, 241, 0.12); color: #fff; }
+  }
+  .terminal-ctx-menu__divider { background: rgba(255, 255, 255, 0.06); }
+}
+
+html[data-theme="light"] .terminal-ctx-menu {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  .terminal-ctx-menu__item {
+    color: #374151;
+    &:hover { background: rgba(99, 102, 241, 0.08); color: #1a1b2e; }
+  }
+  .terminal-ctx-menu__divider { background: rgba(0, 0, 0, 0.06); }
 }
 </style>

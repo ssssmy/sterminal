@@ -347,8 +347,11 @@ const ctxMenu = ref({ visible: false, x: 0, y: 0, terminalId: '' })
 
 // 点击其他地方关闭菜单
 onMounted(() => {
-  document.addEventListener('click', () => { ctxMenu.value.visible = false })
-  document.addEventListener('contextmenu', () => { ctxMenu.value.visible = false })
+  document.addEventListener('mousedown', (e) => {
+    if (ctxMenu.value.visible && !(e.target as HTMLElement)?.closest('.terminal-ctx-menu')) {
+      ctxMenu.value.visible = false
+    }
+  })
 })
 
 function ctxMenuCopy(): void {

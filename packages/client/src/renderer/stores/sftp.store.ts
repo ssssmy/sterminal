@@ -156,14 +156,7 @@ export const useSftpStore = defineStore('sftp', () => {
     const state = sessions[tabId]
     if (!state) return
 
-    // 只上传文件，过滤掉目录
-    const filePaths = localPaths.filter(p => {
-      const file = state.localFiles.find(f => f.path === p)
-      return !file || !file.isDirectory
-    })
-    if (filePaths.length === 0) return
-
-    for (const localPath of filePaths) {
+    for (const localPath of localPaths) {
       const fileName = localPath.split('/').pop() || localPath.split('\\').pop() || localPath
       const remotePath = state.remoteCwd.endsWith('/')
         ? state.remoteCwd + fileName
@@ -210,14 +203,7 @@ export const useSftpStore = defineStore('sftp', () => {
     const state = sessions[tabId]
     if (!state) return
 
-    // 只下载文件，过滤掉目录
-    const filePaths = remotePaths.filter(p => {
-      const file = state.remoteFiles.find(f => f.path === p)
-      return file && !file.isDirectory
-    })
-    if (filePaths.length === 0) return
-
-    for (const remotePath of filePaths) {
+    for (const remotePath of remotePaths) {
       const fileName = remotePath.split('/').pop() || remotePath
       const localPath = state.localCwd.endsWith('/')
         ? state.localCwd + fileName

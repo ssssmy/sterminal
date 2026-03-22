@@ -3,6 +3,7 @@
 
 import { ipcMain, BrowserWindow } from 'electron'
 import path from 'path'
+import fs from 'fs'
 import { SFTPWrapper } from 'ssh2'
 import { IPC_SFTP } from '../../shared/types/ipc-channels'
 import type { SftpFileInfo, SftpTransferItem } from '../../shared/types/sftp'
@@ -121,6 +122,73 @@ async function rmRecursive(sftp: SFTPWrapper, remotePath: string): Promise<void>
           sftp.unlink(childPath, done)
         }
       }
+    })
+  })
+}
+
+/**
+ * 递归收集远程目录下的所有文件（返回 { remotePath, relativePath } 对）
+ */
+function collectRemoteFiles(sftp: SFTPWrapper, dirPath: string, basePath: string): Promise<{ remotePath: string; relativePath: string }[]> {
+  return new Promise((resolve, reject) => {
+    sftp.readdir(dirPath, (err, list) => {
+      if (err) { reject(err); return }
+      const results: { remotePath: string; relativePath: string }[] = []
+      let pending = list.length
+      if (pending === 0) { resolve(results); return }
+
+      for (const item of list) {
+        if (item.filename === '.' || item.filename === '..') { pending--; if (pending === 0) resolve(results); continue }
+        const fullPath = path.posix.join(dirPath, item.filename)
+        const relPath = path.posix.join(basePath, item.filename)
+        const isDir = !!(item.attrs.mode & 0o040000)
+
+        if (isDir) {
+          collectRemoteFiles(sftp, fullPath, relPath).then(sub => {
+            results.push(...sub)
+            pending--
+            if (pending === 0) resolve(results)
+          }).catch(reject)
+        } else {
+          results.push({ remotePath: fullPath, relativePath: relPath })
+          pending--
+          if (pending === 0) resolve(results)
+        }
+      }
+    })
+  })
+}
+
+/**
+ * 递归收集本地目录下的所有文件
+ */
+function collectLocalFiles(dirPath: string, basePath: string): { localPath: string; relativePath: string }[] {
+  const results: { localPath: string; relativePath: string }[] = []
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name)
+    const relPath = path.posix.join(basePath, entry.name)
+    if (entry.isDirectory()) {
+      results.push(...collectLocalFiles(fullPath, relPath))
+    } else {
+      results.push({ localPath: fullPath, relativePath: relPath })
+    }
+  }
+  return results
+}
+
+/**
+ * 递归创建远程目录（确保路径存在）
+ */
+function mkdirpRemote(sftp: SFTPWrapper, remotePath: string): Promise<void> {
+  return new Promise((resolve) => {
+    sftp.stat(remotePath, (err) => {
+      if (!err) { resolve(); return }
+      const parent = path.posix.dirname(remotePath)
+      if (parent === remotePath) { resolve(); return }
+      mkdirpRemote(sftp, parent).then(() => {
+        sftp.mkdir(remotePath, () => resolve())
+      })
     })
   })
 }
@@ -357,6 +425,7 @@ export function registerSftpHandlers(): void {
   })
 
   // 上传文件（本地 → 远程）
+  // 上传文件或目录（本地 → 远程，支持递归目录）
   ipcMain.handle(IPC_SFTP.UPLOAD, async (event, params: {
     sftpId: string
     localPath: string
@@ -369,90 +438,82 @@ export function registerSftpHandlers(): void {
     if (!session) throw new Error(`SFTP 会话 ${params.sftpId} 不存在`)
 
     const transferId = params.transferId || uuidv4()
+    const webContents = event.sender
+
+    // 判断本地路径是文件还是目录
+    const localStats = fs.statSync(params.localPath)
+
+    if (localStats.isDirectory()) {
+      // 递归收集所有文件
+      const files = collectLocalFiles(params.localPath, params.fileName)
+      let completed = 0
+      for (const f of files) {
+        const remoteTarget = path.posix.join(path.posix.dirname(params.remotePath), f.relativePath)
+        await mkdirpRemote(session.sftp, path.posix.dirname(remoteTarget))
+        await new Promise<void>((resolve, reject) => {
+          session.sftp.fastPut(f.localPath, remoteTarget, (err) => {
+            if (err) { reject(err); return }
+            completed++
+            if (!webContents.isDestroyed()) {
+              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, {
+                transferId, sftpId: params.sftpId, direction: 'upload',
+                localPath: f.localPath, remotePath: remoteTarget,
+                fileName: params.fileName, totalBytes: files.length,
+                transferredBytes: completed, status: 'active', speed: 0,
+              })
+            }
+            resolve()
+          })
+        })
+      }
+      if (!webContents.isDestroyed()) {
+        webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'upload', success: true })
+      }
+      return { transferId }
+    }
+
+    // 单文件上传
     const transferState = { cancelled: false }
     activeTransfers.set(transferId, transferState)
 
-    const webContents = event.sender
-    let lastTransferred = 0
-    let lastTime = Date.now()
-
-    const transfer: SftpTransferItem = {
-      transferId,
-      sftpId: params.sftpId,
-      direction: 'upload',
-      localPath: params.localPath,
-      remotePath: params.remotePath,
-      fileName: params.fileName,
-      totalBytes: params.totalBytes,
-      transferredBytes: 0,
-      status: 'active',
-      speed: 0,
-    }
-
-    if (!webContents.isDestroyed()) {
-      webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-    }
-
-    console.log('[SFTP Upload]', { localPath: params.localPath, remotePath: params.remotePath })
-
     return new Promise<{ transferId: string }>((resolve, reject) => {
-      session.sftp.fastPut(
-        params.localPath,
-        params.remotePath,
-        {
-          step: (transferred: number, _chunk: number, total: number) => {
-            if (transferState.cancelled) return
-
-            const now = Date.now()
-            const elapsed = (now - lastTime) / 1000
-            const speed = elapsed > 0 ? (transferred - lastTransferred) / elapsed : 0
-            lastTransferred = transferred
-            lastTime = now
-
-            transfer.transferredBytes = transferred
-            transfer.totalBytes = total
-            transfer.speed = speed
-
-            if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            }
-          },
-        },
-        (err: Error | null | undefined) => {
-          activeTransfers.delete(transferId)
-
-          if (transferState.cancelled) {
-            transfer.status = 'cancelled'
-            if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            }
-            resolve({ transferId })
-            return
-          }
-
-          if (err) {
-            transfer.status = 'failed'
-            transfer.error = err.message
-            if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            }
-            reject(err)
-            return
-          }
-
-          transfer.status = 'completed'
-          transfer.transferredBytes = transfer.totalBytes
+      let lastTransferred = 0
+      let lastTime = Date.now()
+      session.sftp.fastPut(params.localPath, params.remotePath, {
+        step: (transferred: number, _chunk: number, total: number) => {
+          if (transferState.cancelled) return
+          const now = Date.now()
+          const elapsed = (now - lastTime) / 1000
+          const speed = elapsed > 0 ? (transferred - lastTransferred) / elapsed : 0
+          lastTransferred = transferred
+          lastTime = now
           if (!webContents.isDestroyed()) {
-            webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'upload' })
+            webContents.send(IPC_SFTP.TRANSFER_PROGRESS, {
+              transferId, sftpId: params.sftpId, direction: 'upload',
+              localPath: params.localPath, remotePath: params.remotePath,
+              fileName: params.fileName, totalBytes: total,
+              transferredBytes: transferred, status: 'active', speed,
+            })
+          }
+        },
+      }, (err) => {
+        activeTransfers.delete(transferId)
+        if (err) {
+          if (!webContents.isDestroyed()) {
+            webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'upload', success: false, error: err.message })
+          }
+          reject(err)
+        } else {
+          if (!webContents.isDestroyed()) {
+            webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'upload', success: true })
           }
           resolve({ transferId })
         }
-      )
+      })
     })
   })
 
-  // 下载文件（远程 → 本地）
+  // 下载文件或目录（远程 → 本地，支持递归目录）
   ipcMain.handle(IPC_SFTP.DOWNLOAD, async (event, params: {
     sftpId: string
     remotePath: string
@@ -465,90 +526,82 @@ export function registerSftpHandlers(): void {
     if (!session) throw new Error(`SFTP 会话 ${params.sftpId} 不存在`)
 
     const transferId = params.transferId || uuidv4()
+    const webContents = event.sender
+
+    // 判断远程路径是文件还是目录
+    const stats = await new Promise<any>((res, rej) => {
+      session.sftp.stat(params.remotePath, (err, s) => err ? rej(err) : res(s))
+    })
+    const isDir = !!(stats.mode & 0o040000)
+
+    if (isDir) {
+      // 递归收集所有文件
+      const files = await collectRemoteFiles(session.sftp, params.remotePath, params.fileName)
+      let completed = 0
+      for (const f of files) {
+        const localTarget = path.join(params.localPath, '..', f.relativePath)
+        fs.mkdirSync(path.dirname(localTarget), { recursive: true })
+        await new Promise<void>((resolve, reject) => {
+          session.sftp.fastGet(f.remotePath, localTarget, (err) => {
+            if (err) { reject(err); return }
+            completed++
+            if (!webContents.isDestroyed()) {
+              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, {
+                transferId, sftpId: params.sftpId, direction: 'download',
+                localPath: localTarget, remotePath: f.remotePath,
+                fileName: params.fileName, totalBytes: files.length,
+                transferredBytes: completed, status: 'active', speed: 0,
+              })
+            }
+            resolve()
+          })
+        })
+      }
+      if (!webContents.isDestroyed()) {
+        webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'download', success: true })
+      }
+      return { transferId }
+    }
+
+    // 单文件下载
     const transferState = { cancelled: false }
     activeTransfers.set(transferId, transferState)
-
-    const webContents = event.sender
-    let lastTransferred = 0
-    let lastTime = Date.now()
-
-    const transfer: SftpTransferItem = {
-      transferId,
-      sftpId: params.sftpId,
-      direction: 'download',
-      localPath: params.localPath,
-      remotePath: params.remotePath,
-      fileName: params.fileName,
-      totalBytes: params.totalBytes,
-      transferredBytes: 0,
-      status: 'active',
-      speed: 0,
-    }
-
-    if (!webContents.isDestroyed()) {
-      webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-    }
-
-    // 确保本地目标目录存在
-    const localDir = require('path').dirname(params.localPath)
-    require('fs').mkdirSync(localDir, { recursive: true })
-
-    console.log('[SFTP Download]', { remotePath: params.remotePath, localPath: params.localPath })
+    fs.mkdirSync(path.dirname(params.localPath), { recursive: true })
 
     return new Promise<{ transferId: string }>((resolve, reject) => {
-      session.sftp.fastGet(
-        params.remotePath,
-        params.localPath,
-        {
-          step: (transferred: number, _chunk: number, total: number) => {
-            if (transferState.cancelled) return
-
-            const now = Date.now()
-            const elapsed = (now - lastTime) / 1000
-            const speed = elapsed > 0 ? (transferred - lastTransferred) / elapsed : 0
-            lastTransferred = transferred
-            lastTime = now
-
-            transfer.transferredBytes = transferred
-            transfer.totalBytes = total
-            transfer.speed = speed
-
-            if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            }
-          },
-        },
-        (err: Error | null | undefined) => {
-          activeTransfers.delete(transferId)
-
-          if (transferState.cancelled) {
-            transfer.status = 'cancelled'
-            if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            }
-            resolve({ transferId })
-            return
-          }
-
-          if (err) {
-            transfer.status = 'failed'
-            transfer.error = err.message
-            if (!webContents.isDestroyed()) {
-              webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            }
-            reject(err)
-            return
-          }
-
-          transfer.status = 'completed'
-          transfer.transferredBytes = transfer.totalBytes
+      let lastTransferred = 0
+      let lastTime = Date.now()
+      session.sftp.fastGet(params.remotePath, params.localPath, {
+        step: (transferred: number, _chunk: number, total: number) => {
+          if (transferState.cancelled) return
+          const now = Date.now()
+          const elapsed = (now - lastTime) / 1000
+          const speed = elapsed > 0 ? (transferred - lastTransferred) / elapsed : 0
+          lastTransferred = transferred
+          lastTime = now
           if (!webContents.isDestroyed()) {
-            webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
-            webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'download' })
+            webContents.send(IPC_SFTP.TRANSFER_PROGRESS, {
+              transferId, sftpId: params.sftpId, direction: 'download',
+              localPath: params.localPath, remotePath: params.remotePath,
+              fileName: params.fileName, totalBytes: total,
+              transferredBytes: transferred, status: 'active', speed,
+            })
+          }
+        },
+      }, (err) => {
+        activeTransfers.delete(transferId)
+        if (err) {
+          if (!webContents.isDestroyed()) {
+            webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'download', success: false, error: err.message })
+          }
+          reject(err)
+        } else {
+          if (!webContents.isDestroyed()) {
+            webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'download', success: true })
           }
           resolve({ transferId })
         }
-      )
+      })
     })
   })
 

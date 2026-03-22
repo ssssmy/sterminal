@@ -238,7 +238,7 @@ async function fetchRecordings(): Promise<void> {
 }
 
 async function deleteRecording(id: string): Promise<void> {
-  await invoke(IPC_LOG.DELETE, id)
+  await invoke(IPC_LOG.DELETE, { logId: id })
   recordings.value = recordings.value.filter(r => r.id !== id)
 }
 

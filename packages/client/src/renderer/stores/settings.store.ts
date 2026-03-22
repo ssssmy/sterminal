@@ -25,7 +25,9 @@ export const useSettingsStore = defineStore('settings', () => {
     }
     const value = await invoke<T>(IPC_DB.SETTINGS_GET, key)
     const result = value ?? (DEFAULT_SETTINGS[key] as T)
-    settings.value.set(key, result)
+    const newMap = new Map(settings.value)
+    newMap.set(key, result)
+    settings.value = newMap
     return result
   }
 
@@ -33,7 +35,9 @@ export const useSettingsStore = defineStore('settings', () => {
    * 设置值（同时更新缓存和数据库）
    */
   async function setSetting(key: string, value: unknown): Promise<void> {
-    settings.value.set(key, value)
+    const newMap = new Map(settings.value)
+    newMap.set(key, value)
+    settings.value = newMap
     await invoke(IPC_DB.SETTINGS_SET, key, value)
   }
 

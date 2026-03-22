@@ -1,13 +1,16 @@
 <template>
   <div class="account-settings">
-    <h3 class="section-title">账号与同步</h3>
-    <p class="section-desc">管理您的账号信息和数据同步设置。</p>
+    <h3 class="section-title">{{ t('settings.account') }}</h3>
+    <p class="section-desc">{{ t('settings.account_desc') }}</p>
     <!-- TODO: 实现账号设置页 -->
-    <el-empty description="功能开发中" />
+    <el-empty :description="t('settings.underDevelopment')" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <style lang="scss" scoped>

@@ -1,33 +1,33 @@
 <template>
   <div class="appearance-settings">
-    <h3 class="section-title">外观</h3>
-    <p class="section-desc">配置界面主题和显示选项。</p>
+    <h3 class="section-title">{{ t('settings.appearance_section') }}</h3>
+    <p class="section-desc">{{ t('settings.appearance_desc') }}</p>
 
     <!-- ===== 主题 ===== -->
     <div class="settings-block">
-      <h4 class="settings-block__title">主题</h4>
+      <h4 class="settings-block__title">{{ t('settings.themeSection') }}</h4>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">界面主题</label>
-          <span class="settings-row__desc">选择暗色、亮色或跟随系统自动切换</span>
+          <label class="settings-row__label">{{ t('settings.uiTheme') }}</label>
+          <span class="settings-row__desc">{{ t('settings.uiThemeDesc') }}</span>
         </div>
         <el-radio-group :model-value="uiStore.theme" @change="handleThemeChange">
-          <el-radio-button value="dark">暗色</el-radio-button>
-          <el-radio-button value="light">亮色</el-radio-button>
-          <el-radio-button value="system">跟随系统</el-radio-button>
+          <el-radio-button value="dark">{{ t('settings.themeDark') }}</el-radio-button>
+          <el-radio-button value="light">{{ t('settings.themeLight') }}</el-radio-button>
+          <el-radio-button value="system">{{ t('settings.themeSystem') }}</el-radio-button>
         </el-radio-group>
       </div>
     </div>
 
     <!-- ===== 界面 ===== -->
     <div class="settings-block">
-      <h4 class="settings-block__title">界面</h4>
+      <h4 class="settings-block__title">{{ t('settings.uiSection') }}</h4>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">语言</label>
-          <span class="settings-row__desc">界面显示语言（修改后需重启生效）</span>
+          <label class="settings-row__label">{{ t('settings.language') }}</label>
+          <span class="settings-row__desc">{{ t('settings.languageDesc') }}</span>
         </div>
         <el-select
           :model-value="getStr('app.language')"
@@ -42,8 +42,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">界面缩放</label>
-          <span class="settings-row__desc">整体缩放比例（0.8x - 1.5x）</span>
+          <label class="settings-row__label">{{ t('settings.zoomLevel') }}</label>
+          <span class="settings-row__desc">{{ t('settings.zoomLevelDesc') }}</span>
         </div>
         <div class="settings-row__slider-group">
           <el-slider
@@ -61,15 +61,15 @@
             size="small"
             @click="handleZoomChange(1.0)"
           >
-            重置
+            {{ t('settings.resetZoom') }}
           </el-button>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">紧凑模式</label>
-          <span class="settings-row__desc">减小界面间距，适合小屏幕</span>
+          <label class="settings-row__label">{{ t('settings.compactMode') }}</label>
+          <span class="settings-row__desc">{{ t('settings.compactModeDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('app.compactMode')"
@@ -89,7 +89,7 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
 
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
 

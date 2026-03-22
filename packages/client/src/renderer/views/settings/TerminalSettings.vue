@@ -1,16 +1,16 @@
 <template>
   <div class="terminal-settings">
-    <h3 class="section-title">终端</h3>
-    <p class="section-desc">配置终端外观和行为，修改后立即生效。</p>
+    <h3 class="section-title">{{ t('settings.terminal_section') }}</h3>
+    <p class="section-desc">{{ t('settings.terminal_desc') }}</p>
 
     <!-- ===== 外观 ===== -->
     <div class="settings-block">
-      <h4 class="settings-block__title">外观</h4>
+      <h4 class="settings-block__title">{{ t('settings.terminalAppearance') }}</h4>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">终端字体</label>
-          <span class="settings-row__desc">仅影响终端窗口，不影响界面其他区域</span>
+          <label class="settings-row__label">{{ t('settings.fontFamily') }}</label>
+          <span class="settings-row__desc">{{ t('settings.fontFamilyDesc') }}</span>
         </div>
         <el-select
           :model-value="getStr('terminal.fontFamily')"
@@ -31,8 +31,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">终端字号</label>
-          <span class="settings-row__desc">终端窗口中的字体大小（8-32px），不影响界面字号</span>
+          <label class="settings-row__label">{{ t('settings.fontSize') }}</label>
+          <span class="settings-row__desc">{{ t('settings.fontSizeDesc') }}</span>
         </div>
         <div class="settings-row__slider-group">
           <el-slider
@@ -58,8 +58,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">终端行高</label>
-          <span class="settings-row__desc">终端窗口行距倍数（1.0-2.0）</span>
+          <label class="settings-row__label">{{ t('settings.lineHeight') }}</label>
+          <span class="settings-row__desc">{{ t('settings.lineHeightDesc') }}</span>
         </div>
         <div class="settings-row__slider-group">
           <el-slider
@@ -77,23 +77,23 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">光标样式</label>
-          <span class="settings-row__desc">终端光标的显示形态</span>
+          <label class="settings-row__label">{{ t('settings.cursorStyle') }}</label>
+          <span class="settings-row__desc">{{ t('settings.cursorStyleDesc') }}</span>
         </div>
         <el-radio-group
           :model-value="getStr('terminal.cursorStyle')"
           @change="(v: unknown) => set('terminal.cursorStyle', v)"
         >
-          <el-radio-button value="block">方块</el-radio-button>
-          <el-radio-button value="underline">下划线</el-radio-button>
-          <el-radio-button value="bar">竖线</el-radio-button>
+          <el-radio-button value="block">{{ t('settings.cursorBlock') }}</el-radio-button>
+          <el-radio-button value="underline">{{ t('settings.cursorUnderline') }}</el-radio-button>
+          <el-radio-button value="bar">{{ t('settings.cursorBar') }}</el-radio-button>
         </el-radio-group>
       </div>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">光标闪烁</label>
-          <span class="settings-row__desc">光标是否闪烁</span>
+          <label class="settings-row__label">{{ t('settings.cursorBlink') }}</label>
+          <span class="settings-row__desc">{{ t('settings.cursorBlinkDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('terminal.cursorBlink')"
@@ -103,8 +103,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">滚动缓冲区</label>
-          <span class="settings-row__desc">终端可回滚的最大行数</span>
+          <label class="settings-row__label">{{ t('settings.scrollback') }}</label>
+          <span class="settings-row__desc">{{ t('settings.scrollbackDesc') }}</span>
         </div>
         <el-input-number
           :model-value="getNum('terminal.scrollback')"
@@ -120,12 +120,12 @@
 
     <!-- ===== 行为 ===== -->
     <div class="settings-block">
-      <h4 class="settings-block__title">行为</h4>
+      <h4 class="settings-block__title">{{ t('settings.terminalBehavior') }}</h4>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">右键粘贴</label>
-          <span class="settings-row__desc">在终端区域右键点击直接粘贴剪贴板内容</span>
+          <label class="settings-row__label">{{ t('settings.rightClickPaste') }}</label>
+          <span class="settings-row__desc">{{ t('settings.rightClickPasteDesc') }}</span>
         </div>
         <el-switch
           :model-value="getStr('terminal.rightClickAction') === 'paste'"
@@ -135,8 +135,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">粘贴换行警告</label>
-          <span class="settings-row__desc">粘贴的内容包含换行符时弹出确认</span>
+          <label class="settings-row__label">{{ t('settings.pasteWarning') }}</label>
+          <span class="settings-row__desc">{{ t('settings.pasteWarningDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('terminal.pasteWarning')"
@@ -146,8 +146,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">粘贴去尾换行</label>
-          <span class="settings-row__desc">粘贴时自动去除末尾多余的换行符</span>
+          <label class="settings-row__label">{{ t('settings.trimPasteNewlines') }}</label>
+          <span class="settings-row__desc">{{ t('settings.trimPasteNewlinesDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('terminal.trimPasteNewlines')"
@@ -157,25 +157,25 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">响铃</label>
-          <span class="settings-row__desc">终端收到 BEL 字符时的反馈方式</span>
+          <label class="settings-row__label">{{ t('settings.bell') }}</label>
+          <span class="settings-row__desc">{{ t('settings.bellDesc') }}</span>
         </div>
         <el-select
           :model-value="getStr('terminal.bell')"
           style="width: 160px"
           @change="(v: unknown) => set('terminal.bell', v)"
         >
-          <el-option label="无" value="none" />
-          <el-option label="声音" value="sound" />
-          <el-option label="视觉闪烁" value="visual" />
-          <el-option label="声音 + 视觉" value="both" />
+          <el-option :label="t('settings.bellNone')" value="none" />
+          <el-option :label="t('settings.bellSound')" value="sound" />
+          <el-option :label="t('settings.bellVisual')" value="visual" />
+          <el-option :label="t('settings.bellBoth')" value="both" />
         </el-select>
       </div>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">滚动灵敏度</label>
-          <span class="settings-row__desc">鼠标滚轮滚动的速度倍数</span>
+          <label class="settings-row__label">{{ t('settings.scrollSensitivity') }}</label>
+          <span class="settings-row__desc">{{ t('settings.scrollSensitivityDesc') }}</span>
         </div>
         <div class="settings-row__slider-group">
           <el-slider
@@ -193,8 +193,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">焦点跟随鼠标</label>
-          <span class="settings-row__desc">鼠标移入分屏区域时自动聚焦该终端</span>
+          <label class="settings-row__label">{{ t('settings.focusFollowMouse') }}</label>
+          <span class="settings-row__desc">{{ t('settings.focusFollowMouseDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('terminal.focusFollowMouse')"
@@ -207,8 +207,11 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../../stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
+
+const { t } = useI18n()
 
 const settingsStore = useSettingsStore()
 

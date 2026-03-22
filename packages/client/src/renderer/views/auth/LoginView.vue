@@ -14,7 +14,7 @@
         <!-- 应用名称 -->
         <span class="login-card__app-name">STerminal</span>
         <!-- 副标题 -->
-        <span class="login-card__subtitle">跨平台终端管理工具</span>
+        <span class="login-card__subtitle">{{ t('loginView.subtitle') }}</span>
       </div>
 
       <!-- 登录表单 -->
@@ -27,10 +27,10 @@
       >
         <!-- 邮箱输入框 -->
         <el-form-item prop="email">
-          <label class="field-label">邮箱地址</label>
+          <label class="field-label">{{ t('loginView.emailLabel') }}</label>
           <el-input
             v-model="form.email"
-            placeholder="请输入邮箱地址"
+            :placeholder="t('loginView.emailPlaceholder')"
             :prefix-icon="Message"
             autocomplete="email"
           />
@@ -38,11 +38,11 @@
 
         <!-- 密码输入框 -->
         <el-form-item prop="password">
-          <label class="field-label">密码</label>
+          <label class="field-label">{{ t('loginView.passwordLabel') }}</label>
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="请输入密码"
+            :placeholder="t('loginView.passwordPlaceholder')"
             :prefix-icon="Lock"
             show-password
             autocomplete="current-password"
@@ -52,10 +52,10 @@
         <!-- 记住我 + 忘记密码 -->
         <div class="login-card__options">
           <el-checkbox v-model="form.remember" class="login-card__remember">
-            记住我
+            {{ t('loginView.rememberMe') }}
           </el-checkbox>
           <el-link class="login-card__forgot" @click="handleForgotPassword">
-            忘记密码?
+            {{ t('loginView.forgotPassword') }}
           </el-link>
         </div>
 
@@ -66,12 +66,12 @@
           class="login-card__submit"
           native-type="submit"
         >
-          登录
+          {{ t('loginView.loginBtn') }}
         </el-button>
 
         <!-- "或" 分割线 -->
         <div class="login-card__divider">
-          <span>或</span>
+          <span>{{ t('loginView.or') }}</span>
         </div>
 
         <!-- OAuth 按钮行 -->
@@ -104,8 +104,8 @@
 
       <!-- 底部：注册入口 -->
       <div class="login-card__footer">
-        <span class="footer-text">没有账户？</span>
-        <router-link to="/register" class="footer-link">立即注册</router-link>
+        <span class="footer-text">{{ t('loginView.noAccount') }}</span>
+        <router-link to="/register" class="footer-link">{{ t('loginView.registerLink') }}</router-link>
       </div>
     </div>
   </div>
@@ -117,7 +117,10 @@ import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Message, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth.store'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -137,12 +140,12 @@ const form = reactive({
 // 表单验证规则
 const rules: FormRules = {
   email: [
-    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] },
+    { required: true, message: t('loginView.validEmailRequired'), trigger: 'blur' },
+    { type: 'email', message: t('loginView.validEmailFormat'), trigger: ['blur', 'change'] },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 1, message: '密码不能为空', trigger: 'blur' },
+    { required: true, message: t('loginView.validPasswordRequired'), trigger: 'blur' },
+    { min: 1, message: t('loginView.validPasswordEmpty'), trigger: 'blur' },
   ],
 }
 
@@ -154,10 +157,10 @@ async function handleLogin(): Promise<void> {
   loading.value = true
   try {
     await authStore.login(form.email, form.password, form.remember)
-    ElMessage.success('登录成功')
+    ElMessage.success(t('loginView.loginSuccess'))
     router.push('/')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '登录失败，请重试')
+    ElMessage.error(error instanceof Error ? error.message : t('loginView.loginFailed'))
   } finally {
     loading.value = false
   }
@@ -165,12 +168,12 @@ async function handleLogin(): Promise<void> {
 
 // 忘记密码占位处理
 function handleForgotPassword(): void {
-  ElMessage.info('密码重置功能即将上线')
+  ElMessage.info(t('loginView.forgotPasswordTip'))
 }
 
 // OAuth 登录占位处理
 function handleOAuth(provider: 'github' | 'google'): void {
-  ElMessage.info(`${provider === 'github' ? 'GitHub' : 'Google'} 登录功能即将上线`)
+  ElMessage.info(t('loginView.oauthTip', { provider: provider === 'github' ? 'GitHub' : 'Google' }))
 }
 </script>
 

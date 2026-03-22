@@ -14,17 +14,17 @@
         <div class="app-sidebar__avatar">
           <span class="app-sidebar__avatar-text">{{ userInitial }}</span>
         </div>
-        <span class="app-sidebar__username">{{ authStore.user?.username || '本地用户' }}</span>
+        <span class="app-sidebar__username">{{ authStore.user?.username || t('sidebar.localUser') }}</span>
       </div>
       <div class="app-sidebar__header-right">
         <!-- 同步状态图标 -->
-        <el-tooltip content="同步状态" placement="bottom">
+        <el-tooltip :content="t('sidebar.syncStatus')" placement="bottom">
           <button class="app-sidebar__icon-btn" @click="handleSync">
             <el-icon :size="15"><Refresh /></el-icon>
           </button>
         </el-tooltip>
         <!-- 设置入口 -->
-        <el-tooltip content="设置" placement="bottom" :disabled="settingsTooltipDisabled">
+        <el-tooltip :content="t('sidebar.settings')" placement="bottom" :disabled="settingsTooltipDisabled">
           <button class="app-sidebar__icon-btn" @click="goToSettings">
             <el-icon :size="15"><Setting /></el-icon>
           </button>
@@ -39,7 +39,7 @@
         <input
           v-model="searchQuery"
           class="app-sidebar__search-input"
-          placeholder="搜索主机和终端…"
+          :placeholder="t('sidebar.searchPlaceholder')"
           @input="handleSearch"
         />
       </div>
@@ -53,13 +53,13 @@
         <!-- 区域标题 -->
         <div class="app-sidebar__collapse-row" @click="toggleCollapse('hosts')">
           <el-icon :size="13" class="app-sidebar__section-icon"><Monitor /></el-icon>
-          <span class="app-sidebar__collapse-label">主机</span>
-          <el-tooltip content="新建分组" placement="top">
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.hosts') }}</span>
+          <el-tooltip :content="t('sidebar.addGroup')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="handleAddGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
-          <el-tooltip content="新增主机" placement="top">
+          <el-tooltip :content="t('sidebar.addHost')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="uiStore.openHostConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
@@ -101,8 +101,8 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除分组</el-dropdown-item>
+                  <el-dropdown-item command="rename">{{ t('sidebar.groupRename') }}</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.groupDelete') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -144,11 +144,11 @@
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
-                    <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">{{ t('sidebar.hostConnect') }}</el-dropdown-item>
+                    <el-dropdown-item v-else command="connect">{{ t('sidebar.hostNewConnect') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit">{{ t('sidebar.hostEdit') }}</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">{{ t('sidebar.hostDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.hostDelete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -191,11 +191,11 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">连接</el-dropdown-item>
-                <el-dropdown-item v-else command="connect">新建连接</el-dropdown-item>
-                <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item v-if="!isHostConnected(host.id)" command="connect">{{ t('sidebar.hostConnect') }}</el-dropdown-item>
+                <el-dropdown-item v-else command="connect">{{ t('sidebar.hostNewConnect') }}</el-dropdown-item>
+                <el-dropdown-item command="edit">{{ t('sidebar.hostEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.hostDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.hostDelete') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -209,12 +209,12 @@
             @dragleave="dragOverUngrouped = false"
             @drop.prevent.stop="onDropToUngrouped"
           >
-            拖放到此处移为未分组
+            {{ t('sidebar.dragToUngrouped') }}
           </div>
 
           <!-- 空状态 -->
           <div v-if="!draggedHostId && filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty">
-            暂无主机
+            {{ t('sidebar.noHosts') }}
           </div>
         </div>
       </div>
@@ -224,13 +224,13 @@
         <!-- 区域标题 -->
         <div class="app-sidebar__collapse-row" @click="toggleCollapse('terminals')">
           <el-icon :size="13" class="app-sidebar__section-icon"><Cpu /></el-icon>
-          <span class="app-sidebar__collapse-label">本地终端</span>
-          <el-tooltip content="新建分组" placement="top">
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.terminals') }}</span>
+          <el-tooltip :content="t('sidebar.addTerminalGroup')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="handleAddTerminalGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
-          <el-tooltip content="新建终端配置" placement="top">
+          <el-tooltip :content="t('sidebar.addTerminal')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="uiStore.openTerminalConfigDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
@@ -272,8 +272,8 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除分组</el-dropdown-item>
+                  <el-dropdown-item command="rename">{{ t('sidebar.groupRename') }}</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.groupDelete') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -307,10 +307,10 @@
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="open">打开</el-dropdown-item>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="open">{{ t('sidebar.terminalOpen') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit">{{ t('sidebar.terminalEdit') }}</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">{{ t('sidebar.terminalDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.terminalDelete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -345,10 +345,10 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="open">打开</el-dropdown-item>
-                <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item command="open">{{ t('sidebar.terminalOpen') }}</el-dropdown-item>
+                <el-dropdown-item command="edit">{{ t('sidebar.terminalEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.terminalDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.terminalDelete') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -362,12 +362,12 @@
             @dragleave="termDragOverUngrouped = false"
             @drop.prevent.stop="onTerminalDropToUngrouped"
           >
-            拖放到此处移为未分组
+            {{ t('sidebar.dragToUngrouped') }}
           </div>
 
           <!-- 空状态 -->
           <div v-if="!draggedTerminalId && filteredTerminalGroups.length === 0 && filteredUngroupedTerminals.length === 0" class="app-sidebar__empty">
-            暂无终端配置
+            {{ t('sidebar.noTerminals') }}
           </div>
         </div>
       </div>
@@ -381,13 +381,13 @@
           @click="toggleCollapse('snippets')"
         >
           <el-icon :size="13" class="app-sidebar__section-icon"><DocumentCopy /></el-icon>
-          <span class="app-sidebar__collapse-label">命令片段</span>
-          <el-tooltip content="新建分组" placement="top">
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.snippets') }}</span>
+          <el-tooltip :content="t('sidebar.addSnippetGroup')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="handleAddSnippetGroup">
               <el-icon :size="13"><FolderAdd /></el-icon>
             </button>
           </el-tooltip>
-          <el-tooltip content="新建片段" placement="top">
+          <el-tooltip :content="t('sidebar.addSnippet')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="uiStore.openSnippetEditDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
@@ -429,8 +429,8 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除分组</el-dropdown-item>
+                  <el-dropdown-item command="rename">{{ t('sidebar.groupRename') }}</el-dropdown-item>
+                  <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.groupDelete') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -465,11 +465,11 @@
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="execute">执行</el-dropdown-item>
-                    <el-dropdown-item command="copy">复制命令</el-dropdown-item>
-                    <el-dropdown-item command="edit" divided>编辑</el-dropdown-item>
-                    <el-dropdown-item command="duplicate">复制片段</el-dropdown-item>
-                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="execute">{{ t('sidebar.snippetExecute') }}</el-dropdown-item>
+                    <el-dropdown-item command="copy">{{ t('sidebar.snippetCopyCommand') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit" divided>{{ t('sidebar.snippetEdit') }}</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">{{ t('sidebar.snippetDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.snippetDelete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -505,11 +505,11 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="execute">执行</el-dropdown-item>
-                <el-dropdown-item command="copy">复制命令</el-dropdown-item>
-                <el-dropdown-item command="edit" divided>编辑</el-dropdown-item>
-                <el-dropdown-item command="duplicate">复制片段</el-dropdown-item>
-                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item command="execute">{{ t('sidebar.snippetExecute') }}</el-dropdown-item>
+                <el-dropdown-item command="copy">{{ t('sidebar.snippetCopyCommand') }}</el-dropdown-item>
+                <el-dropdown-item command="edit" divided>{{ t('sidebar.snippetEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.snippetDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.snippetDelete') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -523,12 +523,12 @@
             @dragleave="snipDragOverUngrouped = false"
             @drop.prevent.stop="onSnipDropToUngrouped"
           >
-            拖放到此处移为未分组
+            {{ t('sidebar.dragToUngrouped') }}
           </div>
 
           <!-- 空状态 -->
           <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
-            暂无命令片段
+            {{ t('sidebar.noSnippets') }}
           </div>
         </div>
       </div>
@@ -540,8 +540,8 @@
           @click="toggleCollapse('portForwards')"
         >
           <el-icon :size="13" class="app-sidebar__section-icon"><Share /></el-icon>
-          <span class="app-sidebar__collapse-label">端口转发</span>
-          <el-tooltip content="新建转发" placement="top">
+          <span class="app-sidebar__collapse-label">{{ t('sidebar.portForwards') }}</span>
+          <el-tooltip :content="t('sidebar.addPortForward')" placement="top">
             <button class="app-sidebar__add-btn" @click.stop="uiStore.openPortForwardDialog()">
               <el-icon :size="13"><Plus /></el-icon>
             </button>
@@ -585,22 +585,22 @@
                 :class="{ 'app-sidebar__pf-toggle--active': getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' }"
                 @click.stop="togglePortForward(rule)"
               >
-                {{ getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' ? '停止' : '启动' }}
+                {{ getPortForwardStatus(rule.id) === 'active' || getPortForwardStatus(rule.id) === 'starting' ? t('sidebar.portForwardToggleStop') : t('sidebar.portForwardToggleStart') }}
               </button>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="getPortForwardStatus(rule.id) !== 'active'" command="start">启动</el-dropdown-item>
-                <el-dropdown-item v-else command="stop">停止</el-dropdown-item>
-                <el-dropdown-item command="edit" divided>编辑</el-dropdown-item>
-                <el-dropdown-item command="duplicate">复制</el-dropdown-item>
-                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>删除</el-dropdown-item>
+                <el-dropdown-item v-if="getPortForwardStatus(rule.id) !== 'active'" command="start">{{ t('sidebar.portForwardStart') }}</el-dropdown-item>
+                <el-dropdown-item v-else command="stop">{{ t('sidebar.portForwardStop') }}</el-dropdown-item>
+                <el-dropdown-item command="edit" divided>{{ t('sidebar.portForwardEdit') }}</el-dropdown-item>
+                <el-dropdown-item command="duplicate">{{ t('sidebar.portForwardDuplicate') }}</el-dropdown-item>
+                <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.portForwardDelete') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
 
           <div v-if="portForwardRules.length === 0" class="app-sidebar__empty">
-            暂无端口转发
+            {{ t('sidebar.noPortForwards') }}
           </div>
         </div>
       </div>
@@ -611,7 +611,7 @@
         @click="toggleCollapse('vault')"
       >
         <el-icon :size="13" class="app-sidebar__section-icon"><Lock /></el-icon>
-        <span class="app-sidebar__collapse-label">密钥库</span>
+        <span class="app-sidebar__collapse-label">{{ t('sidebar.vault') }}</span>
         <el-icon :size="11" class="app-sidebar__collapse-arrow" :class="{ 'app-sidebar__collapse-arrow--open': !collapsedSections.has('vault') }">
           <ArrowRight />
         </el-icon>
@@ -630,6 +630,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   Monitor, Plus, Search, Setting, Refresh,
@@ -650,6 +651,8 @@ import type { Snippet, SnippetGroup } from '@shared/types/snippet'
 import type { PortForward } from '@shared/types/port-forward'
 import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
 import { hasVariables, replaceVariables } from '@shared/utils/snippet-variables'
+
+const { t } = useI18n()
 
 // ===== 平台检测 =====
 const isMacOS = window.electronAPI?.platform === 'darwin'
@@ -697,7 +700,7 @@ function handleSearch(): void {
 
 // ===== 用户头像首字母 =====
 const userInitial = computed(() => {
-  const name = authStore.user?.username || '本地用户'
+  const name = authStore.user?.username || t('sidebar.localUser')
   return name.charAt(0).toUpperCase()
 })
 
@@ -1070,11 +1073,11 @@ function getGroupHostCount(groupId: string): number {
 // ===== 分组管理 =====
 async function handleAddGroup(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('请输入分组名称', '新建分组', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('sidebar.newGroupPrompt'), t('sidebar.newGroupTitle'), {
+      confirmButtonText: t('sidebar.newGroupCreate'),
+      cancelButtonText: t('common.cancel'),
       inputPattern: /^.{1,64}$/,
-      inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+      inputErrorMessage: t('sidebar.groupNameError'),
     })
     if (value) {
       await hostsStore.createGroup({ name: value.trim(), sortOrder: hostsStore.groups.length })
@@ -1090,12 +1093,12 @@ async function handleGroupCmd(cmd: string, groupId: string): Promise<void> {
 
   if (cmd === 'rename') {
     try {
-      const { value } = await ElMessageBox.prompt('请输入新的分组名称', '重命名分组', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      const { value } = await ElMessageBox.prompt(t('sidebar.renameGroupPrompt'), t('sidebar.renameGroupTitle'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         inputValue: group.name,
         inputPattern: /^.{1,64}$/,
-        inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+        inputErrorMessage: t('sidebar.groupNameError'),
       })
       if (value) {
         await hostsStore.updateGroup(groupId, { name: value.trim() })
@@ -1106,12 +1109,12 @@ async function handleGroupCmd(cmd: string, groupId: string): Promise<void> {
   } else if (cmd === 'delete') {
     const count = hostsStore.hosts.filter(h => h.groupId === groupId).length
     const msg = count > 0
-      ? `该分组下有 ${count} 台主机，删除后它们将变为未分组。确定删除？`
-      : '确定删除该分组？'
+      ? t('sidebar.deleteGroupWithHostsMsg', { count })
+      : t('sidebar.deleteGroupEmptyMsg')
     try {
-      await ElMessageBox.confirm(msg, '删除分组', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(msg, t('sidebar.deleteGroupTitle'), {
+        confirmButtonText: t('sidebar.deleteGroupConfirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
       })
       await hostsStore.deleteGroup(groupId)
@@ -1124,11 +1127,11 @@ async function handleGroupCmd(cmd: string, groupId: string): Promise<void> {
 // ===== 终端分组管理 =====
 async function handleAddTerminalGroup(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('请输入分组名称', '新建分组', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('sidebar.newGroupPrompt'), t('sidebar.newGroupTitle'), {
+      confirmButtonText: t('sidebar.newGroupCreate'),
+      cancelButtonText: t('common.cancel'),
       inputPattern: /^.{1,64}$/,
-      inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+      inputErrorMessage: t('sidebar.groupNameError'),
     })
     if (value) {
       await terminalsStore.createGroup({ name: value.trim(), sortOrder: terminalsStore.groups.length })
@@ -1144,12 +1147,12 @@ async function handleTerminalGroupCmd(cmd: string, groupId: string): Promise<voi
 
   if (cmd === 'rename') {
     try {
-      const { value } = await ElMessageBox.prompt('请输入新的分组名称', '重命名分组', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      const { value } = await ElMessageBox.prompt(t('sidebar.renameGroupPrompt'), t('sidebar.renameGroupTitle'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         inputValue: group.name,
         inputPattern: /^.{1,64}$/,
-        inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+        inputErrorMessage: t('sidebar.groupNameError'),
       })
       if (value) {
         await terminalsStore.updateGroup(groupId, { name: value.trim() })
@@ -1158,14 +1161,14 @@ async function handleTerminalGroupCmd(cmd: string, groupId: string): Promise<voi
       // 用户取消
     }
   } else if (cmd === 'delete') {
-    const count = terminalsStore.terminals.filter(t => t.groupId === groupId).length
+    const count = terminalsStore.terminals.filter(term => term.groupId === groupId).length
     const msg = count > 0
-      ? `该分组下有 ${count} 个终端配置，删除后它们将变为未分组。确定删除？`
-      : '确定删除该分组？'
+      ? t('sidebar.deleteGroupWithTerminalsMsg', { count })
+      : t('sidebar.deleteGroupEmptyMsg')
     try {
-      await ElMessageBox.confirm(msg, '删除分组', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(msg, t('sidebar.deleteGroupTitle'), {
+        confirmButtonText: t('sidebar.deleteGroupConfirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
       })
       await terminalsStore.deleteGroup(groupId)
@@ -1178,9 +1181,9 @@ async function handleTerminalGroupCmd(cmd: string, groupId: string): Promise<voi
 function terminalTitle(terminal: LocalTerminalConfig): string {
   const lines: string[] = [terminal.name]
   if (terminal.shell) lines.push(`Shell: ${terminal.shell}`)
-  if (terminal.cwd) lines.push(`目录: ${terminal.cwd}`)
-  if (terminal.startupCommand) lines.push(`启动命令: ${terminal.startupCommand}`)
-  if (terminal.isDefault) lines.push('(默认终端)')
+  if (terminal.cwd) lines.push(`${t('sidebar.terminalDirLabel')}: ${terminal.cwd}`)
+  if (terminal.startupCommand) lines.push(`${t('sidebar.terminalStartupLabel')}: ${terminal.startupCommand}`)
+  if (terminal.isDefault) lines.push(t('sidebar.terminalDefaultLabel'))
   return lines.join('\n')
 }
 
@@ -1193,9 +1196,9 @@ function hostTitle(host: Host): string {
   const lines: string[] = []
   if (host.label) lines.push(host.label)
   lines.push(`${host.address}:${host.port}`)
-  if (host.username) lines.push(`用户: ${host.username}`)
-  if (host.protocol && host.protocol !== 'ssh') lines.push(`协议: ${host.protocol}`)
-  if (host.notes) lines.push(`备注: ${host.notes}`)
+  if (host.username) lines.push(`${t('sidebar.hostUserLabel')}: ${host.username}`)
+  if (host.protocol && host.protocol !== 'ssh') lines.push(`${t('sidebar.hostProtocolLabel')}: ${host.protocol}`)
+  if (host.notes) lines.push(`${t('sidebar.hostNotesLabel')}: ${host.notes}`)
   return lines.join('\n')
 }
 
@@ -1212,7 +1215,7 @@ async function handleHostCmd(cmd: string, host: Host): Promise<void> {
     uiStore.openHostConfigDialog(host.id)
   } else if (cmd === 'duplicate') {
     await hostsStore.createHost({
-      label: `${host.label || host.address} 副本`,
+      label: `${host.label || host.address} ${t('sidebar.duplicateSuffix')}`,
       address: host.address,
       port: host.port,
       protocol: host.protocol,
@@ -1238,7 +1241,7 @@ async function handleHostCmd(cmd: string, host: Host): Promise<void> {
     // 检查是否有端口转发规则绑定该主机
     const boundRules = portForwardsStore.rules.filter(r => r.hostId === host.id)
     if (boundRules.length > 0) {
-      ElMessage.warning(`无法删除：该主机有 ${boundRules.length} 条端口转发规则，请先删除相关规则`)
+      ElMessage.warning(t('sidebar.hostDeleteBlockedMsg', { count: boundRules.length }))
       return
     }
     sessionsStore.closeTabsByHostId(host.id)
@@ -1258,7 +1261,7 @@ async function handleTerminalCmd(cmd: string, terminal: LocalTerminalConfig): Pr
     uiStore.openTerminalConfigDialog(terminal.id)
   } else if (cmd === 'duplicate') {
     await terminalsStore.createTerminal({
-      name: `${terminal.name} 副本`,
+      name: `${terminal.name} ${t('sidebar.duplicateSuffix')}`,
       shell: terminal.shell,
       cwd: terminal.cwd,
       startupCommand: terminal.startupCommand,
@@ -1414,9 +1417,9 @@ function getSnippetGroupCount(groupId: string): number {
 function snippetTitle(snippet: Snippet): string {
   const lines: string[] = [snippet.name]
   if (snippet.description) lines.push(snippet.description)
-  lines.push(`命令: ${snippet.content}`)
-  if (snippet.tags.length) lines.push(`标签: ${snippet.tags.join(', ')}`)
-  if (snippet.useCount) lines.push(`使用次数: ${snippet.useCount}`)
+  lines.push(`${t('sidebar.snippetCommandLabel')}: ${snippet.content}`)
+  if (snippet.tags.length) lines.push(`${t('sidebar.snippetTagsLabel')}: ${snippet.tags.join(', ')}`)
+  if (snippet.useCount) lines.push(`${t('sidebar.snippetUseCountLabel')}: ${snippet.useCount}`)
   return lines.join('\n')
 }
 
@@ -1446,7 +1449,7 @@ async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {
     uiStore.openSnippetEditDialog(snippet.id)
   } else if (cmd === 'duplicate') {
     await snippetsStore.createSnippet({
-      name: `${snippet.name} 副本`,
+      name: `${snippet.name} ${t('sidebar.duplicateSuffix')}`,
       content: snippet.content,
       description: snippet.description,
       groupId: snippet.groupId,
@@ -1459,11 +1462,11 @@ async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {
 
 async function handleAddSnippetGroup(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('请输入分组名称', '新建分组', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('sidebar.newGroupPrompt'), t('sidebar.newGroupTitle'), {
+      confirmButtonText: t('sidebar.newGroupCreate'),
+      cancelButtonText: t('common.cancel'),
       inputPattern: /^.{1,64}$/,
-      inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+      inputErrorMessage: t('sidebar.groupNameError'),
     })
     if (value) {
       await snippetsStore.createGroup({ name: value.trim(), sortOrder: snippetsStore.groups.length })
@@ -1479,12 +1482,12 @@ async function handleSnippetGroupCmd(cmd: string, groupId: string): Promise<void
 
   if (cmd === 'rename') {
     try {
-      const { value } = await ElMessageBox.prompt('请输入新的分组名称', '重命名分组', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      const { value } = await ElMessageBox.prompt(t('sidebar.renameGroupPrompt'), t('sidebar.renameGroupTitle'), {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         inputValue: group.name,
         inputPattern: /^.{1,64}$/,
-        inputErrorMessage: '分组名称不能为空，且不超过 64 个字符',
+        inputErrorMessage: t('sidebar.groupNameError'),
       })
       if (value) {
         await snippetsStore.updateGroup(groupId, { name: value.trim() })
@@ -1495,12 +1498,12 @@ async function handleSnippetGroupCmd(cmd: string, groupId: string): Promise<void
   } else if (cmd === 'delete') {
     const count = snippetsStore.snippets.filter(s => s.groupId === groupId).length
     const msg = count > 0
-      ? `该分组下有 ${count} 个片段，删除后它们将变为未分组。确定删除？`
-      : '确定删除该分组？'
+      ? t('sidebar.deleteGroupWithSnippetsMsg', { count })
+      : t('sidebar.deleteGroupEmptyMsg')
     try {
-      await ElMessageBox.confirm(msg, '删除分组', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(msg, t('sidebar.deleteGroupTitle'), {
+        confirmButtonText: t('sidebar.deleteGroupConfirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
       })
       await snippetsStore.deleteGroup(groupId)
@@ -1522,7 +1525,7 @@ function getPortForwardStatus(ruleId: string): string {
 
 function getHostLabel(hostId: string): string {
   const host = hostsStore.hosts.find(h => h.id === hostId)
-  if (!host) return '未知主机'
+  if (!host) return t('sidebar.unknownHost')
   const userPart = host.username ? `${host.username}@` : ''
   const portPart = host.port && host.port !== 22 ? `:${host.port}` : ''
   const connStr = `${userPart}${host.address}${portPart}`
@@ -1540,25 +1543,25 @@ function portForwardLabel(rule: PortForward): string {
 
 function portForwardTitle(rule: PortForward): string {
   const host = hostsStore.hosts.find(h => h.id === rule.hostId)
-  const hostName = host ? (host.label || host.address) : '未知主机'
+  const hostName = host ? (host.label || host.address) : t('sidebar.unknownHost')
   const lines: string[] = []
   if (rule.name) lines.push(rule.name)
-  lines.push(`主机: ${hostName}`)
-  lines.push(`类型: ${rule.type === 'local' ? 'Local (-L)' : 'Remote (-R)'}`)
+  lines.push(`${t('sidebar.portForwardHostLabel')}: ${hostName}`)
+  lines.push(`${t('sidebar.portForwardTypeLabel')}: ${rule.type === 'local' ? 'Local (-L)' : 'Remote (-R)'}`)
   if (rule.type === 'local') {
     lines.push(`${rule.localBindAddr}:${rule.localPort} → ${rule.remoteTargetAddr}:${rule.remoteTargetPort}`)
   } else {
     lines.push(`${rule.remoteBindAddr}:${rule.remotePort} → ${rule.localTargetAddr}:${rule.localTargetPort}`)
   }
   const status = getPortForwardStatus(rule.id)
-  if (status !== 'inactive') lines.push(`状态: ${status}`)
+  if (status !== 'inactive') lines.push(`${t('sidebar.portForwardStatusLabel')}: ${status}`)
   return lines.join('\n')
 }
 
 async function startPortForwardWithFeedback(ruleId: string): Promise<void> {
   const result = await portForwardsStore.startTunnel(ruleId)
   if (!result.success) {
-    ElMessage.error(`启动失败: ${result.error || '未知错误'}`)
+    ElMessage.error(`${t('sidebar.portForwardStart')} ${t('common.error')}: ${result.error || t('common.error')}`)
   }
 }
 
@@ -1580,7 +1583,7 @@ async function handlePortForwardCmd(cmd: string, rule: PortForward): Promise<voi
     uiStore.openPortForwardDialog(rule.id)
   } else if (cmd === 'duplicate') {
     await portForwardsStore.createRule({
-      name: rule.name ? `${rule.name} 副本` : undefined,
+      name: rule.name ? `${rule.name} ${t('sidebar.duplicateSuffix')}` : undefined,
       type: rule.type,
       hostId: rule.hostId,
       localBindAddr: rule.localBindAddr,

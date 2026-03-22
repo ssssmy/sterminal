@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="填写变量"
+    :title="t('snippetVar.title')"
     width="500px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -11,7 +11,7 @@
     <!-- 片段信息 -->
     <div class="snippet-var__header">
       <div class="snippet-var__snippet-name">{{ snippetName }}</div>
-      <div class="snippet-var__preview-label">命令预览</div>
+      <div class="snippet-var__preview-label">{{ t('snippetVar.previewLabel') }}</div>
       <div class="snippet-var__preview">{{ preview }}</div>
     </div>
 
@@ -34,7 +34,7 @@
         <el-select
           v-if="variable.type === 'select'"
           v-model="formValues[variable.name]"
-          :placeholder="'选择 ' + variable.name"
+          :placeholder="t('snippetVar.selectPlaceholder', { name: variable.name })"
           style="width: 100%"
         >
           <el-option
@@ -52,7 +52,7 @@
           v-model="formValues[variable.name]"
           type="password"
           show-password
-          :placeholder="variable.defaultValue ? `默认: ${variable.defaultValue}` : '输入密码（不会被记录）'"
+          :placeholder="variable.defaultValue ? t('snippetVar.defaultPlaceholder', { default: variable.defaultValue }) : t('snippetVar.passwordPlaceholder')"
           @keyup.enter="handleConfirm"
         />
 
@@ -61,30 +61,30 @@
           v-else
           :ref="(el: any) => { if (idx === 0) firstInputRef = el }"
           v-model="formValues[variable.name]"
-          :placeholder="variable.defaultValue ? `默认: ${variable.defaultValue}` : `输入 ${variable.name} 的值`"
+          :placeholder="variable.defaultValue ? t('snippetVar.defaultPlaceholder', { default: variable.defaultValue }) : t('snippetVar.inputPlaceholder', { name: variable.name })"
           clearable
           @keyup.enter="handleConfirm"
         />
 
         <!-- 变量类型提示 -->
         <div class="snippet-var__field-hint">
-          <span v-if="variable.type === 'password'">此变量为密码类型，输入内容已遮蔽</span>
-          <span v-else-if="variable.type === 'select'">从预设选项中选择一个值</span>
-          <span v-else-if="variable.defaultValue">留空将使用默认值: {{ variable.defaultValue }}</span>
+          <span v-if="variable.type === 'password'">{{ t('snippetVar.hintPassword') }}</span>
+          <span v-else-if="variable.type === 'select'">{{ t('snippetVar.hintSelect') }}</span>
+          <span v-else-if="variable.defaultValue">{{ t('snippetVar.hintDefault', { default: variable.defaultValue }) }}</span>
         </div>
       </el-form-item>
     </el-form>
 
     <!-- 内置变量提示 -->
     <div v-if="hasBuiltinVars" class="snippet-var__builtin-hint">
-      命令中的内置变量（如 <code>&#36;{__date__}</code>）将在执行时自动替换
+      {{ t('snippetVar.builtinHint') }}
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleCancel">取消</el-button>
+        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" @click="handleConfirm">
-          执行
+          {{ t('snippetVar.execute') }}
         </el-button>
       </div>
     </template>
@@ -94,8 +94,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import type { FormInstance } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import type { SnippetVariable } from '@shared/utils/snippet-variables'
 import { replaceVariables } from '@shared/utils/snippet-variables'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -147,7 +150,7 @@ const preview = computed(() => {
 
 // 变量标签
 function variableLabel(variable: SnippetVariable): string {
-  const typeHint = variable.type === 'password' ? ' (密码)' : variable.type === 'select' ? ' (选择)' : ''
+  const typeHint = variable.type === 'password' ? t('snippetVar.varTypePassword') : variable.type === 'select' ? t('snippetVar.varTypeSelect') : ''
   return variable.name + typeHint
 }
 

@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="isEditing ? '编辑主机' : '新增主机'"
+    :title="isEditing ? t('hostDialog.editTitle') : t('hostDialog.addTitle')"
     width="600px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -17,26 +17,26 @@
     >
       <el-tabs v-model="activeTab" class="host-config-dialog__tabs">
         <!-- Tab 1: 基本配置 -->
-        <el-tab-pane label="基本配置" name="basic">
-          <el-form-item label="标签名" prop="label">
+        <el-tab-pane :label="t('hostDialog.tabBasic')" name="basic">
+          <el-form-item :label="t('hostDialog.labelName')" prop="label">
             <el-input
               v-model="form.label"
-              placeholder="服务器名称（可选，最多15字符）"
+              :placeholder="t('hostDialog.labelNamePlaceholder')"
               clearable
               :maxlength="15"
               show-word-limit
             />
           </el-form-item>
 
-          <el-form-item label="地址" prop="address">
+          <el-form-item :label="t('hostDialog.address')" prop="address">
             <el-input
               v-model="form.address"
-              placeholder="hostname 或 IP"
+              :placeholder="t('hostDialog.addressPlaceholder')"
               clearable
             />
           </el-form-item>
 
-          <el-form-item label="端口" prop="port">
+          <el-form-item :label="t('hostDialog.port')" prop="port">
             <el-input-number
               v-model="form.port"
               :min="1"
@@ -46,7 +46,7 @@
             />
           </el-form-item>
 
-          <el-form-item label="用户名" prop="username">
+          <el-form-item :label="t('hostDialog.username')" prop="username">
             <el-input
               v-model="form.username"
               placeholder="root"
@@ -55,38 +55,38 @@
             />
           </el-form-item>
 
-          <el-form-item label="认证方式" prop="authType">
+          <el-form-item :label="t('hostDialog.authType')" prop="authType">
             <el-select v-model="form.authType" style="width: 220px">
-              <el-option label="密码" value="password" />
-              <el-option label="SSH 密钥" value="key" />
-              <el-option label="密码 + 密钥" value="password_key" />
-              <el-option label="SSH Agent" value="agent" />
-              <el-option label="键盘交互" value="keyboard" />
+              <el-option :label="t('hostDialog.authPassword')" value="password" />
+              <el-option :label="t('hostDialog.authKey')" value="key" />
+              <el-option :label="t('hostDialog.authPasswordKey')" value="password_key" />
+              <el-option :label="t('hostDialog.authAgent')" value="agent" />
+              <el-option :label="t('hostDialog.authKeyboard')" value="keyboard" />
             </el-select>
           </el-form-item>
 
           <el-form-item
             v-if="showPassword"
-            label="密码"
+            :label="t('hostDialog.password')"
             prop="password"
           >
             <el-input
               v-model="form.password"
               type="password"
               show-password
-              placeholder="请输入密码"
+              :placeholder="t('hostDialog.passwordPlaceholder')"
               clearable
             />
           </el-form-item>
 
           <el-form-item
             v-if="showKey"
-            label="SSH 密钥"
+            :label="t('hostDialog.sshKey')"
             prop="keyId"
           >
             <el-select
               v-model="form.keyId"
-              placeholder="选择密钥（暂无）"
+              :placeholder="t('hostDialog.sshKeyPlaceholder')"
               clearable
               style="width: 100%"
             >
@@ -96,22 +96,22 @@
 
           <el-form-item
             v-if="showKey"
-            label="密钥密码"
+            :label="t('hostDialog.keyPassphrase')"
             prop="keyPassphrase"
           >
             <el-input
               v-model="form.keyPassphrase"
               type="password"
               show-password
-              placeholder="密钥密码（可选）"
+              :placeholder="t('hostDialog.keyPassphrasePlaceholder')"
               clearable
             />
           </el-form-item>
 
-          <el-form-item label="分组" prop="groupId">
+          <el-form-item :label="t('hostDialog.group')" prop="groupId">
             <el-select
               v-model="form.groupId"
-              placeholder="无分组"
+              :placeholder="t('hostDialog.groupPlaceholder')"
               clearable
               style="width: 100%"
             >
@@ -126,17 +126,17 @@
         </el-tab-pane>
 
         <!-- Tab 2: 高级配置 -->
-        <el-tab-pane label="高级配置" name="advanced">
-          <el-form-item label="启动命令" prop="startupCommand">
+        <el-tab-pane :label="t('hostDialog.tabAdvanced')" name="advanced">
+          <el-form-item :label="t('hostDialog.startupCommand')" prop="startupCommand">
             <el-input
               v-model="form.startupCommand"
               type="textarea"
               :rows="3"
-              placeholder="连接后自动执行的命令"
+              :placeholder="t('hostDialog.startupCommandPlaceholder')"
             />
           </el-form-item>
 
-          <el-form-item label="编码" prop="encoding">
+          <el-form-item :label="t('hostDialog.encoding')" prop="encoding">
             <el-select v-model="form.encoding" style="width: 220px">
               <el-option label="UTF-8" value="utf-8" />
               <el-option label="GBK" value="gbk" />
@@ -145,7 +145,7 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="Keepalive" prop="keepaliveInterval">
+          <el-form-item :label="t('hostDialog.keepalive')" prop="keepaliveInterval">
             <el-input-number
               v-model="form.keepaliveInterval"
               :min="0"
@@ -153,10 +153,10 @@
               :controls="true"
               style="width: 160px"
             />
-            <span class="host-config-dialog__unit">秒</span>
+            <span class="host-config-dialog__unit">{{ t('hostDialog.seconds') }}</span>
           </el-form-item>
 
-          <el-form-item label="连接超时" prop="connectTimeout">
+          <el-form-item :label="t('hostDialog.connectTimeout')" prop="connectTimeout">
             <el-input-number
               v-model="form.connectTimeout"
               :min="1"
@@ -164,40 +164,40 @@
               :controls="true"
               style="width: 160px"
             />
-            <span class="host-config-dialog__unit">秒</span>
+            <span class="host-config-dialog__unit">{{ t('hostDialog.seconds') }}</span>
           </el-form-item>
 
-          <el-form-item label="压缩" prop="compression">
+          <el-form-item :label="t('hostDialog.compression')" prop="compression">
             <el-switch v-model="form.compression" />
           </el-form-item>
 
-          <el-form-item label="严格主机检查" prop="strictHostKey">
+          <el-form-item :label="t('hostDialog.strictHostKey')" prop="strictHostKey">
             <el-switch v-model="form.strictHostKey" />
           </el-form-item>
 
-          <el-form-item label="SSH 版本" prop="sshVersion">
+          <el-form-item :label="t('hostDialog.sshVersion')" prop="sshVersion">
             <el-select v-model="form.sshVersion" style="width: 160px">
               <el-option label="Auto" value="auto" />
               <el-option label="2" value="2" />
             </el-select>
           </el-form-item>
 
-          <el-form-item label="备注" prop="notes">
+          <el-form-item :label="t('hostDialog.notes')" prop="notes">
             <el-input
               v-model="form.notes"
               type="textarea"
               :rows="3"
-              placeholder="备注信息"
+              :placeholder="t('hostDialog.notesPlaceholder')"
             />
           </el-form-item>
         </el-tab-pane>
 
         <!-- Tab 3: 代理配置 -->
-        <el-tab-pane label="代理配置" name="proxy">
-          <el-form-item label="跳板机" prop="proxyJumpId">
+        <el-tab-pane :label="t('hostDialog.tabProxy')" name="proxy">
+          <el-form-item :label="t('hostDialog.proxyJump')" prop="proxyJumpId">
             <el-select
               v-model="form.proxyJumpId"
-              placeholder="选择跳板机（可选）"
+              :placeholder="t('hostDialog.proxyJumpPlaceholder')"
               clearable
               style="width: 100%"
             >
@@ -210,7 +210,7 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="SOCKS 代理" prop="socksProxy">
+          <el-form-item :label="t('hostDialog.socksProxy')" prop="socksProxy">
             <el-input
               v-model="form.socksProxy"
               placeholder="socks5://host:port"
@@ -218,7 +218,7 @@
             />
           </el-form-item>
 
-          <el-form-item label="HTTP 代理" prop="httpProxy">
+          <el-form-item :label="t('hostDialog.httpProxy')" prop="httpProxy">
             <el-input
               v-model="form.httpProxy"
               placeholder="http://host:port"
@@ -231,8 +231,8 @@
 
     <template #footer>
       <div class="host-config-dialog__footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('hostDialog.save') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -241,9 +241,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
 import type { Host } from '@shared/types/host'
+
+const { t } = useI18n()
 
 const uiStore = useUiStore()
 const hostsStore = useHostsStore()
@@ -331,9 +334,9 @@ const showKey = computed(() =>
 // ===== 表单验证规则 =====
 const labelValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!value) return callback()
-  if (value.length > 15) return callback(new Error('标签名最多 15 个字符'))
+  if (value.length > 15) return callback(new Error(t('hostDialog.validLabelMax')))
   const duplicate = hostsStore.hosts.find(h => h.label === value && h.id !== uiStore.editingHostId)
-  if (duplicate) return callback(new Error(`标签名 "${value}" 已被使用`))
+  if (duplicate) return callback(new Error(t('hostDialog.validLabelDuplicate', { label: value })))
   callback()
 }
 
@@ -344,7 +347,7 @@ const addressValidator = (_rule: unknown, _value: string, callback: (error?: Err
   const duplicate = hostsStore.hosts.find(h =>
     h.address === addr && (h.username || '') === user && h.id !== uiStore.editingHostId
   )
-  if (duplicate) return callback(new Error(`主机 ${user ? user + '@' : ''}${addr} 已存在`))
+  if (duplicate) return callback(new Error(t('hostDialog.validAddressDuplicate', { host: `${user ? user + '@' : ''}${addr}` })))
   callback()
 }
 
@@ -353,12 +356,12 @@ const rules: FormRules = {
     { validator: labelValidator, trigger: 'blur' },
   ],
   address: [
-    { required: true, message: '请输入主机地址', trigger: 'blur' },
+    { required: true, message: t('hostDialog.validAddressRequired'), trigger: 'blur' },
     { validator: addressValidator, trigger: 'blur' },
   ],
   port: [
-    { required: true, message: '请输入端口号', trigger: 'blur' },
-    { type: 'number', min: 1, max: 65535, message: '端口范围 1-65535', trigger: 'blur' },
+    { required: true, message: t('hostDialog.validPortRequired'), trigger: 'blur' },
+    { type: 'number', min: 1, max: 65535, message: t('hostDialog.validPortRange'), trigger: 'blur' },
   ],
 }
 

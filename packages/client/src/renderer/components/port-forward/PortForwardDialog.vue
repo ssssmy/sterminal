@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="isEditing ? '编辑端口转发' : '新建端口转发'"
+    :title="isEditing ? t('portForwardDialog.editTitle') : t('portForwardDialog.addTitle')"
     width="540px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -14,18 +14,18 @@
       label-width="100px"
       label-position="left"
     >
-      <el-form-item label="名称" prop="name">
+      <el-form-item :label="t('portForwardDialog.name')" prop="name">
         <el-input
           v-model="form.name"
-          placeholder="如：MySQL 转发、Web 服务"
+          :placeholder="t('portForwardDialog.namePlaceholder')"
           clearable
         />
       </el-form-item>
 
-      <el-form-item label="主机" prop="hostId">
+      <el-form-item :label="t('portForwardDialog.host')" prop="hostId">
         <el-select
           v-model="form.hostId"
-          placeholder="选择 SSH 主机"
+          :placeholder="t('portForwardDialog.hostPlaceholder')"
           filterable
           style="width: 100%"
         >
@@ -41,7 +41,7 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="转发类型" prop="type">
+      <el-form-item :label="t('portForwardDialog.forwardType')" prop="type">
         <el-radio-group v-model="form.type">
           <el-radio-button value="local">
             Local (-L)
@@ -55,20 +55,20 @@
       <!-- Local 转发字段 -->
       <template v-if="form.type === 'local'">
         <div class="pf-direction-hint">
-          本地 <span class="pf-arrow">&#8594;</span> 远程：将本地端口的流量通过 SSH 转发到远程地址
+          {{ t('portForwardDialog.localHint') }}
         </div>
-        <el-form-item label="本地端口" prop="localPort" required>
+        <el-form-item :label="t('portForwardDialog.localPort')" prop="localPort" required>
           <div class="pf-addr-port">
             <el-input v-model="form.localBindAddr" placeholder="127.0.0.1" class="pf-addr" />
             <span class="pf-colon">:</span>
-            <el-input-number v-model="form.localPort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+            <el-input-number v-model="form.localPort" :min="1" :max="65535" :placeholder="t('portForwardDialog.portPlaceholder')" controls-position="right" class="pf-port" />
           </div>
         </el-form-item>
-        <el-form-item label="远程目标" prop="remoteTargetPort" required>
+        <el-form-item :label="t('portForwardDialog.remoteTarget')" prop="remoteTargetPort" required>
           <div class="pf-addr-port">
             <el-input v-model="form.remoteTargetAddr" placeholder="127.0.0.1" class="pf-addr" />
             <span class="pf-colon">:</span>
-            <el-input-number v-model="form.remoteTargetPort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+            <el-input-number v-model="form.remoteTargetPort" :min="1" :max="65535" :placeholder="t('portForwardDialog.portPlaceholder')" controls-position="right" class="pf-port" />
           </div>
         </el-form-item>
       </template>
@@ -76,44 +76,44 @@
       <!-- Remote 转发字段 -->
       <template v-if="form.type === 'remote'">
         <div class="pf-direction-hint">
-          远程 <span class="pf-arrow">&#8594;</span> 本地：将远程端口的流量通过 SSH 转发到本地地址
+          {{ t('portForwardDialog.remoteHint') }}
         </div>
-        <el-form-item label="远程端口" prop="remotePort" required>
+        <el-form-item :label="t('portForwardDialog.remotePort')" prop="remotePort" required>
           <div class="pf-addr-port">
             <el-input v-model="form.remoteBindAddr" placeholder="127.0.0.1" class="pf-addr" />
             <span class="pf-colon">:</span>
-            <el-input-number v-model="form.remotePort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+            <el-input-number v-model="form.remotePort" :min="1" :max="65535" :placeholder="t('portForwardDialog.portPlaceholder')" controls-position="right" class="pf-port" />
           </div>
         </el-form-item>
-        <el-form-item label="本地目标" prop="localTargetPort" required>
+        <el-form-item :label="t('portForwardDialog.localTarget')" prop="localTargetPort" required>
           <div class="pf-addr-port">
             <el-input v-model="form.localTargetAddr" placeholder="127.0.0.1" class="pf-addr" />
             <span class="pf-colon">:</span>
-            <el-input-number v-model="form.localTargetPort" :min="1" :max="65535" placeholder="端口" controls-position="right" class="pf-port" />
+            <el-input-number v-model="form.localTargetPort" :min="1" :max="65535" :placeholder="t('portForwardDialog.portPlaceholder')" controls-position="right" class="pf-port" />
           </div>
         </el-form-item>
       </template>
 
       <!-- 命令预览 -->
-      <el-form-item label="等效命令">
+      <el-form-item :label="t('portForwardDialog.equivalentCommand')">
         <div class="pf-preview-wrap">
           <code class="pf-preview">{{ commandPreview }}</code>
-          <button type="button" class="pf-copy-btn" title="复制命令" @click="copyCommand">
+          <button type="button" class="pf-copy-btn" :title="t('portForwardDialog.copyCommand')" @click="copyCommand">
             <el-icon :size="14"><DocumentCopy /></el-icon>
           </button>
         </div>
       </el-form-item>
 
-      <el-form-item label="自动启动">
+      <el-form-item :label="t('portForwardDialog.autoStart')">
         <el-switch v-model="form.autoStart" />
-        <span class="form-hint">连接该主机时自动启动此转发</span>
+        <span class="form-hint">{{ t('portForwardDialog.autoStartHint') }}</span>
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('portForwardDialog.save') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -124,9 +124,12 @@ import { ref, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import { useHostsStore } from '../../stores/hosts.store'
+
+const { t } = useI18n()
 
 const uiStore = useUiStore()
 const portForwardsStore = usePortForwardsStore()
@@ -177,8 +180,8 @@ function defaultForm(): FormData {
 const form = ref<FormData>(defaultForm())
 
 const rules: FormRules = {
-  hostId: [{ required: true, message: '请选择主机', trigger: 'change' }],
-  type: [{ required: true, message: '请选择转发类型', trigger: 'change' }],
+  hostId: [{ required: true, message: t('portForwardDialog.validHostRequired'), trigger: 'change' }],
+  type: [{ required: true, message: t('portForwardDialog.validTypeRequired'), trigger: 'change' }],
 }
 
 const commandPreview = computed(() => {
@@ -198,7 +201,7 @@ const commandPreview = computed(() => {
 
 async function copyCommand(): Promise<void> {
   await navigator.clipboard.writeText(commandPreview.value)
-  ElMessage.success('已复制到剪贴板')
+  ElMessage.success(t('portForwardDialog.copied'))
 }
 
 watch(

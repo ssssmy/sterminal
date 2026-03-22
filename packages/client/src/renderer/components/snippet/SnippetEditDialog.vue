@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="isEditing ? '编辑命令片段' : '新建命令片段'"
+    :title="isEditing ? t('snippetDialog.editTitle') : t('snippetDialog.addTitle')"
     width="560px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -14,33 +14,33 @@
       label-width="80px"
       label-position="left"
     >
-      <el-form-item label="名称" prop="name">
+      <el-form-item :label="t('snippetDialog.name')" prop="name">
         <el-input
           v-model="form.name"
-          placeholder="如：重启 Nginx、查看日志"
+          :placeholder="t('snippetDialog.namePlaceholder')"
           clearable
         />
       </el-form-item>
 
-      <el-form-item label="命令" prop="content">
+      <el-form-item :label="t('snippetDialog.command')" prop="content">
         <!-- 快捷插入变量按钮 -->
         <div class="snippet-var-toolbar">
-          <span class="snippet-var-toolbar__label">插入变量:</span>
+          <span class="snippet-var-toolbar__label">{{ t('snippetDialog.insertVar') }}</span>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name}')">
             <code>&#36;{name}</code>
-            <span>文本</span>
+            <span>{{ t('snippetDialog.varText') }}</span>
           </button>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name:default}')">
-            <code>&#36;{name:默认值}</code>
-            <span>带默认值</span>
+            <code>&#36;{name:default}</code>
+            <span>{{ t('snippetDialog.varWithDefault') }}</span>
           </button>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${name:A|B|C}')">
             <code>&#36;{name:A|B|C}</code>
-            <span>下拉选择</span>
+            <span>{{ t('snippetDialog.varDropdown') }}</span>
           </button>
           <button type="button" class="snippet-var-toolbar__btn" @click="insertVar('${!name}')">
             <code>&#36;{!name}</code>
-            <span>密码</span>
+            <span>{{ t('snippetDialog.varPassword') }}</span>
           </button>
         </div>
         <el-input
@@ -48,53 +48,53 @@
           v-model="form.content"
           type="textarea"
           :rows="5"
-          placeholder="输入命令内容，支持多行&#10;&#10;试试点击上方按钮插入变量 —— 执行时会弹窗让你填值&#10;例如: systemctl restart ${service:nginx}"
+          :placeholder="t('snippetDialog.commandPlaceholder')"
           class="snippet-content-input"
         />
         <!-- 变量检测提示 -->
         <div v-if="detectedVars.length > 0" class="snippet-var-detected">
-          检测到 {{ detectedVars.length }} 个变量：
+          {{ t('snippetDialog.detectedVars', { count: detectedVars.length }) }}
           <code v-for="v in detectedVars" :key="v.name" class="snippet-var-detected__tag">
-            {{ v.name }}<template v-if="v.type === 'password'"> (密码)</template><template v-else-if="v.type === 'select'"> ({{ v.options.length }}个选项)</template><template v-else-if="v.defaultValue"> = {{ v.defaultValue }}</template>
+            {{ v.name }}<template v-if="v.type === 'password'"> {{ t('snippetDialog.varTypePassword') }}</template><template v-else-if="v.type === 'select'"> {{ t('snippetDialog.varTypeSelect', { count: v.options.length }) }}</template><template v-else-if="v.defaultValue"> = {{ v.defaultValue }}</template>
           </code>
-          <span class="snippet-var-detected__hint">— 双击执行时将弹窗填写</span>
+          <span class="snippet-var-detected__hint">{{ t('snippetDialog.detectedHint') }}</span>
         </div>
         <!-- 内置变量和更多语法 -->
         <div class="snippet-var-help">
           <div class="snippet-var-help__title" @click="showVarHelp = !showVarHelp">
             <span class="snippet-var-help__toggle">{{ showVarHelp ? '▾' : '▸' }}</span>
-            内置变量和更多用法
+            {{ t('snippetDialog.builtinVarsTitle') }}
           </div>
           <div v-show="showVarHelp" class="snippet-var-help__body">
             <div class="snippet-var-help__builtin">
-              <div class="snippet-var-help__builtin-title">内置变量（执行时自动替换，无需填写）</div>
-              <code>&#36;{date}</code> 当前日期 &nbsp;
-              <code>&#36;{time}</code> 当前时间 &nbsp;
-              <code>&#36;{datetime}</code> 日期时间 &nbsp;
-              <code>&#36;{timestamp}</code> Unix时间戳
+              <div class="snippet-var-help__builtin-title">{{ t('snippetDialog.builtinVarsDesc') }}</div>
+              <code>&#36;{date}</code> {{ t('snippetDialog.builtinDate') }} &nbsp;
+              <code>&#36;{time}</code> {{ t('snippetDialog.builtinTime') }} &nbsp;
+              <code>&#36;{datetime}</code> {{ t('snippetDialog.builtinDatetime') }} &nbsp;
+              <code>&#36;{timestamp}</code> {{ t('snippetDialog.builtinTimestamp') }}
             </div>
             <div class="snippet-var-help__example">
-              <div class="snippet-var-help__builtin-title">完整示例</div>
+              <div class="snippet-var-help__builtin-title">{{ t('snippetDialog.exampleTitle') }}</div>
               <code>ssh &#36;{user:root}@&#36;{host} -p &#36;{port:22}</code><br/>
-              <span class="snippet-var-help__example-desc">执行时弹窗填写 user（默认 root）、host、port（默认 22）</span>
+              <span class="snippet-var-help__example-desc">{{ t('snippetDialog.exampleDesc') }}</span>
             </div>
           </div>
         </div>
       </el-form-item>
 
-      <el-form-item label="描述" prop="description">
+      <el-form-item :label="t('snippetDialog.description')" prop="description">
         <el-input
           v-model="form.description"
           type="textarea"
           :rows="2"
-          placeholder="片段用途说明（可选）"
+          :placeholder="t('snippetDialog.descriptionPlaceholder')"
         />
       </el-form-item>
 
-      <el-form-item label="分组" prop="groupId">
+      <el-form-item :label="t('snippetDialog.group')" prop="groupId">
         <el-select
           v-model="form.groupId"
-          placeholder="无分组"
+          :placeholder="t('snippetDialog.groupPlaceholder')"
           clearable
           style="width: 100%"
         >
@@ -107,7 +107,7 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="标签" prop="tags">
+      <el-form-item :label="t('snippetDialog.tags')" prop="tags">
         <div class="snippet-tags-input">
           <el-tag
             v-for="tag in form.tags"
@@ -133,7 +133,7 @@
             class="snippet-tag-add-btn"
             @click="showTagInput"
           >
-            + 标签
+            {{ t('snippetDialog.addTag') }}
           </el-button>
         </div>
       </el-form-item>
@@ -141,8 +141,8 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('snippetDialog.save') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -151,9 +151,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
 import { parseVariables } from '@shared/utils/snippet-variables'
+
+const { t } = useI18n()
 
 const uiStore = useUiStore()
 const snippetsStore = useSnippetsStore()
@@ -217,8 +220,8 @@ function defaultForm(): FormData {
 const form = ref<FormData>(defaultForm())
 
 const rules: FormRules = {
-  name: [{ required: true, message: '请输入片段名称', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入命令内容', trigger: 'blur' }],
+  name: [{ required: true, message: t('snippetDialog.validNameRequired'), trigger: 'blur' }],
+  content: [{ required: true, message: t('snippetDialog.validContentRequired'), trigger: 'blur' }],
 }
 
 // 编辑模式：加载数据

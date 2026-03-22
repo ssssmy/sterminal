@@ -24,8 +24,8 @@
         <!-- 无会话时显示欢迎页 -->
         <div v-if="sessionsStore.tabs.length === 0" class="workspace__empty">
           <div class="workspace__empty-inner">
-            <p class="workspace__empty-hint">按 Ctrl+T 新建本地终端</p>
-            <p class="workspace__empty-hint">或从左侧选择主机连接</p>
+            <p class="workspace__empty-hint">{{ t('workspace.emptyHint1') }}</p>
+            <p class="workspace__empty-hint">{{ t('workspace.emptyHint2') }}</p>
           </div>
         </div>
 
@@ -75,6 +75,7 @@
 defineOptions({ name: 'WorkspaceView' })
 
 import { defineAsyncComponent, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
@@ -96,6 +97,7 @@ const SnippetEditDialog = defineAsyncComponent(() => import('../../components/sn
 const PortForwardDialog = defineAsyncComponent(() => import('../../components/port-forward/PortForwardDialog.vue'))
 const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
 
+const { t } = useI18n()
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
 const hostsStore = useHostsStore()

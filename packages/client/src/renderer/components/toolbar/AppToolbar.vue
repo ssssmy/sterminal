@@ -7,7 +7,7 @@
     <!-- 左侧按钮组 -->
     <div class="app-toolbar__btn-group">
       <!-- 新建终端 -->
-      <el-tooltip content="新建终端" placement="bottom">
+      <el-tooltip :content="t('toolbar.newTerminal')" placement="bottom">
         <button
           class="app-toolbar__btn"
           @click="openDefaultTerminal"
@@ -17,7 +17,7 @@
       </el-tooltip>
 
       <!-- SFTP 文件传输 -->
-      <el-tooltip content="SFTP 文件传输" placement="bottom">
+      <el-tooltip :content="t('toolbar.sftp')" placement="bottom">
         <button
           class="app-toolbar__btn"
           :class="{ 'app-toolbar__btn--active': activeTool === 'sftp' }"
@@ -28,7 +28,7 @@
       </el-tooltip>
 
       <!-- 水平分屏 -->
-      <el-tooltip content="水平分屏" placement="bottom">
+      <el-tooltip :content="t('toolbar.splitHorizontal')" placement="bottom">
         <button
           class="app-toolbar__btn"
           @click="emit('split-horizontal')"
@@ -42,7 +42,7 @@
       </el-tooltip>
 
       <!-- 垂直分屏 -->
-      <el-tooltip content="垂直分屏" placement="bottom">
+      <el-tooltip :content="t('toolbar.splitVertical')" placement="bottom">
         <button
           class="app-toolbar__btn"
           @click="emit('split-vertical')"
@@ -56,7 +56,7 @@
       </el-tooltip>
 
       <!-- 广播模式 -->
-      <el-tooltip content="广播模式（同步输入到所有终端）" placement="bottom">
+      <el-tooltip :content="t('toolbar.broadcast')" placement="bottom">
         <button
           class="app-toolbar__btn"
           :class="{ 'app-toolbar__btn--active': broadcastMode }"
@@ -73,7 +73,7 @@
     <!-- 右侧按钮组 -->
     <div class="app-toolbar__btn-group">
       <!-- 录制会话 -->
-      <el-tooltip :content="isRecording ? '停止录制' : '录制会话'" placement="bottom">
+      <el-tooltip :content="isRecording ? t('toolbar.stopRecording') : t('toolbar.startRecording')" placement="bottom">
         <button
           class="app-toolbar__btn"
           :class="{ 'app-toolbar__btn--recording': isRecording }"
@@ -85,7 +85,7 @@
       </el-tooltip>
 
       <!-- 录制文件夹 -->
-      <el-tooltip content="打开录制文件夹" placement="bottom">
+      <el-tooltip :content="t('toolbar.openLogDir')" placement="bottom">
         <button
           class="app-toolbar__btn"
           @click="openLogDirectory"
@@ -95,7 +95,7 @@
       </el-tooltip>
 
       <!-- 终端搜索 -->
-      <el-tooltip content="终端内搜索" placement="bottom">
+      <el-tooltip :content="t('toolbar.terminalSearch')" placement="bottom">
         <button
           class="app-toolbar__btn"
           :class="{ 'app-toolbar__btn--active': activeTool === 'search' }"
@@ -106,7 +106,7 @@
       </el-tooltip>
 
       <!-- 全屏 -->
-      <el-tooltip content="全屏" placement="bottom">
+      <el-tooltip :content="t('toolbar.fullscreen')" placement="bottom">
         <button
           class="app-toolbar__btn"
           @click="emit('fullscreen')"
@@ -127,9 +127,12 @@ import {
   FolderOpened, Microphone, VideoCamera,
   Search, FullScreen, Cpu, Folder,
 } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
 import { IPC_LOG } from '@shared/types/ipc-channels'
+
+const { t } = useI18n()
 
 const isMacOS = window.electronAPI?.platform === 'darwin'
 const isWindows = window.electronAPI?.platform === 'win32'

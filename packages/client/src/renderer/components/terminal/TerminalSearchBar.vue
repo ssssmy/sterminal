@@ -4,7 +4,7 @@
       ref="inputRef"
       v-model="query"
       class="terminal-search-bar__input"
-      placeholder="搜索..."
+      :placeholder="t('searchBar.placeholder')"
       spellcheck="false"
       @input="handleInput"
       @keydown.enter.exact="findNext"
@@ -16,32 +16,32 @@
     <button
       class="terminal-search-bar__option"
       :class="{ 'terminal-search-bar__option--active': caseSensitive }"
-      title="区分大小写"
+      :title="t('searchBar.caseSensitive')"
       @click="caseSensitive = !caseSensitive; handleInput()"
     >Aa</button>
     <button
       class="terminal-search-bar__option"
       :class="{ 'terminal-search-bar__option--active': wholeWord }"
-      title="全字匹配"
+      :title="t('searchBar.wholeWord')"
       @click="wholeWord = !wholeWord; handleInput()"
     >W</button>
     <button
       class="terminal-search-bar__option"
       :class="{ 'terminal-search-bar__option--active': regex }"
-      title="正则表达式"
+      :title="t('searchBar.regex')"
       @click="regex = !regex; handleInput()"
     >.*</button>
 
     <!-- 导航按钮 -->
-    <button class="terminal-search-bar__nav" title="上一个 (Shift+Enter)" @click="findPrevious">
+    <button class="terminal-search-bar__nav" :title="t('searchBar.prevMatch')" @click="findPrevious">
       <el-icon :size="14"><ArrowUp /></el-icon>
     </button>
-    <button class="terminal-search-bar__nav" title="下一个 (Enter)" @click="findNext">
+    <button class="terminal-search-bar__nav" :title="t('searchBar.nextMatch')" @click="findNext">
       <el-icon :size="14"><ArrowDown /></el-icon>
     </button>
 
     <!-- 关闭 -->
-    <button class="terminal-search-bar__close" title="关闭 (Esc)" @click="close">
+    <button class="terminal-search-bar__close" :title="t('searchBar.close')" @click="close">
       <el-icon :size="14"><Close /></el-icon>
     </button>
   </div>
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ArrowUp, ArrowDown, Close } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import {
@@ -58,6 +59,7 @@ import {
   terminalClearSearch,
 } from './TerminalPane.vue'
 
+const { t } = useI18n()
 const sessionsStore = useSessionsStore()
 const uiStore = useUiStore()
 

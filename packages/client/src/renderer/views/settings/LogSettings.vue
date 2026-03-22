@@ -1,16 +1,16 @@
 <template>
   <div class="log-settings">
-    <h3 class="section-title">日志</h3>
-    <p class="section-desc">配置会话录制和日志文件管理。</p>
+    <h3 class="section-title">{{ t('settings.logs_section') }}</h3>
+    <p class="section-desc">{{ t('settings.logs_desc') }}</p>
 
     <!-- ===== 录制设置 ===== -->
     <div class="settings-block">
-      <h4 class="settings-block__title">录制</h4>
+      <h4 class="settings-block__title">{{ t('settings.recordingSection') }}</h4>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">自动录制</label>
-          <span class="settings-row__desc">打开新终端时自动开始录制会话</span>
+          <label class="settings-row__label">{{ t('settings.autoRecord') }}</label>
+          <span class="settings-row__desc">{{ t('settings.autoRecordDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('log.autoRecord')"
@@ -20,39 +20,39 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">录制格式</label>
-          <span class="settings-row__desc">会话录制文件的存储格式</span>
+          <label class="settings-row__label">{{ t('settings.recordFormat') }}</label>
+          <span class="settings-row__desc">{{ t('settings.recordFormatDesc') }}</span>
         </div>
         <el-select
           :model-value="getStr('log.format')"
           style="width: 180px"
           @change="(v: unknown) => set('log.format', v)"
         >
-          <el-option label="asciicast (可回放)" value="asciicast" />
-          <el-option label="纯文本" value="text" />
+          <el-option :label="t('settings.formatAsciicast')" value="asciicast" />
+          <el-option :label="t('settings.formatText')" value="text" />
         </el-select>
       </div>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">存储目录</label>
-          <span class="settings-row__desc">录制文件保存位置，留空使用默认目录</span>
+          <label class="settings-row__label">{{ t('settings.logDirectory') }}</label>
+          <span class="settings-row__desc">{{ t('settings.logDirectoryDesc') }}</span>
         </div>
         <div class="settings-row__input-group">
           <el-input
             :model-value="getStr('log.directory')"
-            placeholder="默认目录"
+            :placeholder="t('settings.logDirectoryDefault')"
             style="width: 260px"
             @change="(v: unknown) => set('log.directory', v)"
           />
-          <el-button @click="openLogDirectory">打开</el-button>
+          <el-button @click="openLogDirectory">{{ t('settings.openDirectory') }}</el-button>
         </div>
       </div>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">文件名模板</label>
-          <span class="settings-row__desc">可用变量：{host} 主机名、{datetime} 时间</span>
+          <label class="settings-row__label">{{ t('settings.fileNameTemplate') }}</label>
+          <span class="settings-row__desc">{{ t('settings.fileNameTemplateDesc') }}</span>
         </div>
         <el-input
           :model-value="getStr('log.fileNameTemplate')"
@@ -64,8 +64,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">添加时间戳</label>
-          <span class="settings-row__desc">每行输出前添加时间标记</span>
+          <label class="settings-row__label">{{ t('settings.addTimestamp') }}</label>
+          <span class="settings-row__desc">{{ t('settings.addTimestampDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('log.timestamp')"
@@ -75,8 +75,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">过滤密码</label>
-          <span class="settings-row__desc">尝试检测并过滤录制中的密码输入</span>
+          <label class="settings-row__label">{{ t('settings.filterPasswords') }}</label>
+          <span class="settings-row__desc">{{ t('settings.filterPasswordsDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('log.excludePasswords')"
@@ -87,12 +87,12 @@
 
     <!-- ===== 清理 ===== -->
     <div class="settings-block">
-      <h4 class="settings-block__title">清理</h4>
+      <h4 class="settings-block__title">{{ t('settings.cleanupSection') }}</h4>
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">单文件大小上限</label>
-          <span class="settings-row__desc">超过此大小自动停止录制</span>
+          <label class="settings-row__label">{{ t('settings.maxFileSize') }}</label>
+          <span class="settings-row__desc">{{ t('settings.maxFileSizeDesc') }}</span>
         </div>
         <div class="settings-row__input-group">
           <el-input-number
@@ -110,8 +110,8 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">自动清理</label>
-          <span class="settings-row__desc">自动删除过期的录制文件</span>
+          <label class="settings-row__label">{{ t('settings.autoClean') }}</label>
+          <span class="settings-row__desc">{{ t('settings.autoCleanDesc') }}</span>
         </div>
         <el-switch
           :model-value="getBool('log.autoClean')"
@@ -121,8 +121,8 @@
 
       <div v-if="getBool('log.autoClean')" class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">保留天数</label>
-          <span class="settings-row__desc">超过天数的录制文件将被自动删除</span>
+          <label class="settings-row__label">{{ t('settings.retainDays') }}</label>
+          <span class="settings-row__desc">{{ t('settings.retainDaysDesc') }}</span>
         </div>
         <div class="settings-row__input-group">
           <el-input-number
@@ -134,7 +134,7 @@
             style="width: 120px"
             @change="(v: unknown) => v != null && set('log.retainDays', v)"
           />
-          <span class="settings-row__unit">天</span>
+          <span class="settings-row__unit">{{ t('settings.days') }}</span>
         </div>
       </div>
     </div>
@@ -142,17 +142,17 @@
     <!-- ===== 录制文件管理 ===== -->
     <div class="settings-block">
       <h4 class="settings-block__title">
-        录制文件
+        {{ t('settings.recordingsSection') }}
         <el-button v-if="recordings.length > 0" size="small" text @click="openLogDirectory">
-          打开文件夹
+          {{ t('settings.openFolder') }}
         </el-button>
       </h4>
 
       <div v-if="loadingRecordings" class="log-list__loading">
-        加载中...
+        {{ t('common.loading') }}
       </div>
       <div v-else-if="recordings.length === 0" class="log-list__empty">
-        暂无录制文件
+        {{ t('settings.noRecordings') }}
       </div>
       <div v-else class="log-list">
         <div
@@ -172,7 +172,7 @@
             text
             @click="deleteRecording(rec.id)"
           >
-            删除
+            {{ t('settings.deleteRecording') }}
           </el-button>
         </div>
       </div>
@@ -182,10 +182,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useIpc } from '../../composables/useIpc'
 import { IPC_LOG } from '@shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
+
+const { t } = useI18n()
 
 const settingsStore = useSettingsStore()
 const { invoke } = useIpc()

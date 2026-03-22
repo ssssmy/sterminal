@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="isEditing ? '编辑终端配置' : '新建终端配置'"
+    :title="isEditing ? t('terminalDialog.editTitle') : t('terminalDialog.addTitle')"
     width="520px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -14,10 +14,10 @@
       label-width="90px"
       label-position="left"
     >
-      <el-form-item label="名称" prop="name">
+      <el-form-item :label="t('terminalDialog.name')" prop="name">
         <el-input
           v-model="form.name"
-          placeholder="如：默认终端、项目开发（最多15字符）"
+          :placeholder="t('terminalDialog.namePlaceholder')"
           clearable
           :maxlength="15"
           show-word-limit
@@ -26,7 +26,7 @@
 
       <el-form-item label="Shell" prop="shell">
         <el-select v-model="form.shell" filterable allow-create style="width: 100%">
-          <el-option label="系统默认" value="" />
+          <el-option :label="t('terminalDialog.shellDefault')" value="" />
           <el-option label="/bin/zsh" value="/bin/zsh" />
           <el-option label="/bin/bash" value="/bin/bash" />
           <el-option label="/bin/sh" value="/bin/sh" />
@@ -34,18 +34,18 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="工作目录" prop="cwd">
+      <el-form-item :label="t('terminalDialog.cwd')" prop="cwd">
         <el-input
           v-model="form.cwd"
-          placeholder="~ (默认主目录)"
+          :placeholder="t('terminalDialog.cwdPlaceholder')"
           clearable
         />
       </el-form-item>
 
-      <el-form-item label="分组" prop="groupId">
+      <el-form-item :label="t('terminalDialog.group')" prop="groupId">
         <el-select
           v-model="form.groupId"
-          placeholder="无分组"
+          :placeholder="t('terminalDialog.groupPlaceholder')"
           clearable
           style="width: 100%"
         >
@@ -58,30 +58,30 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="启动命令" prop="startupCommand">
+      <el-form-item :label="t('terminalDialog.startupCommand')" prop="startupCommand">
         <el-input
           v-model="form.startupCommand"
           type="textarea"
           :rows="2"
-          placeholder="打开终端后自动执行的命令"
+          :placeholder="t('terminalDialog.startupCommandPlaceholder')"
         />
       </el-form-item>
 
-      <el-form-item label="登录 Shell" prop="loginShell">
+      <el-form-item :label="t('terminalDialog.loginShell')" prop="loginShell">
         <el-switch v-model="form.loginShell" />
-        <span class="form-hint">加载 ~/.zprofile 等登录脚本</span>
+        <span class="form-hint">{{ t('terminalDialog.loginShellHint') }}</span>
       </el-form-item>
 
-      <el-form-item label="设为默认" prop="isDefault">
+      <el-form-item :label="t('terminalDialog.setDefault')" prop="isDefault">
         <el-switch v-model="form.isDefault" />
-        <span class="form-hint">新建终端时默认使用此配置</span>
+        <span class="form-hint">{{ t('terminalDialog.setDefaultHint') }}</span>
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ t('terminalDialog.save') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -90,9 +90,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
 import type { LocalTerminalConfig } from '@shared/types/terminal'
+
+const { t } = useI18n()
 
 const uiStore = useUiStore()
 const terminalsStore = useTerminalsStore()
@@ -139,19 +142,19 @@ const CJK_PUNCTUATION = /[\u3000-\u303F\uFF01-\uFF60\u2018-\u201F\u2026\u2013\u2
 const cwdValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!value) return callback()
   if (CJK_PUNCTUATION.test(value)) {
-    callback(new Error('路径中包含中文符号，请使用英文符号'))
+    callback(new Error(t('terminalDialog.validCwdCjk')))
   } else if (!/^[~/.\\]/.test(value) && !/^[a-zA-Z]:/.test(value)) {
-    callback(new Error('路径应以 ~ / . 或盘符开头'))
+    callback(new Error(t('terminalDialog.validCwdPrefix')))
   } else {
     callback()
   }
 }
 
 const nameValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
-  if (!value) return callback(new Error('请输入终端配置名称'))
-  if (value.length > 15) return callback(new Error('名称最多 15 个字符'))
-  const duplicate = terminalsStore.terminals.find(t => t.name === value && t.id !== uiStore.editingTerminalId)
-  if (duplicate) return callback(new Error(`名称 "${value}" 已被使用`))
+  if (!value) return callback(new Error(t('terminalDialog.validNameRequired')))
+  if (value.length > 15) return callback(new Error(t('terminalDialog.validNameMax')))
+  const duplicate = terminalsStore.terminals.find(term => term.name === value && term.id !== uiStore.editingTerminalId)
+  if (duplicate) return callback(new Error(t('terminalDialog.validNameDuplicate', { name: value })))
   callback()
 }
 

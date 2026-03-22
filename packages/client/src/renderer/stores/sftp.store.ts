@@ -181,6 +181,8 @@ export const useSftpStore = defineStore('sftp', () => {
         sftpId: state.sftpId,
         localPath,
         remotePath,
+        fileName,
+        totalBytes: 0,
         transferId,
       }).then(() => {
         refreshRemote(tabId)
@@ -226,6 +228,8 @@ export const useSftpStore = defineStore('sftp', () => {
         sftpId: state.sftpId,
         remotePath,
         localPath,
+        fileName,
+        totalBytes: 0,
         transferId,
       }).then(() => {
         refreshLocal(tabId)

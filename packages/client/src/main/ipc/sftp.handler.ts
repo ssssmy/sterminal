@@ -363,11 +363,12 @@ export function registerSftpHandlers(): void {
     remotePath: string
     fileName: string
     totalBytes: number
+    transferId: string
   }) => {
     const session = sftpSessions.get(params.sftpId)
     if (!session) throw new Error(`SFTP 会话 ${params.sftpId} 不存在`)
 
-    const transferId = uuidv4()
+    const transferId = params.transferId || uuidv4()
     const transferState = { cancelled: false }
     activeTransfers.set(transferId, transferState)
 
@@ -456,11 +457,12 @@ export function registerSftpHandlers(): void {
     localPath: string
     fileName: string
     totalBytes: number
+    transferId: string
   }) => {
     const session = sftpSessions.get(params.sftpId)
     if (!session) throw new Error(`SFTP 会话 ${params.sftpId} 不存在`)
 
-    const transferId = uuidv4()
+    const transferId = params.transferId || uuidv4()
     const transferState = { cancelled: false }
     activeTransfers.set(transferId, transferState)
 
@@ -484,6 +486,10 @@ export function registerSftpHandlers(): void {
     if (!webContents.isDestroyed()) {
       webContents.send(IPC_SFTP.TRANSFER_PROGRESS, { ...transfer })
     }
+
+    // 确保本地目标目录存在
+    const localDir = require('path').dirname(params.localPath)
+    require('fs').mkdirSync(localDir, { recursive: true })
 
     return new Promise<{ transferId: string }>((resolve, reject) => {
       session.sftp.fastGet(

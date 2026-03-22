@@ -407,7 +407,6 @@ const TerminalXterm = defineComponent({
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
-      // 粘贴拦截：换行警告 + 去尾换行
       // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
       terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {

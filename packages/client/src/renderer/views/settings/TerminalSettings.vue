@@ -77,17 +77,6 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">字体连字</label>
-          <span class="settings-row__desc">启用 Fira Code / JetBrains Mono 的连字特性（如 => !== ）</span>
-        </div>
-        <el-switch
-          :model-value="getBool('terminal.fontLigatures')"
-          @change="(v: unknown) => set('terminal.fontLigatures', v)"
-        />
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row__info">
           <label class="settings-row__label">光标样式</label>
           <span class="settings-row__desc">终端光标的显示形态</span>
         </div>

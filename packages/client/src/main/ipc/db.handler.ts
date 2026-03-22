@@ -20,6 +20,7 @@ export function registerDbHandlers(): void {
   registerSnippetsHandlers()
   registerSnippetGroupsHandlers()
   registerPortForwardsHandlers()
+  registerSftpBookmarksHandlers()
 }
 
 // ===== 设置 =====
@@ -615,6 +616,34 @@ function registerPortForwardsHandlers(): void {
 
   ipcMain.handle(IPC_DB.PORT_FORWARDS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM port_forwards WHERE id = ?', [id])
+    return true
+  })
+}
+
+// ===== SFTP 书签 =====
+
+function registerSftpBookmarksHandlers(): void {
+  // 按 host_id 查询书签
+  ipcMain.handle(IPC_DB.SFTP_BOOKMARKS_LIST, (_event, hostId?: string) => {
+    if (hostId) {
+      return dbAll('SELECT * FROM sftp_bookmarks WHERE host_id = ? ORDER BY name ASC', [hostId])
+    }
+    return dbAll('SELECT * FROM sftp_bookmarks ORDER BY name ASC')
+  })
+
+  // 创建书签
+  ipcMain.handle(IPC_DB.SFTP_BOOKMARKS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      'INSERT INTO sftp_bookmarks (id, host_id, path, name) VALUES (?, ?, ?, ?)',
+      [id, data.hostId, data.path, data.name ?? null]
+    )
+    return dbGet('SELECT * FROM sftp_bookmarks WHERE id = ?', [id])
+  })
+
+  // 删除书签
+  ipcMain.handle(IPC_DB.SFTP_BOOKMARKS_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM sftp_bookmarks WHERE id = ?', [id])
     return true
   })
 }

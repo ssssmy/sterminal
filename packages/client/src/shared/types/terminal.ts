@@ -37,6 +37,13 @@ export interface TabSession {
   color?: string
   pinned: boolean
   root: SplitNode
+  // SFTP 支持
+  contentType?: 'terminal' | 'sftp'
+  sftpMeta?: {
+    connectionId: string
+    hostId: string
+    hostLabel: string
+  }
 }
 
 // 分屏节点类型（递归树）

@@ -33,13 +33,22 @@
         <template v-else>
           <TerminalTabs />
           <div class="workspace__terminals">
-            <TerminalPane
-              v-for="tab in sessionsStore.tabs"
-              :key="tab.id"
-              v-show="sessionsStore.activeTabId === tab.id"
-              :tab="tab"
-              class="workspace__terminal-instance"
-            />
+            <template v-for="tab in sessionsStore.tabs" :key="tab.id">
+              <!-- SFTP 面板 -->
+              <SftpPanel
+                v-if="tab.contentType === 'sftp'"
+                v-show="sessionsStore.activeTabId === tab.id"
+                :tab="tab"
+                class="workspace__terminal-instance"
+              />
+              <!-- 终端面板 -->
+              <TerminalPane
+                v-else
+                v-show="sessionsStore.activeTabId === tab.id"
+                :tab="tab"
+                class="workspace__terminal-instance"
+              />
+            </template>
             <!-- 终端内搜索栏 -->
             <TerminalSearchBar v-if="uiStore.showTerminalSearch" />
           </div>
@@ -76,6 +85,7 @@ defineOptions({ name: 'WorkspaceView' })
 
 import { defineAsyncComponent, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
@@ -96,6 +106,7 @@ const TerminalSearchBar = defineAsyncComponent(() => import('../../components/te
 const SnippetEditDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetEditDialog.vue'))
 const PortForwardDialog = defineAsyncComponent(() => import('../../components/port-forward/PortForwardDialog.vue'))
 const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
+const SftpPanel = defineAsyncComponent(() => import('../../components/sftp/SftpPanel.vue'))
 
 const { t } = useI18n()
 const sessionsStore = useSessionsStore()
@@ -107,7 +118,20 @@ const portForwardsStore = usePortForwardsStore()
 
 // ===== 工具栏事件处理 =====
 function handleSftp(): void {
-  // TODO: 打开 SFTP 文件传输面板
+  const ids = sessionsStore.getActiveTabTerminalIds()
+  for (const id of ids) {
+    const inst = sessionsStore.terminalInstances.get(id)
+    if (inst?.type === 'ssh' && inst.sshStatus === 'connected' && inst.sshConnectionId && inst.hostId) {
+      const host = hostsStore.hosts.find(h => h.id === inst.hostId)
+      sessionsStore.createSftpTab(
+        inst.hostId,
+        host?.label || host?.address || 'SFTP',
+        inst.sshConnectionId
+      )
+      return
+    }
+  }
+  ElMessage.warning(t('sftp.noSshConnection'))
 }
 
 function handleSplitHorizontal(): void {

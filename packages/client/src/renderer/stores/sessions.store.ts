@@ -75,6 +75,24 @@ export const useSessionsStore = defineStore('sessions', () => {
   }
 
   /**
+   * 创建 SFTP 标签页（不创建终端实例，只管理标签元信息）
+   */
+  function createSftpTab(hostId: string, label: string, connectionId: string): TabSession {
+    const tabId = uuidv4()
+    const tab: TabSession = {
+      id: tabId,
+      label: `SFTP: ${label}`,
+      pinned: false,
+      contentType: 'sftp',
+      root: { type: 'terminal', terminalId: '' },
+      sftpMeta: { connectionId, hostId, hostLabel: label },
+    }
+    tabs.value.push(tab)
+    activeTabId.value = tabId
+    return tab
+  }
+
+  /**
    * 关闭标签页
    */
   function closeTab(tabId: string): void {
@@ -180,7 +198,7 @@ export const useSessionsStore = defineStore('sessions', () => {
    */
   function cleanupSplitNode(node: SplitNode): void {
     if (node.type === 'terminal') {
-      terminalInstances.value.delete(node.terminalId)
+      if (node.terminalId) terminalInstances.value.delete(node.terminalId)
     } else {
       cleanupSplitNode(node.children[0])
       cleanupSplitNode(node.children[1])
@@ -299,6 +317,7 @@ export const useSessionsStore = defineStore('sessions', () => {
     terminalInstances,
     broadcastMode,
     createTab,
+    createSftpTab,
     closeTab,
     closeTabsByHostId,
     closeSplitPane,

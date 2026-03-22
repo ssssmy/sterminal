@@ -124,17 +124,13 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">右键行为</label>
-          <span class="settings-row__desc">在终端区域右键点击的操作</span>
+          <label class="settings-row__label">右键粘贴</label>
+          <span class="settings-row__desc">在终端区域右键点击直接粘贴剪贴板内容</span>
         </div>
-        <el-select
-          :model-value="getStr('terminal.rightClickAction')"
-          style="width: 160px"
-          @change="(v: unknown) => set('terminal.rightClickAction', v)"
-        >
-          <el-option label="粘贴" value="paste" />
-          <el-option label="右键菜单" value="contextMenu" />
-        </el-select>
+        <el-switch
+          :model-value="getStr('terminal.rightClickAction') === 'paste'"
+          @change="(v: unknown) => set('terminal.rightClickAction', v ? 'paste' : 'none')"
+        />
       </div>
 
       <div class="settings-row">

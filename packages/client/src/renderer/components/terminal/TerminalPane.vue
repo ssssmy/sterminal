@@ -408,13 +408,19 @@ const TerminalXterm = defineComponent({
       terminalPool.set(xtermProps.terminalId, pooled)
 
       // 粘贴拦截：换行警告 + 去尾换行
+      // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
       terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
+          const s = useSettingsStoreModule().settings
+          const trimNewlines = s.get('terminal.trimPasteNewlines') ?? DEFAULT_SETTINGS['terminal.trimPasteNewlines']
+          const pasteWarning = s.get('terminal.pasteWarning') ?? DEFAULT_SETTINGS['terminal.pasteWarning']
+
+          // 没有启用任何粘贴处理，让 xterm 自己处理
+          if (!trimNewlines && !pasteWarning) return true
+
+          e.preventDefault()
           navigator.clipboard.readText().then(text => {
             if (!text) return
-            const s = useSettingsStoreModule().settings
-            const trimNewlines = s.get('terminal.trimPasteNewlines') ?? DEFAULT_SETTINGS['terminal.trimPasteNewlines']
-            const pasteWarning = s.get('terminal.pasteWarning') ?? DEFAULT_SETTINGS['terminal.pasteWarning']
 
             let processed = text
             if (trimNewlines) {

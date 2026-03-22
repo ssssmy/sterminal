@@ -549,6 +549,9 @@ const TerminalXterm = defineComponent({
             if (instance) {
               instance.sshConnectionId = result.connectionId
               instance.sshStatus = 'connected'
+              // 检查主进程是否已自动开始录制
+              const isRec = await ipcInvoke<boolean>(IPC_LOG.IS_RECORDING, { terminalKey: result.connectionId })
+              if (isRec) instance.recording = true
             }
             if (hostConfig.startupCommand) {
               sshPendingStartupCmd = hostConfig.startupCommand
@@ -586,7 +589,12 @@ const TerminalXterm = defineComponent({
         const result = await ipcInvoke<{ ptyId: string }>(IPC_PTY.SPAWN, spawnParams)
         if (result?.ptyId) {
           pooled.ptyId = result.ptyId
-          if (instance) instance.ptyId = result.ptyId
+          if (instance) {
+            instance.ptyId = result.ptyId
+            // 检查主进程是否已自动开始录制
+            const isRec = await ipcInvoke<boolean>(IPC_LOG.IS_RECORDING, { terminalKey: result.ptyId })
+            if (isRec) instance.recording = true
+          }
         }
 
         const ptyDataCallback = (payload: unknown) => {

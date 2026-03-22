@@ -1,11 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { resolve, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { resolve } from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
-import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 
@@ -22,12 +20,6 @@ export default defineConfig({
     Components({
       resolvers: [ElementPlusResolver()],
       dts: resolve(__dirname, 'src/renderer/components.d.ts'),
-    }),
-    VueI18nPlugin({
-      include: resolve(__dirname, 'src/renderer/i18n/**'),
-      runtimeOnly: true,
-      compositionOnly: true,
-      jitCompilation: false,
     }),
     // Electron 主进程 + preload 脚本
     electron([
@@ -60,16 +52,10 @@ export default defineConfig({
     // 渲染进程中使用 Node.js API 的支持
     renderer(),
   ],
-  define: {
-    __VUE_I18N_FULL_INSTALL__: true,
-    __VUE_I18N_LEGACY_API__: false,
-    __INTLIFY_JIT_COMPILATION__: false,
-  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
       '@shared': resolve(__dirname, 'src/shared'),
-      'vue-i18n': 'vue-i18n/dist/vue-i18n.runtime.esm-bundler.js',
     },
   },
   server: {

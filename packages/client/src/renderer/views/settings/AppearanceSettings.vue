@@ -37,7 +37,6 @@
           <el-option label="简体中文" value="zh-CN" />
           <el-option label="English" value="en" />
           <el-option label="繁體中文" value="zh-TW" />
-          <el-option label="日本語" value="ja" />
         </el-select>
       </div>
 

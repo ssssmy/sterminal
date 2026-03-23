@@ -10,6 +10,7 @@ import { killAllPty } from './ipc/pty.handler'
 import { stopAllRecordings, autoCleanRecordings } from './services/session-recorder'
 import { stopAllTunnels } from './ipc/port-forward.handler'
 import { closeAllSftpSessions } from './ipc/sftp.handler'
+import { stopSync } from './ipc/sync.handler'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -174,6 +175,7 @@ app.on('window-all-closed', () => {
 // 应用退出前清理资源
 app.on('before-quit', () => {
   saveWindowBounds()
+  stopSync()
   stopAllRecordings()
   stopAllTunnels()
   closeAllSftpSessions()

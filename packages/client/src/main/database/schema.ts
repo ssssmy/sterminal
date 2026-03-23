@@ -340,4 +340,15 @@ CREATE TABLE IF NOT EXISTS sftp_bookmarks (
     sync_version    INTEGER DEFAULT 1,
     sync_updated_at TEXT DEFAULT (datetime('now'))
 );
+
+-- ============================================================
+-- 同步删除追踪（本地记录已删除实体，等待推送到服务端）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sync_deletes (
+    entity_type     TEXT NOT NULL,
+    entity_id       TEXT NOT NULL,
+    deleted_at      TEXT DEFAULT (datetime('now')),
+    synced          INTEGER DEFAULT 0,
+    PRIMARY KEY (entity_type, entity_id)
+);
 `

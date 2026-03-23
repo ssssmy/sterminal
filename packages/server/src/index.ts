@@ -36,7 +36,8 @@ async function start(): Promise<void> {
   createWsServer(httpServer);
 
   // 5. 监听端口
-  httpServer.listen(config.port, () => {
+  const host = config.isDev ? '0.0.0.0' : '127.0.0.1';
+  httpServer.listen(config.port, host, () => {
     logger.info(
       {
         port: config.port,

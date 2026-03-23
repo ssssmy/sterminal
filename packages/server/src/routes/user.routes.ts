@@ -27,4 +27,7 @@ router.get('/me/sessions', userController.getSessions);
 // 撤销指定会话
 router.delete('/me/sessions/:sessionId', userController.revokeSession);
 
+// 删除账户
+router.delete('/me', userController.deleteAccount);
+
 export default router;

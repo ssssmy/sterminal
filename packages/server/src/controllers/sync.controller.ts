@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as syncService from '../services/sync.service.js';
 import type { PushSyncInput, PullSyncQuery } from '../validators/sync.schema.js';
+import { notifyUserDevices } from '../websocket/sync-handler.js';
+import { getClients } from '../websocket/ws-server.js';
 
 /**
  * 推送同步数据（客户端 → 服务端）
@@ -11,6 +13,11 @@ export function pushSync(req: Request, res: Response, next: NextFunction): void 
     const userId = req.user!.userId;
     const input = req.body as PushSyncInput;
     const result = syncService.pushSync(userId, input);
+
+    // 通知同一用户的其他设备有新数据
+    if (result.accepted > 0) {
+      notifyUserDevices(userId, input.deviceId, getClients());
+    }
 
     res.json({
       code: 0,

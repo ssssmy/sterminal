@@ -645,6 +645,7 @@ import { useAuthStore } from '../../stores/auth.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
 import { usePortForwardsStore } from '../../stores/port-forwards.store'
+import { useSyncStore } from '../../stores/sync.store'
 import type { Host } from '@shared/types/host'
 import type { LocalTerminalConfig, LocalTerminalGroup } from '@shared/types/terminal'
 import type { Snippet, SnippetGroup } from '@shared/types/snippet'
@@ -677,6 +678,7 @@ const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const snippetsStore = useSnippetsStore()
 const portForwardsStore = usePortForwardsStore()
+const syncStore = useSyncStore()
 
 // ===== 右键菜单：关闭已打开的下拉菜单 =====
 function closeOpenDropdowns(): void {
@@ -1276,8 +1278,22 @@ async function handleTerminalCmd(cmd: string, terminal: LocalTerminalConfig): Pr
 }
 
 // ===== 同步 =====
-function handleSync(): void {
-  // TODO: 触发云同步
+async function handleSync(): Promise<void> {
+  if (!authStore.isLoggedIn) {
+    ElMessage.info(t('accountSettings.offlineTitle'))
+    return
+  }
+  if (!syncStore.isActive) {
+    ElMessage.info(t('sidebar.syncNotEnabled'))
+    router.push('/settings/account')
+    return
+  }
+  try {
+    await syncStore.syncNow()
+    ElMessage.success(t('sidebar.syncDone'))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('accountSettings.syncFailed'))
+  }
 }
 
 const settingsTooltipDisabled = ref(false)

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as userService from '../services/user.service.js';
+import { signToken } from '../utils/jwt.js';
 import type { UpdateProfileInput, ChangePasswordInput, SetEncryptionSaltInput } from '../validators/user.schema.js';
 
 /**
@@ -8,12 +9,15 @@ import type { UpdateProfileInput, ChangePasswordInput, SetEncryptionSaltInput } 
  */
 export function getMe(req: Request, res: Response, next: NextFunction): void {
   try {
-    const userId = req.user!.userId;
+    const { userId, sessionId, email } = req.user!;
     const user = userService.getUserById(userId);
+
+    // 续签 token：每次访问重置 7 天有效期
+    const newToken = signToken({ userId, sessionId, email });
 
     res.json({
       code: 0,
-      data: user,
+      data: { ...user, token: newToken },
       message: 'ok',
     });
   } catch (err) {
@@ -114,6 +118,32 @@ export function revokeSession(req: Request, res: Response, next: NextFunction): 
       code: 0,
       data: null,
       message: '会话已撤销',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * 删除账户
+ * DELETE /api/v1/user/me
+ */
+export async function deleteAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400).json({ code: 400, data: null, message: '请提供密码以确认删除' });
+      return;
+    }
+
+    await userService.deleteAccount(userId, password);
+
+    res.json({
+      code: 0,
+      data: null,
+      message: '账户已删除',
     });
   } catch (err) {
     next(err);

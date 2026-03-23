@@ -8,6 +8,17 @@ import { IPC_DB } from '../../shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 
 /**
+ * 记录实体删除到 sync_deletes 表（供同步引擎推送）
+ */
+function trackDelete(entityType: string, entityId: string): void {
+  dbRun(
+    `INSERT OR REPLACE INTO sync_deletes (entity_type, entity_id, deleted_at, synced)
+     VALUES (?, ?, datetime('now'), 0)`,
+    [entityType, entityId]
+  )
+}
+
+/**
  * 注册所有数据库相关的 IPC handlers
  */
 export function registerDbHandlers(): void {
@@ -136,6 +147,7 @@ function registerLocalTerminalsHandlers(): void {
   // 删除本地终端配置
   ipcMain.handle(IPC_DB.LOCAL_TERMINALS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM local_terminals WHERE id = ?', [id])
+    trackDelete('local_terminal', id)
     return true
   })
 }
@@ -172,6 +184,7 @@ function registerLocalTerminalGroupsHandlers(): void {
     // 将该分组下的终端移到未分组
     dbRun('UPDATE local_terminals SET group_id = NULL WHERE group_id = ?', [id])
     dbRun('DELETE FROM local_terminal_groups WHERE id = ?', [id])
+    trackDelete('local_terminal_group', id)
     return true
   })
 }
@@ -279,6 +292,7 @@ function registerHostsHandlers(): void {
   // 删除主机
   ipcMain.handle(IPC_DB.HOSTS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM hosts WHERE id = ?', [id])
+    trackDelete('host', id)
     return true
   })
 }
@@ -317,6 +331,7 @@ function registerHostGroupsHandlers(): void {
 
   ipcMain.handle(IPC_DB.HOST_GROUPS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM host_groups WHERE id = ?', [id])
+    trackDelete('host_group', id)
     return true
   })
 }
@@ -348,6 +363,7 @@ function registerTagsHandlers(): void {
   ipcMain.handle(IPC_DB.TAGS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM tags WHERE id = ?', [id])
     dbRun('DELETE FROM host_tags WHERE tag_id = ?', [id])
+    trackDelete('tag', id)
     return true
   })
 }
@@ -355,29 +371,30 @@ function registerTagsHandlers(): void {
 // ===== 命令片段 =====
 
 function registerSnippetsHandlers(): void {
-  // 查询所有片段（含标签）
+  // 查询所有片段（含标签，单次查询避免 N+1）
   ipcMain.handle(IPC_DB.SNIPPETS_LIST, () => {
     const rows = dbAll<Record<string, unknown>>(
       'SELECT * FROM snippets ORDER BY sort_order ASC, created_at ASC'
     )
-    // 为每个 snippet 附加 tags
-    return rows.map(row => {
-      const tags = dbAll<{ tag: string }>(
-        'SELECT tag FROM snippet_tags WHERE snippet_id = ?',
-        [row.id as string]
-      )
-      return {
-        id: row.id,
-        name: row.name,
-        content: row.content,
-        description: row.description || '',
-        groupId: row.group_id || null,
-        sortOrder: row.sort_order ?? 0,
-        useCount: row.use_count ?? 0,
-        lastUsedAt: row.last_used_at || null,
-        tags: tags.map(t => t.tag),
-      }
-    })
+    // 一次性加载所有标签，按 snippet_id 分组
+    const allTags = dbAll<{ snippet_id: string; tag: string }>('SELECT snippet_id, tag FROM snippet_tags')
+    const tagMap = new Map<string, string[]>()
+    for (const t of allTags) {
+      const arr = tagMap.get(t.snippet_id)
+      if (arr) arr.push(t.tag)
+      else tagMap.set(t.snippet_id, [t.tag])
+    }
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      description: row.description || '',
+      groupId: row.group_id || null,
+      sortOrder: row.sort_order ?? 0,
+      useCount: row.use_count ?? 0,
+      lastUsedAt: row.last_used_at || null,
+      tags: tagMap.get(row.id as string) || [],
+    }))
   })
 
   // 创建片段
@@ -460,6 +477,7 @@ function registerSnippetsHandlers(): void {
   ipcMain.handle(IPC_DB.SNIPPETS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM snippet_tags WHERE snippet_id = ?', [id])
     dbRun('DELETE FROM snippets WHERE id = ?', [id])
+    trackDelete('snippet', id)
     return true
   })
 
@@ -515,6 +533,7 @@ function registerSnippetGroupsHandlers(): void {
     // 将该分组下的片段移到未分组
     dbRun('UPDATE snippets SET group_id = NULL WHERE group_id = ?', [id])
     dbRun('DELETE FROM snippet_groups WHERE id = ?', [id])
+    trackDelete('snippet_group', id)
     return true
   })
 }
@@ -616,6 +635,7 @@ function registerPortForwardsHandlers(): void {
 
   ipcMain.handle(IPC_DB.PORT_FORWARDS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM port_forwards WHERE id = ?', [id])
+    trackDelete('port_forward', id)
     return true
   })
 }
@@ -644,6 +664,7 @@ function registerSftpBookmarksHandlers(): void {
   // 删除书签
   ipcMain.handle(IPC_DB.SFTP_BOOKMARKS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM sftp_bookmarks WHERE id = ?', [id])
+    trackDelete('sftp_bookmark', id)
     return true
   })
 }

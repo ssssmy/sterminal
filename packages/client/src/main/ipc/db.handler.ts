@@ -6,6 +6,18 @@ import { v4 as uuidv4 } from 'uuid'
 import { dbAll, dbGet, dbRun } from '../services/db'
 import { IPC_DB } from '../../shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
+import { syncEngine } from '../services/sync-engine'
+
+/**
+ * 数据变更后防抖触发同步（5 秒内多次变更只触发一次）
+ */
+let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleSyncAfterChange(): void {
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer)
+  syncDebounceTimer = setTimeout(() => {
+    syncEngine.syncNow().catch(() => {})
+  }, 5000)
+}
 
 /**
  * 记录实体删除到 sync_deletes 表（供同步引擎推送）
@@ -16,6 +28,7 @@ function trackDelete(entityType: string, entityId: string): void {
      VALUES (?, ?, datetime('now'), 0)`,
     [entityType, entityId]
   )
+  scheduleSyncAfterChange()
 }
 
 /**
@@ -52,6 +65,9 @@ function registerSettingsHandlers(): void {
   })
 
   // 设置值（UPSERT）
+  // 不触发同步的本地设置 key
+  const LOCAL_ONLY_SETTINGS = ['window.bounds', 'sidebar.collapsedSections']
+
   ipcMain.handle(IPC_DB.SETTINGS_SET, (_event, key: string, value: unknown) => {
     const jsonValue = JSON.stringify(value)
     dbRun(
@@ -60,12 +76,14 @@ function registerSettingsHandlers(): void {
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, sync_updated_at = excluded.sync_updated_at`,
       [key, jsonValue]
     )
+    if (!LOCAL_ONLY_SETTINGS.includes(key)) scheduleSyncAfterChange()
     return true
   })
 
   // 重置所有设置
   ipcMain.handle(IPC_DB.SETTINGS_RESET, () => {
     dbRun('DELETE FROM settings')
+    scheduleSyncAfterChange()
     return true
   })
 }
@@ -101,6 +119,7 @@ function registerLocalTerminalsHandlers(): void {
         data.groupId ?? null,
       ]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
   })
 
@@ -141,6 +160,7 @@ function registerLocalTerminalsHandlers(): void {
     sets.push("updated_at = datetime('now')")
     params.push(id)
     dbRun(`UPDATE local_terminals SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
   })
 
@@ -165,6 +185,7 @@ function registerLocalTerminalGroupsHandlers(): void {
       'INSERT INTO local_terminal_groups (id, name, parent_id, sort_order) VALUES (?, ?, ?, ?)',
       [id, data.name, data.parentId ?? null, data.sortOrder ?? 0]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminal_groups WHERE id = ?', [id])
   })
 
@@ -177,6 +198,7 @@ function registerLocalTerminalGroupsHandlers(): void {
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.sortOrder ?? null, id]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminal_groups WHERE id = ?', [id])
   })
 
@@ -237,6 +259,7 @@ function registerHostsHandlers(): void {
         data.sortOrder ?? 0,
       ]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
   })
 
@@ -286,6 +309,7 @@ function registerHostsHandlers(): void {
     sets.push("updated_at = datetime('now')")
     params.push(id)
     dbRun(`UPDATE hosts SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
   })
 
@@ -311,6 +335,7 @@ function registerHostGroupsHandlers(): void {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, data.name, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? 0, data.collapsed ? 1 : 0]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM host_groups WHERE id = ?', [id])
   })
 
@@ -326,6 +351,7 @@ function registerHostGroupsHandlers(): void {
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? null, data.collapsed !== undefined ? (data.collapsed ? 1 : 0) : null, id]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM host_groups WHERE id = ?', [id])
   })
 
@@ -349,6 +375,7 @@ function registerTagsHandlers(): void {
       'INSERT INTO tags (id, name, color) VALUES (?, ?, ?)',
       [id, data.name, data.color ?? '#6366f1']
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM tags WHERE id = ?', [id])
   })
 
@@ -357,6 +384,7 @@ function registerTagsHandlers(): void {
       'UPDATE tags SET name = COALESCE(?, name), color = COALESCE(?, color) WHERE id = ?',
       [data.name ?? null, data.color ?? null, id]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM tags WHERE id = ?', [id])
   })
 
@@ -419,6 +447,7 @@ function registerSnippetsHandlers(): void {
     }
     // 返回完整对象
     const row = dbGet<Record<string, unknown>>('SELECT * FROM snippets WHERE id = ?', [id])
+    scheduleSyncAfterChange()
     return row ? { id: row.id, name: row.name, content: row.content, description: row.description || '', groupId: row.group_id || null, sortOrder: row.sort_order ?? 0, useCount: 0, lastUsedAt: null, tags } : null
   })
 
@@ -465,6 +494,7 @@ function registerSnippetsHandlers(): void {
     const row = dbGet<Record<string, unknown>>('SELECT * FROM snippets WHERE id = ?', [id])
     if (!row) return null
     const tagRows = dbAll<{ tag: string }>('SELECT tag FROM snippet_tags WHERE snippet_id = ?', [id])
+    scheduleSyncAfterChange()
     return {
       id: row.id, name: row.name, content: row.content, description: row.description || '',
       groupId: row.group_id || null, sortOrder: row.sort_order ?? 0,
@@ -512,6 +542,7 @@ function registerSnippetGroupsHandlers(): void {
       [id, data.name, data.parentId ?? null, data.color ?? null, data.sortOrder ?? 0]
     )
     const row = dbGet<Record<string, unknown>>('SELECT * FROM snippet_groups WHERE id = ?', [id])
+    scheduleSyncAfterChange()
     return row ? { id: row.id, name: row.name, parentId: row.parent_id || null, color: row.color || null, sortOrder: row.sort_order ?? 0 } : null
   })
 
@@ -526,6 +557,7 @@ function registerSnippetGroupsHandlers(): void {
       [data.name ?? null, data.parentId ?? null, data.color ?? null, data.sortOrder ?? null, id]
     )
     const row = dbGet<Record<string, unknown>>('SELECT * FROM snippet_groups WHERE id = ?', [id])
+    scheduleSyncAfterChange()
     return row ? { id: row.id, name: row.name, parentId: row.parent_id || null, color: row.color || null, sortOrder: row.sort_order ?? 0 } : null
   })
 
@@ -594,6 +626,7 @@ function registerPortForwardsHandlers(): void {
       ]
     )
     const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
+    scheduleSyncAfterChange()
     return row ? mapPortForwardRow(row) : null
   })
 
@@ -630,6 +663,7 @@ function registerPortForwardsHandlers(): void {
     params.push(id)
     dbRun(`UPDATE port_forwards SET ${sets.join(', ')} WHERE id = ?`, params)
     const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
+    scheduleSyncAfterChange()
     return row ? mapPortForwardRow(row) : null
   })
 
@@ -658,6 +692,7 @@ function registerSftpBookmarksHandlers(): void {
       'INSERT INTO sftp_bookmarks (id, host_id, path, name) VALUES (?, ?, ?, ?)',
       [id, data.hostId, data.path, data.name ?? null]
     )
+    scheduleSyncAfterChange()
     return dbGet('SELECT * FROM sftp_bookmarks WHERE id = ?', [id])
   })
 

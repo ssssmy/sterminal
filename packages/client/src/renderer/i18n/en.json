@@ -160,7 +160,12 @@
     "recordingsSection": "Recording Files",
     "openFolder": "Open Folder",
     "noRecordings": "No recording files",
-    "deleteRecording": "Delete"
+    "deleteRecording": "Delete",
+    "replay": "Replay",
+    "replayTitle": "Session Replay",
+    "replayLoading": "Loading recording...",
+    "replayError": "Failed to load recording",
+    "replayEmpty": "Recording is empty"
   },
   "common": {
     "confirm": "Confirm",

@@ -166,17 +166,35 @@
               {{ formatSize(rec.file_size) }} &middot; {{ formatDate(rec.started_at) }}
             </span>
           </div>
-          <el-button
-            type="danger"
-            size="small"
-            text
-            @click="deleteRecording(rec.id)"
-          >
-            {{ t('settings.deleteRecording') }}
-          </el-button>
+          <div class="log-list__actions">
+            <el-button
+              v-if="rec.file_path && rec.file_path.endsWith('.cast')"
+              type="primary"
+              size="small"
+              text
+              @click="openReplay(rec.id)"
+            >
+              {{ t('settings.replay') }}
+            </el-button>
+            <el-button
+              type="danger"
+              size="small"
+              text
+              @click="deleteRecording(rec.id)"
+            >
+              {{ t('settings.deleteRecording') }}
+            </el-button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- 回放对话框 -->
+    <SessionReplayDialog
+      v-if="replayLogId"
+      v-model="showReplay"
+      :log-id="replayLogId"
+    />
   </div>
 </template>
 
@@ -187,6 +205,7 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { useIpc } from '../../composables/useIpc'
 import { IPC_LOG } from '@shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
+import SessionReplayDialog from '../../components/replay/SessionReplayDialog.vue'
 
 const { t } = useI18n()
 
@@ -226,6 +245,13 @@ interface Recording {
 
 const recordings = ref<Recording[]>([])
 const loadingRecordings = ref(false)
+const showReplay = ref(false)
+const replayLogId = ref('')
+
+function openReplay(id: string): void {
+  replayLogId.value = id
+  showReplay.value = true
+}
 
 async function fetchRecordings(): Promise<void> {
   loadingRecordings.value = true

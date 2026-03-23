@@ -160,7 +160,12 @@
     "recordingsSection": "錄製檔案",
     "openFolder": "開啟資料夾",
     "noRecordings": "尚無錄製檔案",
-    "deleteRecording": "刪除"
+    "deleteRecording": "刪除",
+    "replay": "回放",
+    "replayTitle": "工作階段回放",
+    "replayLoading": "載入錄製資料...",
+    "replayError": "無法載入錄製資料",
+    "replayEmpty": "錄製資料為空"
   },
   "common": {
     "confirm": "確定",

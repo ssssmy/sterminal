@@ -160,7 +160,15 @@
     "recordingsSection": "录制文件",
     "openFolder": "打开文件夹",
     "noRecordings": "暂无录制文件",
-    "deleteRecording": "删除"
+    "deleteRecording": "删除",
+    "replay": "回放",
+    "replayTitle": "会话回放",
+    "replayLoading": "加载录制数据...",
+    "replayError": "无法加载录制数据",
+    "replayPlay": "播放",
+    "replayPause": "暂停",
+    "replaySpeed": "倍速",
+    "replayEmpty": "录制数据为空"
   },
   "common": {
     "confirm": "确定",

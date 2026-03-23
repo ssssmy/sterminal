@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: Record<string, string | number | boolean> = {
   'app.titleBarStyle':           'custom',
   'app.windowOpacity':           100,
   'app.language':                'system',
-  'app.zoomLevel':               100,
+  'app.zoomLevel':               1.0,
 
   // === 同步 ===
   'sync.enabled':                true,

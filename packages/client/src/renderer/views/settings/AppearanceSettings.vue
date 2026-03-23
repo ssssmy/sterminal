@@ -53,7 +53,7 @@
             :step="0.1"
             :show-tooltip="false"
             style="width: 160px"
-            @input="handleZoomChange"
+            @change="handleZoomChange"
           />
           <span class="settings-row__value">{{ getNum('app.zoomLevel').toFixed(1) }}x</span>
           <el-button

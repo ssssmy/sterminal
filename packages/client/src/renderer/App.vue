@@ -46,9 +46,9 @@ onMounted(async () => {
     locale.value = lang
   }
 
-  // 恢复缩放
+  // 恢复缩放（有效范围 0.8~1.5）
   const zoom = await settingsStore.getSetting<number>('app.zoomLevel')
-  if (zoom && zoom !== 1.0) {
+  if (zoom && zoom >= 0.8 && zoom <= 1.5 && zoom !== 1.0) {
     window.electronAPI?.ipc.invoke(IPC_WINDOW.SET_ZOOM, zoom)
   }
 

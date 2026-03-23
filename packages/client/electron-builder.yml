@@ -17,6 +17,7 @@ files:
   # external 模块需要随应用打包（Vite 不打包这些模块）
   - node_modules/libsodium/**
   - node_modules/libsodium-wrappers/**
+  - node_modules/ws/**
 
 # asar 打包（原生模块需要 unpack）
 asar: true

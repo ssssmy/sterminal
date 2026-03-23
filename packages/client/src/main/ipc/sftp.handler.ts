@@ -40,7 +40,7 @@ function entryToFileInfo(entry: {
 }, dirPath: string): SftpFileInfo {
   const mode = entry.attrs.mode
   const isDirectory = !!(mode & 0o040000)
-  const isSymlink = !!(mode & 0o120000)
+  const isSymlink = (mode & 0o170000) === 0o120000
   const filePath = path.posix.join(dirPath, entry.filename)
 
   return {
@@ -300,12 +300,13 @@ export function registerSftpHandlers(): void {
   ipcMain.handle(IPC_SFTP.RM, async (_event, params: {
     sftpId: string
     path: string
+    recursive?: boolean
     isDirectory?: boolean
   }) => {
     const session = sftpSessions.get(params.sftpId)
     if (!session) throw new Error(`SFTP 会话 ${params.sftpId} 不存在`)
 
-    if (params.isDirectory) {
+    if (params.recursive || params.isDirectory) {
       await rmRecursive(session.sftp, params.path)
     } else {
       await new Promise<void>((resolve, reject) => {
@@ -446,8 +447,11 @@ export function registerSftpHandlers(): void {
     if (localStats.isDirectory()) {
       // 递归收集所有文件
       const files = collectLocalFiles(params.localPath, params.fileName)
+      const transferState = { cancelled: false }
+      activeTransfers.set(transferId, transferState)
       let completed = 0
       for (const f of files) {
+        if (transferState.cancelled) break
         const remoteTarget = path.posix.join(path.posix.dirname(params.remotePath), f.relativePath)
         await mkdirpRemote(session.sftp, path.posix.dirname(remoteTarget))
         await new Promise<void>((resolve, reject) => {
@@ -537,8 +541,11 @@ export function registerSftpHandlers(): void {
     if (isDir) {
       // 递归收集所有文件
       const files = await collectRemoteFiles(session.sftp, params.remotePath, params.fileName)
+      const transferState = { cancelled: false }
+      activeTransfers.set(transferId, transferState)
       let completed = 0
       for (const f of files) {
+        if (transferState.cancelled) break
         const localTarget = path.join(params.localPath, '..', f.relativePath)
         fs.mkdirSync(path.dirname(localTarget), { recursive: true })
         await new Promise<void>((resolve, reject) => {

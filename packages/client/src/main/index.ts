@@ -9,6 +9,7 @@ import { disconnectAllSsh } from './ipc/ssh.handler'
 import { killAllPty } from './ipc/pty.handler'
 import { stopAllRecordings, autoCleanRecordings } from './services/session-recorder'
 import { stopAllTunnels } from './ipc/port-forward.handler'
+import { closeAllSftpSessions } from './ipc/sftp.handler'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -175,6 +176,7 @@ app.on('before-quit', () => {
   saveWindowBounds()
   stopAllRecordings()
   stopAllTunnels()
+  closeAllSftpSessions()
   killAllPty()
   disconnectAllSsh()
   closeDatabase()

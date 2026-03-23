@@ -43,6 +43,11 @@ export const IPC_SFTP = {
   WRITE_FILE: 'sftp:write-file',
 } as const
 
+export const IPC_LOCAL_FS = {
+  LIST: 'local-fs:list',
+  HOME: 'local-fs:home',
+} as const
+
 // ===== 数据库 CRUD =====
 export const IPC_DB = {
   // 主机

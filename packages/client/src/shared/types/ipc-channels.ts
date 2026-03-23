@@ -173,6 +173,7 @@ export const IPC_SYNC = {
   HAS_ENCRYPTION: 'sync:has-encryption',
   GET_SALT: 'sync:get-salt',
   SET_AUTO_INTERVAL: 'sync:set-auto-interval',
+  DATA_CHANGED: 'sync:data-changed',
 } as const
 
 // ===== 会话日志 =====

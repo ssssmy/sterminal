@@ -16,13 +16,21 @@ import { useSettingsStore } from './stores/settings.store'
 import { useAuthStore } from './stores/auth.store'
 import { useSyncStore } from './stores/sync.store'
 import { api } from './services/api'
-import { IPC_WINDOW, IPC_SSH, IPC_SERVER } from '@shared/types/ipc-channels'
+import { IPC_WINDOW, IPC_SSH, IPC_SERVER, IPC_SYNC } from '@shared/types/ipc-channels'
+import { useHostsStore } from './stores/hosts.store'
+import { useTerminalsStore } from './stores/terminals.store'
+import { useSnippetsStore } from './stores/snippets.store'
+import { usePortForwardsStore } from './stores/port-forwards.store'
 
 const { locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
 const authStore = useAuthStore()
 const syncStore = useSyncStore()
+const hostsStore = useHostsStore()
+const terminalsStore = useTerminalsStore()
+const snippetsStore = useSnippetsStore()
+const portForwardsStore = usePortForwardsStore()
 
 onMounted(async () => {
   // 从数据库恢复保存的主题设置
@@ -89,6 +97,18 @@ onMounted(async () => {
     } catch {
       window.electronAPI?.ipc.invoke('ssh:host-verify-response', { verifyId, accept: false })
     }
+  })
+
+  // 同步完成后刷新所有数据 Store
+  window.electronAPI?.ipc.on(IPC_SYNC.DATA_CHANGED, () => {
+    hostsStore.fetchHosts()
+    hostsStore.fetchGroups()
+    hostsStore.fetchTags()
+    terminalsStore.fetchTerminals()
+    terminalsStore.fetchGroups()
+    snippetsStore.fetchSnippets()
+    snippetsStore.fetchGroups()
+    portForwardsStore.fetchRules()
   })
 })
 </script>

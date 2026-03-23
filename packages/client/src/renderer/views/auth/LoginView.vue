@@ -199,28 +199,26 @@ function handleOAuth(provider: 'github' | 'google'): void {
   align-items: center;
   justify-content: center;
   background-color: var(--bg-primary);
-
-  /* 窗口过小时可滚动 */
-  overflow: auto;
-  padding: 24px 16px;
+  overflow: hidden;
+  padding: 16px;
 }
 
-/* 登录卡片：宽 480px，padding 48px */
 .login-card {
   width: 480px;
   min-width: 320px;
-  padding: 48px;
+  max-height: 100%;
+  padding: 32px 40px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 32px; /* Logo区和表单区之间的间距 */
+  gap: 20px;
 
-  /* 响应式：窗口过小时缩小 */
   @media (max-width: 540px) {
     width: 100%;
-    padding: 32px 24px;
+    padding: 24px 20px;
+    gap: 16px;
   }
 
   /* Logo 区域：垂直居中排列 */

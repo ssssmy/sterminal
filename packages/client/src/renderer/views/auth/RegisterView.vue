@@ -309,25 +309,22 @@ function handleOAuth(provider: 'github' | 'google'): void {
   align-items: center;
   justify-content: center;
   background-color: var(--bg-primary);
-
-  /* 窗口过小时可滚动 */
-  overflow: auto;
-  padding: 24px 16px;
+  overflow: hidden;
+  padding: 16px;
 }
 
-/* 注册卡片：宽 480px，padding [40,48] */
 .register-card {
   width: 480px;
   min-width: 320px;
-  padding: 40px 48px;
+  max-height: 100%;
+  padding: 28px 40px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
 
-  /* 响应式：窗口过小时缩小 */
   @media (max-width: 540px) {
     width: 100%;
     padding: 28px 20px;
@@ -378,7 +375,7 @@ function handleOAuth(provider: 'github' | 'google'): void {
 
     /* el-form-item 间距 */
     :deep(.el-form-item) {
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     /* 输入框样式覆盖 */

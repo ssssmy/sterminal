@@ -110,6 +110,16 @@ interface ResultGroup {
   items: CommandItem[]
 }
 
+// 预排序片段（独立 computed，仅在 snippets 变化时重新排序）
+const sortedSnippets = computed(() =>
+  [...snippetsStore.snippets].sort((a, b) => {
+    if (b.useCount !== a.useCount) return b.useCount - a.useCount
+    const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0
+    const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0
+    return bTime - aTime
+  })
+)
+
 // ===== 所有条目（未过滤） =====
 const allItems = computed<CommandItem[]>(() => {
   const items: Omit<CommandItem, '_flatIndex'>[] = []
@@ -231,13 +241,7 @@ const allItems = computed<CommandItem[]>(() => {
   }
 
   // --- 命令片段（按 useCount 降序排列，最近使用的靠前） ---
-  const sortedSnippets = [...snippetsStore.snippets].sort((a, b) => {
-    if (b.useCount !== a.useCount) return b.useCount - a.useCount
-    const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0
-    const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0
-    return bTime - aTime
-  })
-  for (const snippet of sortedSnippets) {
+  for (const snippet of sortedSnippets.value) {
     items.push({
       id: `snippet-${snippet.id}`,
       name: snippet.name,
@@ -275,9 +279,8 @@ const allItems = computed<CommandItem[]>(() => {
 
   // --- 端口转发规则 ---
   for (const rule of portForwardsStore.rules) {
-    const hostName = hostsStore.hosts.find(h => h.id === rule.hostId)?.label
-      || hostsStore.hosts.find(h => h.id === rule.hostId)?.address
-      || rule.hostId
+    const pfHost = hostsStore.hosts.find(h => h.id === rule.hostId)
+    const hostName = pfHost?.label || pfHost?.address || rule.hostId
     items.push({
       id: `pf-${rule.id}`,
       name: rule.name || `${rule.type === 'local' ? 'L' : 'R'}:${rule.localPort ?? rule.remotePort}`,
@@ -318,8 +321,12 @@ const groupedResults = computed<ResultGroup[]>(() => {
       )
     : allItems.value
 
+  // 重新分配连续索引（过滤后原始 _flatIndex 不再连续）
+  let idx = 0
+  const reindexed = filtered.map(item => ({ ...item, _flatIndex: idx++ }))
+
   const map = new Map<Category, CommandItem[]>()
-  for (const item of filtered) {
+  for (const item of reindexed) {
     if (!map.has(item.category)) map.set(item.category, [])
     map.get(item.category)!.push(item)
   }

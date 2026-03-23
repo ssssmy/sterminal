@@ -199,26 +199,29 @@ function handleOAuth(provider: 'github' | 'google'): void {
   align-items: center;
   justify-content: center;
   background-color: var(--bg-primary);
-  overflow: hidden;
-  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+
+  &::-webkit-scrollbar { width: 0; }
 }
 
 .login-card {
   width: 480px;
-  min-width: 320px;
-  max-height: 100%;
-  padding: 32px 40px;
+  min-width: 300px;
+  padding: 28px 36px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  flex-shrink: 0;
 
   @media (max-width: 540px) {
     width: 100%;
-    padding: 24px 20px;
-    gap: 16px;
+    padding: 20px 16px;
+    gap: 12px;
   }
 
   /* Logo 区域：垂直居中排列 */

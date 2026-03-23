@@ -309,21 +309,24 @@ function handleOAuth(provider: 'github' | 'google'): void {
   align-items: center;
   justify-content: center;
   background-color: var(--bg-primary);
-  overflow: hidden;
-  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+
+  &::-webkit-scrollbar { width: 0; }
 }
 
 .register-card {
   width: 480px;
-  min-width: 320px;
-  max-height: 100%;
-  padding: 28px 40px;
+  min-width: 300px;
+  padding: 24px 36px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  flex-shrink: 0;
 
   @media (max-width: 540px) {
     width: 100%;

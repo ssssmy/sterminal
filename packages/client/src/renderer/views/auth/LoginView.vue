@@ -41,12 +41,12 @@
         <div class="login-brand__feature">
           <div class="login-brand__feature-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
             </svg>
           </div>
           <div class="login-brand__feature-text">
-            <span class="login-brand__feature-title">{{ t('loginView.featEncTitle') }}</span>
-            <span class="login-brand__feature-desc">{{ t('loginView.featEncDesc') }}</span>
+            <span class="login-brand__feature-title">{{ t('loginView.featCrossTitle') }}</span>
+            <span class="login-brand__feature-desc">{{ t('loginView.featCrossDesc') }}</span>
           </div>
         </div>
       </div>

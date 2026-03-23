@@ -405,11 +405,11 @@
     "offlineMode": "不登入，直接使用",
     "welcomeBack": "歡迎回來，請登入您的帳號",
     "featConnTitle": "連線管理",
-    "featConnDesc": "支援密碼、金鑰、Agent 等多種認證方式",
+    "featConnDesc": "支援密碼、金鑰等多種認證方式",
     "featSyncTitle": "雲端同步",
     "featSyncDesc": "主機設定、命令片段、設定一鍵雲端同步",
-    "featEncTitle": "端對端加密",
-    "featEncDesc": "密碼和金鑰本地加密，雲端僅儲存密文"
+    "featCrossTitle": "跨平台支援",
+    "featCrossDesc": "macOS、Windows、Linux 全平台可用"
   },
   "sidebar": {
     "localUser": "本機使用者",

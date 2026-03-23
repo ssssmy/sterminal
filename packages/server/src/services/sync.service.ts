@@ -3,6 +3,11 @@ import { AppError } from '../middleware/error-handler.js';
 import { logger } from '../utils/logger.js';
 import type { PushSyncInput, PullSyncQuery } from '../validators/sync.schema.js';
 
+/** ISO datetime → SQLite datetime (2024-01-01T00:00:00.000Z → 2024-01-01 00:00:00) */
+function toSqliteTime(t: string): string {
+  return t.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
+}
+
 /**
  * 同步实体记录类型
  */
@@ -28,12 +33,9 @@ export function pushSync(userId: string, input: PushSyncInput): {
   let accepted = 0;
   const conflicts: string[] = [];
 
-  // 统一时间格式为 SQLite datetime
-  const normalizeTime = (t: string) => t.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
-
   const tx = db.transaction(() => {
     for (const entity of input.entities) {
-      const updatedAt = normalizeTime(entity.updatedAt);
+      const updatedAt = toSqliteTime(entity.updatedAt);
 
       const existing = db.prepare(`
         SELECT version FROM sync_entities
@@ -100,9 +102,7 @@ export function pullSync(userId: string, query: PullSyncQuery): {
   hasMore: boolean;
   nextSince: string;
 } {
-  // 统一转为 SQLite datetime 格式进行比较
-  const rawSince = query.since ?? '1970-01-01 00:00:00';
-  const since = rawSince.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
+  const since = toSqliteTime(query.since ?? '1970-01-01 00:00:00');
 
   const conditions = ['user_id = ?', 'updated_at > ?'];
   const params: unknown[] = [userId, since];

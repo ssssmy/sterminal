@@ -47,7 +47,7 @@
         </div>
         <div class="settings-row__slider-group">
           <el-slider
-            :model-value="getNum('app.zoomLevel')"
+            v-model="zoomLevel"
             :min="0.8"
             :max="1.5"
             :step="0.1"
@@ -55,9 +55,9 @@
             style="width: 160px"
             @change="handleZoomChange"
           />
-          <span class="settings-row__value">{{ getNum('app.zoomLevel').toFixed(1) }}x</span>
+          <span class="settings-row__value">{{ zoomLevel.toFixed(1) }}x</span>
           <el-button
-            v-if="getNum('app.zoomLevel') !== 1.0"
+            v-if="zoomLevel !== 1.0"
             size="small"
             @click="handleZoomChange(1.0)"
           >
@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import type { AppTheme } from '../../stores/ui.store'
@@ -128,8 +128,11 @@ function handleCompactChange(val: unknown): void {
   document.documentElement.classList.toggle('compact', compact)
 }
 
+const zoomLevel = ref(1.0)
+
 function handleZoomChange(val: unknown): void {
   const level = Number(val) || 1.0
+  zoomLevel.value = level
   set('app.zoomLevel', level)
   window.electronAPI?.ipc.invoke(IPC_WINDOW.SET_ZOOM, level)
 }
@@ -140,6 +143,8 @@ onMounted(async () => {
     settingsStore.getSetting('app.zoomLevel'),
     settingsStore.getSetting('app.compactMode'),
   ])
+  // 从 store 初始化本地 ref
+  zoomLevel.value = getNum('app.zoomLevel') || 1.0
 })
 </script>
 

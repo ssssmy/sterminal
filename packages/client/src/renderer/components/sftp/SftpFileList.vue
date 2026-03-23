@@ -655,15 +655,18 @@ onUnmounted(() => {
 }
 
 // ===== 右键菜单 =====
+}
+</style>
+
+<style lang="scss">
 .sftp-context-menu {
   position: fixed;
   z-index: 9999;
   min-width: 160px;
-  background-color: var(--bg-overlay, var(--bg-secondary));
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  padding: 4px;
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 16px 40px -4px rgba(0, 0, 0, 0.5);
 
   &__backdrop {
     position: fixed;
@@ -676,24 +679,44 @@ onUnmounted(() => {
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
-    font-size: 13px;
-    color: var(--text-primary);
+    font-size: 12px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.1s;
-
-    &:hover {
-      background-color: var(--bg-hover);
-    }
+    transition: all 0.12s;
+    margin: 1px 0;
 
     &--danger {
-      color: var(--error, #ef4444);
+      color: #f87171;
     }
   }
 
   &__divider {
     height: 1px;
-    background-color: var(--border);
-    margin: 3px 0;
+    margin: 4px 8px;
   }
+}
+
+html[data-theme="dark"] .sftp-context-menu {
+  background: #1c1d32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+
+  .sftp-context-menu__item {
+    color: #c8c9d6;
+    &:hover { background: rgba(99, 102, 241, 0.12); color: #fff; }
+    &--danger { color: #f87171; &:hover { background: rgba(239, 68, 68, 0.12); color: #ef4444; } }
+  }
+  .sftp-context-menu__divider { background: rgba(255, 255, 255, 0.06); }
+}
+
+html[data-theme="light"] .sftp-context-menu {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  .sftp-context-menu__item {
+    color: #374151;
+    &:hover { background: rgba(99, 102, 241, 0.08); color: #1a1b2e; }
+    &--danger { color: #ef4444; &:hover { background: rgba(239, 68, 68, 0.08); color: #dc2626; } }
+  }
+  .sftp-context-menu__divider { background: rgba(0, 0, 0, 0.06); }
 }
 </style>

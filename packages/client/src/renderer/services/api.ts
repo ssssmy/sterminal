@@ -18,11 +18,16 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`
     }
 
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    })
+    let res: Response
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      })
+    } catch {
+      throw new Error('无法连接服务器，请确认后端服务已启动')
+    }
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: res.statusText }))

@@ -28,21 +28,24 @@ export function pushSync(userId: string, input: PushSyncInput): {
   let accepted = 0;
   const conflicts: string[] = [];
 
+  // 统一时间格式为 SQLite datetime
+  const normalizeTime = (t: string) => t.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
+
   const tx = db.transaction(() => {
     for (const entity of input.entities) {
+      const updatedAt = normalizeTime(entity.updatedAt);
+
       const existing = db.prepare(`
         SELECT version FROM sync_entities
         WHERE user_id = ? AND entity_type = ? AND id = ?
       `).get(userId, entity.entityType, entity.id) as { version: number } | undefined;
 
       if (existing && entity.version !== existing.version + 1) {
-        // 冲突：服务端版本与预期不符
         conflicts.push(entity.id);
         continue;
       }
 
       if (existing) {
-        // 更新现有实体
         db.prepare(`
           UPDATE sync_entities
           SET data = ?, version = ?, deleted = ?, updated_at = ?
@@ -51,13 +54,12 @@ export function pushSync(userId: string, input: PushSyncInput): {
           entity.data,
           entity.version,
           entity.deleted ? 1 : 0,
-          entity.updatedAt,
+          updatedAt,
           userId,
           entity.entityType,
           entity.id,
         );
       } else {
-        // 插入新实体
         db.prepare(`
           INSERT INTO sync_entities (id, user_id, entity_type, data, version, deleted, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -68,7 +70,7 @@ export function pushSync(userId: string, input: PushSyncInput): {
           entity.data,
           entity.version,
           entity.deleted ? 1 : 0,
-          entity.updatedAt,
+          updatedAt,
         );
       }
 
@@ -98,7 +100,9 @@ export function pullSync(userId: string, query: PullSyncQuery): {
   hasMore: boolean;
   nextSince: string;
 } {
-  const since = query.since ?? '1970-01-01T00:00:00.000Z';
+  // 统一转为 SQLite datetime 格式进行比较
+  const rawSince = query.since ?? '1970-01-01 00:00:00';
+  const since = rawSince.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
 
   const conditions = ['user_id = ?', 'updated_at > ?'];
   const params: unknown[] = [userId, since];

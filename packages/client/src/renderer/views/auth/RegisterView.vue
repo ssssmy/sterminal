@@ -248,9 +248,9 @@ function handleOAuth(provider: 'github' | 'google'): void {
   overflow-y: auto;
   &::-webkit-scrollbar { width: 0; }
 
-  &__inner { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
-  &__title { font-size: 24px; font-weight: 700; color: var(--text-primary); margin: 0; }
-  &__subtitle { font-size: 14px; color: var(--text-secondary); margin: -4px 0 0; }
+  &__inner { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+  &__title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; }
+  &__subtitle { font-size: 13px; color: var(--text-secondary); margin: -4px 0 0; }
   &__footer {
     text-align: center; font-size: 13px; color: var(--text-secondary);
     display: flex; justify-content: center; gap: 4px;
@@ -263,9 +263,9 @@ function handleOAuth(provider: 'github' | 'google'): void {
   display: flex;
   flex-direction: column;
 
-  :deep(.el-form-item) { margin-bottom: 12px; }
+  :deep(.el-form-item) { margin-bottom: 10px; }
   :deep(.el-input__wrapper) {
-    height: 40px; border-radius: 8px; background-color: var(--bg-input);
+    height: 36px; border-radius: 8px; background-color: var(--bg-input);
     border: 1px solid var(--border); box-shadow: none; padding: 0 14px;
     &:hover, &.is-focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   }
@@ -273,14 +273,14 @@ function handleOAuth(provider: 'github' | 'google'): void {
   :deep(.el-input__prefix-inner .el-icon) { color: var(--text-tertiary); }
 
   &__submit {
-    width: 100%; height: 42px; border-radius: 8px;
+    width: 100%; height: 38px; border-radius: 8px;
     background-color: var(--accent); border-color: var(--accent);
     font-size: 14px; font-weight: 600; color: #fff;
     &:hover { background-color: color-mix(in srgb, var(--accent) 85%, white); border-color: color-mix(in srgb, var(--accent) 85%, white); }
   }
 
   &__divider {
-    display: flex; align-items: center; gap: 12px; margin: 14px 0;
+    display: flex; align-items: center; gap: 12px; margin: 10px 0;
     color: var(--text-tertiary); font-size: 12px;
     &::before, &::after { content: ''; flex: 1; height: 1px; background: var(--divider); }
   }
@@ -295,7 +295,7 @@ function handleOAuth(provider: 'github' | 'google'): void {
   }
 }
 
-.field-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+.field-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
 
 // ===== 密码强度指示器 =====
 .strength-indicator { display: flex; align-items: center; gap: 8px; margin-top: 6px; }

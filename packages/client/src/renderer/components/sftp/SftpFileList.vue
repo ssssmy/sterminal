@@ -389,8 +389,12 @@ function handleKeydown(e: KeyboardEvent): void {
 // ===== 右键菜单 =====
 
 function handleContextMenu(file: SftpFileInfo, event: MouseEvent): void {
-  selectedPaths.value.add(file.path)
-  emitSelectionChange()
+  // 右键的文件不在已选中列表 → 清除之前的选择，只选当前文件
+  if (!selectedPaths.value.has(file.path)) {
+    selectedPaths.value.clear()
+    selectedPaths.value.add(file.path)
+    emitSelectionChange()
+  }
   contextMenu.value = {
     visible: true,
     x: Math.min(event.clientX, window.innerWidth - 180),

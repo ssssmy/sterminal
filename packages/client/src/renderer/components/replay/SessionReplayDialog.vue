@@ -59,7 +59,6 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
 import { Loading, VideoPlay, VideoPause } from '@element-plus/icons-vue'
 import { useIpc } from '../../composables/useIpc'
 import { IPC_LOG } from '@shared/types/ipc-channels'
@@ -96,7 +95,6 @@ interface ReplayEvent {
 
 const events = ref<ReplayEvent[]>([])
 let terminal: Terminal | null = null
-let fitAddon: FitAddon | null = null
 let playTimer: ReturnType<typeof setTimeout> | null = null
 let currentIndex = 0
 
@@ -154,10 +152,7 @@ async function initReplay(): Promise<void> {
         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         fontSize: 14,
       })
-      fitAddon = new FitAddon()
-      terminal.loadAddon(fitAddon)
       terminal.open(terminalRef.value)
-      fitAddon.fit()
 
       // 自动开始播放
       startPlayback()
@@ -174,7 +169,6 @@ function destroyReplay(): void {
   if (terminal) {
     terminal.dispose()
     terminal = null
-    fitAddon = null
   }
   events.value = []
   currentTime.value = 0
@@ -283,13 +277,12 @@ onBeforeUnmount(() => destroyReplay())
 
   &__terminal {
     flex: 1;
-    overflow: hidden;
+    overflow: auto;
     border-radius: 6px;
     background: #1a1b2e;
 
     :deep(.xterm) {
       padding: 8px;
-      height: 100%;
     }
   }
 

@@ -1,6 +1,6 @@
 # STerminal 开发进展记录
 
-> 更新日期: 2026-03-22 | 当前阶段: P0 MVP 已完成，P1 命令片段+端口转发+设置+国际化已完成
+> 更新日期: 2026-03-23 | 当前阶段: P0 MVP 已完成，P1 核心增强大部分完成（剩云同步）
 
 ---
 
@@ -209,14 +209,22 @@ brightCyan: #22d3ee     brightWhite: #f8fafc
 
 ### P1: 核心增强（预计工作量：中等）
 
-#### 5.1.1 SFTP 文件管理
-- [ ] 基于已有 ssh2 连接实现 SFTP 子系统
-- [ ] `src/main/ipc/sftp.handler.ts` — 实现 16 个 SFTP IPC channel（list/stat/mkdir/rm/rename/chmod/chown/upload/download/readFile/writeFile/transferProgress/transferComplete/transferCancel）
-- [ ] 创建 `SftpFileManager.vue` — 双栏文件浏览器（本地 + 远程）
-- [ ] 文件上传/下载进度条 + 取消 + 队列管理
-- [ ] 文件拖拽上传/下载
-- [ ] SFTP 书签管理
-- [ ] 集成到 WorkspaceView（工具栏 SFTP 按钮触发）
+#### 5.1.1 SFTP 文件管理 ✅ 已完成
+- [x] `sftp.handler.ts` — 13 个 SFTP IPC handler（open/list/stat/mkdir/rm/rename/chmod/chown/read-file/write-file/upload/download/transfer-cancel）
+- [x] `local-fs.handler.ts` — 本地文件系统浏览（list/home）
+- [x] `SftpPanel.vue` — 双栏文件浏览器（本地 + 远程），可拖拽调整比例
+- [x] `SftpFileList.vue` — 可排序表头、多选、内联重命名、右键菜单
+- [x] `SftpPathBar.vue` — 面包屑导航 + 可编辑路径
+- [x] `SftpToolbar.vue` — 上传/下载/新建/刷新/隐藏文件/视图切换
+- [x] `SftpTransferQueue.vue` — 传输进度条、速度显示、取消
+- [x] `SftpFileEditor.vue` — 远程文本文件编辑器（< 1MB）
+- [x] 递归目录上传/下载（collectRemoteFiles/collectLocalFiles + mkdirpRemote）
+- [x] 传输进度实时推送 + 目录传输可取消
+- [x] SFTP 书签 CRUD（db.handler.ts）
+- [x] Tab 系统集成：contentType 'sftp'，FolderOpened 图标
+- [x] 远程默认路径用 sftp.realpath('.') 获取用户 home
+- [x] SSH 已知主机验证（首次连接弹窗确认，指纹变更警告）
+- [ ] 拖拽上传（从系统文件管理器拖入）— 延后
 
 #### 5.1.2 命令片段管理 ✅ 已完成
 - [x] `SnippetEditDialog.vue` — 片段新建/编辑对话框（名称、多行命令、描述、标签、分组选择）
@@ -302,7 +310,7 @@ brightCyan: #22d3ee     brightWhite: #f8fafc
 - [x] 录制：终端输出流 + 时间戳写入文件（asciicast v2 格式）✅ 已实现
 - [x] 录制文件管理（列表、删除、打开文件夹）✅ 已实现
 - [x] 实现 `src/main/ipc/log.handler.ts`（7 个 channel：start/stop/isRecording/list/delete/replay/openDirectory）✅ 已实现
-- [ ] 回放器组件：播放/暂停/倍速/进度条
+- [x] 回放器组件：播放/暂停/倍速(0.5x-10x)/进度条/跳转 ✅ 已实现（SessionReplayDialog.vue）
 - [ ] 录制导出
 
 #### 5.2.5 日志与审计
@@ -320,13 +328,15 @@ brightCyan: #22d3ee     brightWhite: #f8fafc
 - [ ] 路径补全（Tab 触发 SFTP ls 查询远程路径）
 - [ ] 命令片段内联建议（输入时模糊匹配已保存片段）
 
-#### 5.3.2 命令面板完善
-- [ ] `CommandPalette.vue` 完整实现
-- [ ] 模糊搜索所有命令/主机/片段/设置项
-- [ ] 快捷键展示
-- [ ] 最近使用排序
+#### 5.3.2 命令面板完善 ✅ 已完成
+- [x] `CommandPalette.vue` 完整实现（6 类搜索：命令/主机/片段/终端/端口转发/设置）
+- [x] 模糊搜索 + 分组显示 + 类别图标 + 键盘导航
+- [x] 片段执行（含变量对话框）、主机连接、终端打开、设置跳转
+- [x] 最近使用排序（片段按 useCount 降序）
 
-#### 5.3.3 主题自定义
+#### 5.3.3 主题自定义 🔧 部分完成
+- [x] 10 个预设终端主题（Dracula/Monokai/Nord/Solarized/One Dark/Gruvbox/Tokyo Night 等）
+- [x] 设置页主题选择器（颜色色块预览 + 实时切换）
 - [ ] 主题编辑器 UI（实时预览）
 - [ ] 导入/导出自定义主题（JSON 格式）
 - [ ] 终端配色方案独立配置

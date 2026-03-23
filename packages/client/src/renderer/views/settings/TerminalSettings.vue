@@ -7,6 +7,47 @@
     <div class="settings-block">
       <h4 class="settings-block__title">{{ t('settings.terminalAppearance') }}</h4>
 
+      <!-- 终端主题 -->
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('settings.terminalTheme') }}</label>
+          <span class="settings-row__desc">{{ t('settings.terminalThemeDesc') }}</span>
+        </div>
+        <el-select
+          :model-value="getStr('terminal.theme')"
+          style="width: 240px"
+          @change="(v: unknown) => set('terminal.theme', v)"
+        >
+          <el-option
+            v-for="preset in terminalThemePresets"
+            :key="preset.id"
+            :value="preset.id"
+          >
+            <div class="theme-option">
+              <div class="theme-option__swatches">
+                <span
+                  class="theme-option__swatch"
+                  :style="{ background: preset.colors.background }"
+                />
+                <span
+                  class="theme-option__swatch"
+                  :style="{ background: preset.colors.foreground }"
+                />
+                <span
+                  class="theme-option__swatch"
+                  :style="{ background: preset.colors.cursor }"
+                />
+                <span
+                  class="theme-option__swatch"
+                  :style="{ background: preset.colors.green }"
+                />
+              </div>
+              <span class="theme-option__name">{{ preset.name }}</span>
+            </div>
+          </el-option>
+        </el-select>
+      </div>
+
       <div class="settings-row">
         <div class="settings-row__info">
           <label class="settings-row__label">{{ t('settings.fontFamily') }}</label>
@@ -210,6 +251,9 @@ import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../../stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
+import { TERMINAL_THEME_PRESETS } from '@shared/constants/terminal-themes'
+
+const terminalThemePresets = TERMINAL_THEME_PRESETS
 
 const { t } = useI18n()
 
@@ -269,6 +313,30 @@ onMounted(async () => {
     margin-bottom: 16px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--divider);
+  }
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  &__swatches {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  &__swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+  }
+
+  &__name {
+    font-size: 13px;
   }
 }
 

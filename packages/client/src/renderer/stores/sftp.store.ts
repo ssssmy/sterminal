@@ -3,12 +3,19 @@
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
-import { useIpc } from '../composables/useIpc'
 import { IPC_SFTP, IPC_LOCAL_FS } from '@shared/types/ipc-channels'
+
+const _ipc = window.electronAPI?.ipc
+function ipcInvoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
+  if (!_ipc) return Promise.resolve(undefined as T)
+  return _ipc.invoke(channel, ...args) as Promise<T>
+}
+function ipcOn(channel: string, callback: (data: unknown) => void): void {
+  _ipc?.on(channel, callback)
+}
 import type { SftpFileInfo, SftpTabState, SftpTransferItem } from '@shared/types/sftp'
 
 export const useSftpStore = defineStore('sftp', () => {
-  const { invoke, on } = useIpc()
 
   // 每个 SFTP tab（以 tabId 为 key）的状态（reactive 对象，属性修改自动触发更新）
   const sessions = reactive<Record<string, SftpTabState>>({})
@@ -17,30 +24,26 @@ export const useSftpStore = defineStore('sftp', () => {
 
   // ===== 传输事件监听（全局，只注册一次）=====
 
-  on<{ transferId: string; transferred: number; total: number; speed: number }>(
-    IPC_SFTP.TRANSFER_PROGRESS,
-    (data) => {
-      const item = transfers.value.find(t => t.transferId === data.transferId)
-      if (item) {
-        item.transferredBytes = data.transferred
-        item.totalBytes = data.total
-        item.speed = data.speed
-        item.status = 'active'
-      }
+  ipcOn(IPC_SFTP.TRANSFER_PROGRESS, (raw: unknown) => {
+    const data = raw as { transferId: string; transferredBytes: number; totalBytes: number; speed: number }
+    const item = transfers.value.find(t => t.transferId === data.transferId)
+    if (item) {
+      item.transferredBytes = data.transferredBytes
+      item.totalBytes = data.totalBytes
+      item.speed = data.speed ?? 0
+      item.status = 'active'
     }
-  )
+  })
 
-  on<{ transferId: string; success: boolean; error?: string }>(
-    IPC_SFTP.TRANSFER_COMPLETE,
-    (data) => {
-      const item = transfers.value.find(t => t.transferId === data.transferId)
-      if (item) {
-        item.status = data.success ? 'completed' : 'failed'
-        item.error = data.error
-        item.speed = 0
-      }
+  ipcOn(IPC_SFTP.TRANSFER_COMPLETE, (raw: unknown) => {
+    const data = raw as { transferId: string; success: boolean; error?: string }
+    const item = transfers.value.find(t => t.transferId === data.transferId)
+    if (item) {
+      item.status = data.success ? 'completed' : 'failed'
+      item.error = data.error
+      item.speed = 0
     }
-  )
+  })
 
   // ===== 会话管理 =====
 
@@ -49,10 +52,10 @@ export const useSftpStore = defineStore('sftp', () => {
    */
   async function openSession(tabId: string, connectionId: string): Promise<void> {
     try {
-      const result = await invoke<{ sftpId: string; homePath: string }>(IPC_SFTP.OPEN, { connectionId })
+      const result = await ipcInvoke<{ sftpId: string; homePath: string }>(IPC_SFTP.OPEN, { connectionId })
       if (!result) return
 
-      const localHome = (await invoke<string>(IPC_LOCAL_FS.HOME)) || '/'
+      const localHome = (await ipcInvoke<string>(IPC_LOCAL_FS.HOME)) || '/'
       const remoteHome = result.homePath || '/'
 
       const state: SftpTabState = {
@@ -101,7 +104,7 @@ export const useSftpStore = defineStore('sftp', () => {
     state.remoteLoading = true
     state.error = undefined
     try {
-      const files = await invoke<SftpFileInfo[]>(IPC_SFTP.LIST, { sftpId: state.sftpId, path })
+      const files = await ipcInvoke<SftpFileInfo[]>(IPC_SFTP.LIST, { sftpId: state.sftpId, path })
       state.remoteFiles = files || []
       state.remoteCwd = path
     } catch (err) {
@@ -121,7 +124,7 @@ export const useSftpStore = defineStore('sftp', () => {
     state.localLoading = true
     state.error = undefined
     try {
-      const files = await invoke<SftpFileInfo[]>(IPC_LOCAL_FS.LIST, { path })
+      const files = await ipcInvoke<SftpFileInfo[]>(IPC_LOCAL_FS.LIST, { path })
       state.localFiles = files || []
       state.localCwd = path
     } catch (err) {
@@ -177,7 +180,7 @@ export const useSftpStore = defineStore('sftp', () => {
       }
       transfers.value.push(item)
 
-      invoke(IPC_SFTP.UPLOAD, {
+      ipcInvoke(IPC_SFTP.UPLOAD, {
         sftpId: state.sftpId,
         localPath,
         remotePath,
@@ -224,7 +227,7 @@ export const useSftpStore = defineStore('sftp', () => {
       }
       transfers.value.push(item)
 
-      invoke(IPC_SFTP.DOWNLOAD, {
+      ipcInvoke(IPC_SFTP.DOWNLOAD, {
         sftpId: state.sftpId,
         remotePath,
         localPath,
@@ -253,7 +256,7 @@ export const useSftpStore = defineStore('sftp', () => {
     const path = state.remoteCwd.endsWith('/')
       ? state.remoteCwd + dirName
       : state.remoteCwd + '/' + dirName
-    await invoke(IPC_SFTP.MKDIR, { sftpId: state.sftpId, path })
+    await ipcInvoke(IPC_SFTP.MKDIR, { sftpId: state.sftpId, path })
     await refreshRemote(tabId)
   }
 
@@ -265,7 +268,7 @@ export const useSftpStore = defineStore('sftp', () => {
     if (!state) return
 
     for (const path of paths) {
-      await invoke(IPC_SFTP.RM, { sftpId: state.sftpId, path, recursive })
+      await ipcInvoke(IPC_SFTP.RM, { sftpId: state.sftpId, path, recursive })
     }
     await refreshRemote(tabId)
   }
@@ -279,7 +282,7 @@ export const useSftpStore = defineStore('sftp', () => {
 
     const dir = oldPath.substring(0, oldPath.lastIndexOf('/') + 1)
     const newPath = dir + newName
-    await invoke(IPC_SFTP.RENAME, { sftpId: state.sftpId, oldPath, newPath })
+    await ipcInvoke(IPC_SFTP.RENAME, { sftpId: state.sftpId, oldPath, newPath })
     await refreshRemote(tabId)
   }
 
@@ -289,8 +292,8 @@ export const useSftpStore = defineStore('sftp', () => {
   async function readRemoteFile(tabId: string, path: string): Promise<string> {
     const state = sessions[tabId]
     if (!state) return ''
-    const result = await invoke<{ content: string }>(IPC_SFTP.READ_FILE, { sftpId: state.sftpId, path })
-    return result?.content || ''
+    const result = await ipcInvoke<string>(IPC_SFTP.READ_FILE, { sftpId: state.sftpId, path })
+    return result || ''
   }
 
   /**
@@ -299,7 +302,7 @@ export const useSftpStore = defineStore('sftp', () => {
   async function writeRemoteFile(tabId: string, path: string, content: string): Promise<void> {
     const state = sessions[tabId]
     if (!state) return
-    await invoke(IPC_SFTP.WRITE_FILE, { sftpId: state.sftpId, path, content })
+    await ipcInvoke(IPC_SFTP.WRITE_FILE, { sftpId: state.sftpId, path, content })
     await refreshRemote(tabId)
   }
 
@@ -307,7 +310,7 @@ export const useSftpStore = defineStore('sftp', () => {
    * 取消传输
    */
   async function cancelTransfer(transferId: string): Promise<void> {
-    await invoke(IPC_SFTP.TRANSFER_CANCEL, { transferId })
+    await ipcInvoke(IPC_SFTP.TRANSFER_CANCEL, { transferId })
     const item = transfers.value.find(t => t.transferId === transferId)
     if (item) item.status = 'cancelled'
   }

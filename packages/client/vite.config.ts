@@ -29,7 +29,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron/main',
             rollupOptions: {
-              external: ['electron', 'node-pty', 'better-sqlite3', 'ssh2', 'libsodium-wrappers', 'ws'],
+              external: ['electron', 'node-pty', 'better-sqlite3', 'ssh2', 'libsodium-wrappers'],
             },
           },
         },

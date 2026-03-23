@@ -196,8 +196,10 @@ class SyncEngine {
   }
 
   async syncNow(): Promise<void> {
+    console.log('[Sync] syncNow called, isSyncing:', this.isSyncing, 'hasToken:', !!this.token)
     if (this.isSyncing || !this.token) {
       if (this.isSyncing) this.pendingSyncRequest = true
+      console.log('[Sync] syncNow skipped:', this.isSyncing ? 'already syncing' : 'no token')
       return
     }
 
@@ -208,16 +210,19 @@ class SyncEngine {
       this.wsReconnectAttempts = 0
       this.connectWs()
     }
+    console.log('[Sync] === syncNow start ===', 'token:', !!this.token, 'lastSyncAt:', this.lastSyncAt)
     this.updateStatus({ state: 'syncing', progress: 'Pushing changes...' })
 
     try {
       await this.pushChanges()
+      console.log('[Sync] Push done, starting pull...')
       this.updateStatus({ state: 'syncing', progress: 'Pulling changes...' })
       await this.pullChanges()
+      console.log('[Sync] Pull done, lastSyncAt:', this.lastSyncAt)
       this.updateStatus({ state: 'idle', lastSyncAt: this.lastSyncAt ?? undefined })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown sync error'
-      console.error('[Sync] Error:', message)
+      console.error('[Sync] Error:', message, err)
       this.updateStatus({ state: 'error', message })
       // 重新抛出让调用方知道同步失败
       throw err

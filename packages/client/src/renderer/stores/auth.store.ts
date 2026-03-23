@@ -64,6 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
   function persistSession(newToken: string, userInfo: UserInfo): void {
     token.value = newToken
     user.value = userInfo
+    api.setToken(newToken)
     localStorage.setItem(TOKEN_KEY, newToken)
     localStorage.setItem(USER_KEY, JSON.stringify(userInfo))
   }

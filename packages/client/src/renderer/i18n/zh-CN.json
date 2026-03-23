@@ -405,7 +405,14 @@
     "validEmailFormat": "邮箱格式不正确",
     "validPasswordRequired": "请输入密码",
     "validPasswordEmpty": "密码不能为空",
-    "offlineMode": "不登录，直接使用"
+    "offlineMode": "不登录，直接使用",
+    "welcomeBack": "欢迎回来，请登录您的账号",
+    "featConnTitle": "连接管理",
+    "featConnDesc": "支持密码、密钥、Agent 等多种认证方式",
+    "featSyncTitle": "云端同步",
+    "featSyncDesc": "主机配置、命令片段、设置一键云同步",
+    "featEncTitle": "端到端加密",
+    "featEncDesc": "密码和密钥本地加密，云端仅存储密文"
   },
   "sidebar": {
     "localUser": "本地用户",

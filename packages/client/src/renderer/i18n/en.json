@@ -402,7 +402,14 @@
     "validEmailFormat": "Invalid email format",
     "validPasswordRequired": "Please enter your password",
     "validPasswordEmpty": "Password cannot be empty",
-    "offlineMode": "Continue without signing in"
+    "offlineMode": "Continue without signing in",
+    "welcomeBack": "Welcome back, please sign in",
+    "featConnTitle": "Connection Manager",
+    "featConnDesc": "Password, key, Agent and more auth methods",
+    "featSyncTitle": "Cloud Sync",
+    "featSyncDesc": "Sync hosts, snippets and settings across devices",
+    "featEncTitle": "End-to-End Encryption",
+    "featEncDesc": "Passwords encrypted locally, cloud stores only ciphertext"
   },
   "sidebar": {
     "localUser": "Local User",

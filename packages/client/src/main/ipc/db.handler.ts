@@ -157,7 +157,7 @@ function registerLocalTerminalsHandlers(): void {
 
     if (sets.length === 0) return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
 
-    sets.push("updated_at = datetime('now')")
+    sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE local_terminals SET ${sets.join(', ')} WHERE id = ?`, params)
     scheduleSyncAfterChange()
@@ -194,7 +194,8 @@ function registerLocalTerminalGroupsHandlers(): void {
       `UPDATE local_terminal_groups SET
         name = COALESCE(?, name),
         parent_id = ?,
-        sort_order = COALESCE(?, sort_order)
+        sort_order = COALESCE(?, sort_order),
+        sync_updated_at = datetime('now'), sync_version = sync_version + 1
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.sortOrder ?? null, id]
     )
@@ -306,7 +307,7 @@ function registerHostsHandlers(): void {
 
     if (sets.length === 0) return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
 
-    sets.push("updated_at = datetime('now')")
+    sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE hosts SET ${sets.join(', ')} WHERE id = ?`, params)
     scheduleSyncAfterChange()
@@ -347,7 +348,8 @@ function registerHostGroupsHandlers(): void {
         icon = ?,
         color = ?,
         sort_order = COALESCE(?, sort_order),
-        collapsed = COALESCE(?, collapsed)
+        collapsed = COALESCE(?, collapsed),
+        sync_updated_at = datetime('now'), sync_version = sync_version + 1
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? null, data.collapsed !== undefined ? (data.collapsed ? 1 : 0) : null, id]
     )
@@ -381,7 +383,7 @@ function registerTagsHandlers(): void {
 
   ipcMain.handle(IPC_DB.TAGS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     dbRun(
-      'UPDATE tags SET name = COALESCE(?, name), color = COALESCE(?, color) WHERE id = ?',
+      `UPDATE tags SET name = COALESCE(?, name), color = COALESCE(?, color), sync_updated_at = datetime('now'), sync_version = sync_version + 1 WHERE id = ?`,
       [data.name ?? null, data.color ?? null, id]
     )
     scheduleSyncAfterChange()
@@ -476,7 +478,7 @@ function registerSnippetsHandlers(): void {
     }
 
     if (sets.length > 0) {
-      sets.push("updated_at = datetime('now')")
+      sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
       params.push(id)
       dbRun(`UPDATE snippets SET ${sets.join(', ')} WHERE id = ?`, params)
     }
@@ -514,7 +516,7 @@ function registerSnippetsHandlers(): void {
   // 使用次数递增
   ipcMain.handle(IPC_DB.SNIPPETS_INCREMENT_USE, (_event, id: string) => {
     dbRun(
-      `UPDATE snippets SET use_count = use_count + 1, last_used_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE snippets SET use_count = use_count + 1, last_used_at = datetime('now'), updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1 WHERE id = ?`,
       [id]
     )
     const row = dbGet<Record<string, unknown>>('SELECT use_count, last_used_at FROM snippets WHERE id = ?', [id])
@@ -552,7 +554,8 @@ function registerSnippetGroupsHandlers(): void {
         name = COALESCE(?, name),
         parent_id = ?,
         color = ?,
-        sort_order = COALESCE(?, sort_order)
+        sort_order = COALESCE(?, sort_order),
+        sync_updated_at = datetime('now'), sync_version = sync_version + 1
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.color ?? null, data.sortOrder ?? null, id]
     )
@@ -660,6 +663,7 @@ function registerPortForwardsHandlers(): void {
       return row ? mapPortForwardRow(row) : null
     }
 
+    sets.push("sync_updated_at = datetime('now')", 'sync_version = sync_version + 1')
     params.push(id)
     dbRun(`UPDATE port_forwards SET ${sets.join(', ')} WHERE id = ?`, params)
     const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])

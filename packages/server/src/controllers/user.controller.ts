@@ -119,3 +119,29 @@ export function revokeSession(req: Request, res: Response, next: NextFunction): 
     next(err);
   }
 }
+
+/**
+ * 删除账户
+ * DELETE /api/v1/user/me
+ */
+export async function deleteAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400).json({ code: 400, data: null, message: '请提供密码以确认删除' });
+      return;
+    }
+
+    await userService.deleteAccount(userId, password);
+
+    res.json({
+      code: 0,
+      data: null,
+      message: '账户已删除',
+    });
+  } catch (err) {
+    next(err);
+  }
+}

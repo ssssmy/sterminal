@@ -160,6 +160,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 删除账户（需密码确认）
+   */
+  async function deleteAccount(password: string): Promise<void> {
+    await api.delete('/user/me', { password })
+    token.value = null
+    user.value = null
+    api.setToken(null)
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+  }
+
+  /**
    * 保存 token 到本地存储（供 OAuth 回调等场景使用）
    */
   function saveToken(newToken: string): void {
@@ -179,6 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
     restoreSession,
     updateProfile,
     changePassword,
+    deleteAccount,
     saveToken,
   }
 })

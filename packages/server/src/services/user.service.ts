@@ -144,6 +144,34 @@ export function getUserSessions(userId: string): Array<{
 }
 
 /**
+ * 删除账户（需密码确认）
+ */
+export async function deleteAccount(userId: string, password: string): Promise<void> {
+  const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as
+    | { password_hash: string }
+    | undefined;
+
+  if (!user) {
+    throw new AppError(404, 404, '用户不存在');
+  }
+
+  const valid = await verifyPassword(user.password_hash, password);
+  if (!valid) {
+    throw new AppError(400, 400, '密码不正确');
+  }
+
+  // 删除所有会话
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  // 删除同步数据
+  db.prepare('DELETE FROM sync_entities WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM sync_cursors WHERE user_id = ?').run(userId);
+  // 删除用户
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+  logger.info({ userId }, '用户账户已删除');
+}
+
+/**
  * 撤销指定会话
  */
 export function revokeSession(userId: string, sessionId: string): void {

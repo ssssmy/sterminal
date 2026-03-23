@@ -8,6 +8,7 @@
 - **终端**: xterm.js + node-pty (本地) + ssh2 (远程)
 - **后端**: Express + SQLite (better-sqlite3) + WebSocket
 - **认证**: JWT + Argon2id + OAuth (GitHub/Google)
+- **加密**: libsodium-wrappers (端对端加密云同步)
 
 ## 项目结构
 
@@ -83,6 +84,8 @@ npm run server:dev
 
 后端服务默认运行在 `http://localhost:3000`。
 
+> 支持官方云服务或自托管：后端代码完全开源，可部署到任意服务器。在客户端设置页配置服务器地址即可切换。
+
 ## 构建打包
 
 ```bash
@@ -91,6 +94,17 @@ npm run client:build
 
 # 后端编译
 npm run server:build
+```
+
+## 生产部署 (PM2)
+
+```bash
+cd packages/server
+npm run build
+npm run pm2:start    # 使用 PM2 启动服务
+npm run pm2:stop     # 停止服务
+npm run pm2:restart  # 重启服务
+npm run pm2:logs     # 查看日志
 ```
 
 ## 已实现功能
@@ -138,6 +152,10 @@ npm run server:build
 - 命令面板 (Ctrl+P 搜索主机/片段/终端/端口转发/设置/命令，分组显示)
 - 会话回放器 (asciicast v2 播放，倍速/进度条/跳转)
 - 10 个预设终端主题 (Dracula/Monokai/Nord/Solarized/One Dark/Gruvbox/Tokyo Night 等)
+- 用户注册 / 登录 / JWT 自动续期
+- 账户管理 (资料编辑 / 修改密码 / 注销账户)
+- 端对端加密云同步 (主机 / 片段 / 设置 / 端口转发 / 主题等，跨设备同步)
+- 可配置服务器 (官方云服务或自托管后端，客户端设置页切换服务器地址)
 
 ## 快捷键
 
@@ -154,7 +172,7 @@ npm run server:build
 |------|------|------|
 | P0 MVP | 本地终端、SSH、主机管理、多标签/分屏 | 已完成 |
 | P0+ | 广播模式、会话录制、终端搜索、远端OS检测、侧边栏折叠 | 已完成 |
-| P1 | SFTP、命令片段、端口转发、设置、i18n、已知主机、云同步 | 大部分完成（剩云同步） |
+| P1 | SFTP、命令片段、端口转发、设置、i18n、已知主机、真实认证、账户管理、云同步 | 大部分完成 |
 | P2 | 密钥管理、Vault、审计日志 | 计划中 |
 | P3 | 自动补全、快捷键自定义、数据导入导出 | 计划中 |
 

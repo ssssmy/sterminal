@@ -18,7 +18,7 @@ Monorepo 结构：
 |------|------|------|
 | **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
 | **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
-| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 大部分完成（SFTP+片段+端口转发+设置+i18n+已知主机，剩云同步） |
+| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 大部分完成（SFTP+片段+端口转发+设置+i18n+已知主机+云同步E2EE+同步引擎，剩OAuth客户端流程） |
 | **P2 进阶功能** | SSH密钥管理、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
 | **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
 
@@ -30,9 +30,13 @@ packages/client/src/
   main/                    # Electron 主进程
     index.ts                 窗口创建，平台特定配置
     database/schema.ts       SQLite 建表语句（20+ 张表）
-    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward, sftp, local-fs)
+    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward, sftp, local-fs, sync)
     services/db.ts           better-sqlite3 封装
     services/session-recorder.ts  asciicast v2 会话录制服务
+    services/crypto.ts       E2EE 加密（libsodium，Argon2id 密钥派生 + XSalsa20-Poly1305）
+    services/sync-engine.ts  云同步引擎（push/pull/WebSocket 实时通知/自动周期同步）
+    services/server-api.ts   主进程 HTTP 客户端（对接后端 REST API）
+    services/server-url-service.ts  可配置服务器 URL 服务（SaaS/自托管双模式，读写 SQLite）
   preload/index.ts         # contextBridge，暴露 ipc + platform
   renderer/                # Vue 渲染进程
     components/
@@ -63,7 +67,8 @@ packages/client/src/
       snippets.store.ts    命令片段管理（CRUD+分组+变量+拖拽排序）
       port-forwards.store.ts  端口转发规则+隧道状态+自动启动
       sftp.store.ts        SFTP 会话状态+传输队列（直接 IPC，非 useIpc）
-      auth.store.ts        用户认证（当前 mock，P1 对接真实 API）
+      auth.store.ts        用户认证（真实后端 API，token 自动续期，restoreSession 网络错误保留本地登录态）
+      sync.store.ts        云同步状态管理（SyncState/SyncStatus，触发同步、加密配置）
     views/
       workspace/WorkspaceView.vue  主工作区（KeepAlive 缓存）
       auth/LoginView.vue           登录页
@@ -82,8 +87,10 @@ packages/client/src/
     settings.ts    设置类型
     snippet.ts     命令片段类型
     port-forward.ts 端口转发类型（PortForward, TunnelState）
+    sync.ts        云同步类型（SyncState, SyncStatus）
   shared/utils/
     snippet-variables.ts 片段变量解析/替换工具
+    server-url.ts        服务器 URL 工具（normalizeServerUrl / deriveApiBase / deriveWsUrl）
   shared/constants/
     defaults.ts    60+ 默认设置值
 
@@ -124,7 +131,7 @@ UI 设计稿 `untitled.pen` 共 16 屏（使用 pencil MCP 工具读取）：
 数据流：`用户操作 → Vue Component → Pinia Store → IPC invoke → Main Process → SQLite/远程 → IPC reply → Store → UI`
 
 ### IPC Channel 划分
-`ssh:*`（连接+OS检测）、`pty:*`（本地终端）、`sftp:*`（文件操作）、`db:*`（数据库 CRUD）、`port-forward:*`（隧道生命周期：start/stop/status）、`sync:*`（同步）、`vault:*`（凭据）、`key:*`（密钥）、`system:*`（系统操作）、`window:*`（窗口）、`log:*`（会话录制全流程）
+`ssh:*`（连接+OS检测）、`pty:*`（本地终端）、`sftp:*`（文件操作）、`db:*`（数据库 CRUD）、`port-forward:*`（隧道生命周期：start/stop/status）、`sync:*`（start/stop/sync-now/status/status-changed/set-encryption/clear-encryption/has-encryption/get-salt/set-auto-interval）、`server:*`（get-url/set-url）、`vault:*`（凭据）、`key:*`（密钥）、`system:*`（系统操作）、`window:*`（窗口）、`log:*`（会话录制全流程）
 
 ### 终端池模式（TerminalPane.vue）
 xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<script lang="ts">` 中的 `terminalPool` Map 管理（非 `<script setup>`，确保跨实例共享）：
@@ -215,6 +222,26 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - `createTab()` 未指定 `configId` 时自动使用 `terminalsStore.getDefault()`
 - 默认终端互斥：DB 层和 Store 层设置新默认时均先清除其他的 `is_default`
 
+### 云同步（sync-engine.ts）
+- Push/pull 采用乐观锁（version+1），Last-Write-Wins 冲突策略
+- WebSocket 实时通知：服务端推送变更后自动触发 pull
+- 周期自动同步：可配置间隔（`sync:set-auto-interval`），默认 5 分钟
+- E2EE 加密敏感字段：`password_enc`、`key_passphrase_enc`、`proxy_password_enc` 在推送前加密、拉取后解密
+- 同步状态通过 `sync:status-changed` IPC 事件推送到渲染进程，`sync.store.ts` 维护 `SyncState`
+- `sync_deletes` 表追踪删除操作，`sync_meta` 表存储设备 ID 和最后同步时间戳
+
+### E2EE（crypto.ts）
+- 依赖 `libsodium-wrappers`（WebAssembly）
+- 密钥派生：Argon2id（`crypto_pwhash`），salt 存储在 `sync_meta` 表，密钥仅保留在内存
+- 加密算法：XSalsa20-Poly1305（`crypto_secretbox`）
+- 通过 `sync:set-encryption` / `sync:clear-encryption` / `sync:has-encryption` IPC 管理
+
+### 可配置服务器 URL
+- SaaS 模式（默认）与自托管双模式
+- 渲染进程通过 `server:get-url` / `server:set-url` IPC 读写；主进程由 `server-url-service.ts` 持久化到 SQLite
+- 登录页提供服务器设置入口
+- 共享工具函数：`normalizeServerUrl`（补全协议/路径）、`deriveApiBase`（推导 REST base URL）、`deriveWsUrl`（推导 WebSocket URL）
+
 ## 重要约定
 
 ### 主题
@@ -243,12 +270,15 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - 数据库字段用 snake_case，TypeScript 用 camelCase
 - Store 中的 `mapDbRow` / `mapDbRowToHost` 负责转换
 - DB handler 在 `db.handler.ts`，CRUD 通过 IPC_DB 频道
+- `sync_deletes` 表：追踪已删除记录（table_name + record_id + deleted_at + version）
+- `sync_meta` 表：存储设备 ID（deviceId）和最后同步时间戳（lastSyncAt）、E2EE salt
 
 ### 后端 API
 - 认证：`POST /api/v1/auth/register|login|logout|forgot-password|reset-password`，`GET verify-email`
 - 用户：`GET|PATCH /api/v1/users/me`，`PUT /me/password`，`DELETE /me`
 - 同步：`POST /api/v1/sync/push`，`GET /sync/pull`（游标分页）、`GET /sync/cursors`
 - 同步机制：乐观锁（version+1），WebSocket 实时推送，Last-Write-Wins 冲突策略
+- `auth.store` 已对接真实后端：token 在 `GET /user/me` 时自动续期；`restoreSession` 仅在收到 401/403 时清除登录态，网络错误时保留本地状态
 
 ## 开发命令
 ```bash
@@ -272,13 +302,16 @@ npm run client:pack:all     # 三平台一起构建
 
 # 安装包输出到 packages/client/release/
 # 原生模块（node-pty、better-sqlite3、ssh2）通过 asarUnpack 解包
+
+# 后端服务（PM2）
+cd packages/server && npm run pm2:start   # 使用 ecosystem.config.cjs 启动
 ```
 
-## P0 已知遗留问题
-- `auth.store` 使用 mock（setTimeout 模拟），P1 需对接真实后端 API
+## P1 已知遗留问题
 - `system.handler` 多数为骨架（shell列表、剪贴板等）
 - 后端登录锁定参数不符 PRD（代码 10次/10分钟，PRD 要求 5次/15分钟）
 - 后端缺少 `/sync/full`、`/sync/reset`、`/sync/encryption` 端点
+- OAuth 客户端流程（GitHub/Google 社交登录）尚未实现
 
 ## gstack
 Use /browse from gstack for all web browsing. Never use mcp__claude-in-chrome__* tools.

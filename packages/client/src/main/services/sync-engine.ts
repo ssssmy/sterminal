@@ -219,6 +219,8 @@ class SyncEngine {
       const message = err instanceof Error ? err.message : 'Unknown sync error'
       console.error('[Sync] Error:', message)
       this.updateStatus({ state: 'error', message })
+      // 重新抛出让调用方知道同步失败
+      throw err
     } finally {
       this.isSyncing = false
       // If a sync was requested while we were busy, run again

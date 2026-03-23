@@ -14,10 +14,16 @@ files:
   - dist-electron/main/**/*
   - dist-electron/preload/**/*
   - package.json
-  # external 模块需要随应用打包（Vite 不打包这些模块）
-  - node_modules/libsodium/**
-  - node_modules/libsodium-wrappers/**
-  - node_modules/ws/**
+  # external 模块需要随应用打包（monorepo hoist 到根 node_modules）
+  - from: ../../node_modules/libsodium
+    to: node_modules/libsodium
+    filter: ["**/*"]
+  - from: ../../node_modules/libsodium-wrappers
+    to: node_modules/libsodium-wrappers
+    filter: ["**/*"]
+  - from: ../../node_modules/ws
+    to: node_modules/ws
+    filter: ["**/*"]
 
 # asar 打包（原生模块需要 unpack）
 asar: true

@@ -42,19 +42,22 @@ export function pushSync(userId: string, input: PushSyncInput): {
         WHERE user_id = ? AND entity_type = ? AND id = ?
       `).get(userId, entity.entityType, entity.id) as { version: number } | undefined;
 
-      if (existing && entity.version !== existing.version + 1) {
+      // 删除操作跳过版本检查（允许任意版本删除）
+      if (existing && !entity.deleted && entity.version !== existing.version + 1) {
         conflicts.push(entity.id);
         continue;
       }
 
       if (existing) {
+        // 删除操作强制递增版本号确保其他设备能拉到变更
+        const newVersion = entity.deleted ? existing.version + 1 : entity.version;
         db.prepare(`
           UPDATE sync_entities
           SET data = ?, version = ?, deleted = ?, updated_at = ?
           WHERE user_id = ? AND entity_type = ? AND id = ?
         `).run(
           entity.data,
-          entity.version,
+          newVersion,
           entity.deleted ? 1 : 0,
           updatedAt,
           userId,

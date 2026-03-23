@@ -380,6 +380,7 @@ function handleOAuth(provider: 'github' | 'google'): void {
     border: 1px solid var(--border);
     font-size: 13px;
     color: var(--text-secondary);
+    margin-left: 0 !important;
     margin-top: 8px;
     &:hover { border-color: var(--accent); color: var(--text-primary); background: var(--bg-hover); }
   }

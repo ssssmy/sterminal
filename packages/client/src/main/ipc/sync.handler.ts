@@ -4,6 +4,15 @@ import { syncEngine } from '../services/sync-engine'
 import { e2eCrypto } from '../services/crypto'
 import { api as serverApi } from '../services/server-api'
 
+function notifyDataChanged(): void {
+  const windows = BrowserWindow.getAllWindows()
+  for (const win of windows) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(IPC_SYNC.DATA_CHANGED)
+    }
+  }
+}
+
 export function registerSyncHandlers(): void {
   ipcMain.handle(IPC_SYNC.START, (_event, token: string) => {
     syncEngine.start(token, (status) => {
@@ -11,11 +20,10 @@ export function registerSyncHandlers(): void {
       for (const win of windows) {
         if (!win.isDestroyed()) {
           win.webContents.send(IPC_SYNC.STATUS_CHANGED, status)
-          // 同步完成后通知前端刷新数据
-          if (status.state === 'idle') {
-            win.webContents.send(IPC_SYNC.DATA_CHANGED)
-          }
         }
+      }
+      if (status.state === 'idle') {
+        notifyDataChanged()
       }
     })
   })
@@ -26,6 +34,8 @@ export function registerSyncHandlers(): void {
 
   ipcMain.handle(IPC_SYNC.SYNC_NOW, async () => {
     await syncEngine.syncNow()
+    // 同步完成后通知前端刷新数据
+    notifyDataChanged()
   })
 
   ipcMain.handle(IPC_SYNC.STATUS, () => {

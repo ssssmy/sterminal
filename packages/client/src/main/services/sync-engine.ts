@@ -65,10 +65,18 @@ const HOST_SENSITIVE_FIELDS = ['password_enc', 'key_passphrase_enc', 'proxy_pass
  */
 function toISODateTime(dt: string | null | undefined): string {
   if (!dt) return new Date().toISOString()
-  // 已经是 ISO 格式
   if (dt.includes('T')) return dt
-  // SQLite 格式: "2024-01-01 00:00:00" → "2024-01-01T00:00:00.000Z"
   return dt.replace(' ', 'T') + '.000Z'
+}
+
+/**
+ * 将 ISO/任意格式转为 SQLite datetime 格式 (2024-01-01 00:00:00)
+ * 用于本地 DB 查询的 WHERE 比较
+ */
+function toSqliteDateTime(dt: string | null | undefined): string {
+  if (!dt) return '1970-01-01 00:00:00'
+  // ISO → SQLite: "2024-01-01T00:00:00.000Z" → "2024-01-01 00:00:00"
+  return dt.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '')
 }
 
 class SyncEngine {
@@ -225,6 +233,7 @@ class SyncEngine {
     if (!this.token) return
 
     const entities = this.collectDirtyEntities()
+    console.log(`[Sync] Push: ${entities.length} dirty entities`)
     if (entities.length === 0) return
 
     // Batch push (max 500 per request)
@@ -258,12 +267,13 @@ class SyncEngine {
 
   private collectDirtyEntities(): SyncEntity[] {
     const entities: SyncEntity[] = []
-    const since = this.lastSyncAt ?? '1970-01-01T00:00:00.000Z'
+    // 本地 DB 用 SQLite datetime 格式比较
+    const sinceSqlite = toSqliteDateTime(this.lastSyncAt)
 
     for (const { table, entityType, idField } of SYNC_TABLES) {
       const rows = dbAll<Record<string, unknown>>(
         `SELECT * FROM ${table} WHERE sync_updated_at > ?`,
-        [since]
+        [sinceSqlite]
       )
 
       for (const row of rows) {
@@ -303,7 +313,7 @@ class SyncEngine {
     // Settings (each key is a separate entity)
     const settingsRows = dbAll<{ key: string; value: string; sync_version: number; sync_updated_at: string }>(
       'SELECT * FROM settings WHERE sync_updated_at > ?',
-      [since]
+      [sinceSqlite]
     )
     for (const row of settingsRows) {
       entities.push({
@@ -319,7 +329,7 @@ class SyncEngine {
     // Keybindings
     const keybindingRows = dbAll<{ action: string; shortcut: string; sync_version: number; sync_updated_at: string }>(
       'SELECT * FROM keybindings WHERE sync_updated_at > ?',
-      [since]
+      [sinceSqlite]
     )
     for (const row of keybindingRows) {
       entities.push({
@@ -362,6 +372,7 @@ class SyncEngine {
         this.token
       )
 
+      console.log(`[Sync] Pull: ${result.entities.length} entities, hasMore=${result.hasMore}`)
       for (const entity of result.entities) {
         this.applyEntity(entity)
       }

@@ -86,6 +86,7 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      zoomFactor: 1.0,
     },
   })
 
@@ -95,6 +96,8 @@ function createWindow(): void {
 
   // 页面渲染完成后再显示窗口，消除白屏感知
   mainWindow.once('ready-to-show', () => {
+    // 确保初始缩放为 1.0，防止旧值导致界面异常
+    mainWindow?.webContents.setZoomFactor(1.0)
     mainWindow?.show()
   })
 

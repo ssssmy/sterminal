@@ -170,6 +170,13 @@
             <el-icon><Refresh /></el-icon>
             {{ t('sftp.refresh') }}
           </div>
+          <template v-if="selectedPaths.size > 0">
+            <div class="sftp-context-menu__divider" />
+            <div class="sftp-context-menu__item sftp-context-menu__item--danger" @click="handleMenuDeleteSelected">
+              <el-icon><Delete /></el-icon>
+              {{ t('sftp.delete') }} ({{ selectedPaths.size }})
+            </div>
+          </template>
         </template>
       </div>
       <div
@@ -445,6 +452,12 @@ function cancelRename(): void {
 function handleMenuDelete(): void {
   const paths = Array.from(selectedPaths.value)
   emit('delete', paths)
+  hideContextMenu()
+}
+
+function handleMenuDeleteSelected(): void {
+  const paths = Array.from(selectedPaths.value)
+  if (paths.length > 0) emit('delete', paths)
   hideContextMenu()
 }
 

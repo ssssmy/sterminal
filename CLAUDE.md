@@ -276,7 +276,6 @@ npm run client:pack:all     # 三平台一起构建
 
 ## P0 已知遗留问题
 - `auth.store` 使用 mock（setTimeout 模拟），P1 需对接真实后端 API
-- `CommandPalette` 仅有骨架组件
 - `system.handler` 多数为骨架（shell列表、剪贴板等）
 - 后端登录锁定参数不符 PRD（代码 10次/10分钟，PRD 要求 5次/15分钟）
 - 后端缺少 `/sync/full`、`/sync/reset`、`/sync/encryption` 端点

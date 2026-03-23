@@ -310,7 +310,7 @@ brightCyan: #22d3ee     brightWhite: #f8fafc
 - [x] 录制：终端输出流 + 时间戳写入文件（asciicast v2 格式）✅ 已实现
 - [x] 录制文件管理（列表、删除、打开文件夹）✅ 已实现
 - [x] 实现 `src/main/ipc/log.handler.ts`（7 个 channel：start/stop/isRecording/list/delete/replay/openDirectory）✅ 已实现
-- [ ] 回放器组件：播放/暂停/倍速/进度条
+- [x] 回放器组件：播放/暂停/倍速(0.5x-10x)/进度条/跳转 ✅ 已实现（SessionReplayDialog.vue）
 - [ ] 录制导出
 
 #### 5.2.5 日志与审计
@@ -328,13 +328,15 @@ brightCyan: #22d3ee     brightWhite: #f8fafc
 - [ ] 路径补全（Tab 触发 SFTP ls 查询远程路径）
 - [ ] 命令片段内联建议（输入时模糊匹配已保存片段）
 
-#### 5.3.2 命令面板完善
-- [ ] `CommandPalette.vue` 完整实现
-- [ ] 模糊搜索所有命令/主机/片段/设置项
-- [ ] 快捷键展示
-- [ ] 最近使用排序
+#### 5.3.2 命令面板完善 ✅ 已完成
+- [x] `CommandPalette.vue` 完整实现（6 类搜索：命令/主机/片段/终端/端口转发/设置）
+- [x] 模糊搜索 + 分组显示 + 类别图标 + 键盘导航
+- [x] 片段执行（含变量对话框）、主机连接、终端打开、设置跳转
+- [x] 最近使用排序（片段按 useCount 降序）
 
-#### 5.3.3 主题自定义
+#### 5.3.3 主题自定义 🔧 部分完成
+- [x] 10 个预设终端主题（Dracula/Monokai/Nord/Solarized/One Dark/Gruvbox/Tokyo Night 等）
+- [x] 设置页主题选择器（颜色色块预览 + 实时切换）
 - [ ] 主题编辑器 UI（实时预览）
 - [ ] 导入/导出自定义主题（JSON 格式）
 - [ ] 终端配色方案独立配置

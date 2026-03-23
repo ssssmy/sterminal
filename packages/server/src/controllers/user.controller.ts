@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as userService from '../services/user.service.js';
+import { signToken } from '../utils/jwt.js';
 import type { UpdateProfileInput, ChangePasswordInput, SetEncryptionSaltInput } from '../validators/user.schema.js';
 
 /**
@@ -8,12 +9,15 @@ import type { UpdateProfileInput, ChangePasswordInput, SetEncryptionSaltInput } 
  */
 export function getMe(req: Request, res: Response, next: NextFunction): void {
   try {
-    const userId = req.user!.userId;
+    const { userId, sessionId, email } = req.user!;
     const user = userService.getUserById(userId);
+
+    // 续签 token：每次访问重置 7 天有效期
+    const newToken = signToken({ userId, sessionId, email });
 
     res.json({
       code: 0,
-      data: user,
+      data: { ...user, token: newToken },
       message: 'ok',
     });
   } catch (err) {

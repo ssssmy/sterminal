@@ -129,16 +129,35 @@ export const useAuthStore = defineStore('auth', () => {
     const savedToken = localStorage.getItem(TOKEN_KEY)
     if (!savedToken) return
 
+    // 先从本地恢复状态（即使服务器不可达也能正常使用）
+    api.setToken(savedToken)
+    token.value = savedToken
+    const savedUser = (() => {
+      try {
+        const s = localStorage.getItem(USER_KEY)
+        return s ? (JSON.parse(s) as UserInfo) : null
+      } catch { return null }
+    })()
+    if (savedUser) user.value = savedUser
+
+    // 后台验证 token 是否仍然有效，同时续签
     try {
-      api.setToken(savedToken)
-      const userRecord = await api.get<ApiUserRecord>('/user/me')
-      const userInfo = mapApiUser(userRecord)
-      token.value = savedToken
-      user.value = userInfo
-      localStorage.setItem(USER_KEY, JSON.stringify(userInfo))
-    } catch {
-      // token 过期或网络不可达，静默清除本地 token
-      clearSession()
+      const result = await api.get<ApiUserRecord & { token?: string }>('/user/me')
+      // 服务端返回续签的新 token
+      if (result.token) {
+        persistSession(result.token, mapApiUser(result))
+      } else {
+        const userInfo = mapApiUser(result)
+        user.value = userInfo
+        localStorage.setItem(USER_KEY, JSON.stringify(userInfo))
+      }
+    } catch (err) {
+      // 只有明确的 401/403 才清除 session（token 已过期/失效）
+      // 网络不可达时保留本地登录状态
+      const status = (err as Error & { status?: number }).status
+      if (status === 401 || status === 403) {
+        clearSession()
+      }
     }
   }
 

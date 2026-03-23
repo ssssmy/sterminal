@@ -174,6 +174,116 @@
         </el-form>
       </div>
 
+      <!-- ===== 云同步区块 ===== -->
+      <div class="settings-block">
+        <h4 class="settings-block__title">{{ t('accountSettings.syncSection') }}</h4>
+
+        <!-- 服务器地址 -->
+        <div class="settings-row">
+          <div class="settings-row__info">
+            <label class="settings-row__label">{{ t('accountSettings.serverUrlLabel') }}</label>
+            <span class="settings-row__desc">{{ t('accountSettings.serverUrlDesc') }}</span>
+          </div>
+          <div class="settings-row__control">
+            <span class="settings-row__readonly">{{ currentServerUrl }}</span>
+            <el-button size="small" @click="handleChangeServer">
+              {{ t('accountSettings.changeServerBtn') }}
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 同步状态 -->
+        <div class="settings-row">
+          <div class="settings-row__info">
+            <label class="settings-row__label">{{ t('accountSettings.syncStatusLabel') }}</label>
+            <span class="settings-row__desc">{{ syncStatusDesc }}</span>
+          </div>
+          <div class="settings-row__control">
+            <el-tag :type="syncStatusTagType" size="small">{{ syncStatusText }}</el-tag>
+            <el-button
+              v-if="syncStore.isActive"
+              size="small"
+              :loading="syncStore.isSyncing"
+              @click="handleSyncNow"
+            >
+              {{ t('accountSettings.syncNowBtn') }}
+            </el-button>
+            <el-button
+              v-if="!syncStore.isActive"
+              type="primary"
+              size="small"
+              @click="handleStartSync"
+            >
+              {{ t('accountSettings.startSyncBtn') }}
+            </el-button>
+            <el-button
+              v-else
+              size="small"
+              @click="handleStopSync"
+            >
+              {{ t('accountSettings.stopSyncBtn') }}
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 上次同步时间 -->
+        <div v-if="syncStore.lastSyncAt" class="settings-row">
+          <div class="settings-row__info">
+            <label class="settings-row__label">{{ t('accountSettings.lastSyncLabel') }}</label>
+          </div>
+          <span class="settings-row__readonly">{{ formatSyncTime(syncStore.lastSyncAt) }}</span>
+        </div>
+
+        <!-- 自动同步 -->
+        <div class="settings-row">
+          <div class="settings-row__info">
+            <label class="settings-row__label">{{ t('accountSettings.autoSyncLabel') }}</label>
+            <span class="settings-row__desc">{{ t('accountSettings.autoSyncDesc') }}</span>
+          </div>
+          <div class="settings-row__control">
+            <el-select
+              v-model="autoSyncInterval"
+              style="width: 160px"
+              @change="handleAutoSyncChange"
+            >
+              <el-option :label="t('accountSettings.autoSyncOff')" :value="0" />
+              <el-option :label="t('accountSettings.autoSync1min')" :value="1" />
+              <el-option :label="t('accountSettings.autoSync5min')" :value="5" />
+              <el-option :label="t('accountSettings.autoSync15min')" :value="15" />
+              <el-option :label="t('accountSettings.autoSync30min')" :value="30" />
+              <el-option :label="t('accountSettings.autoSync60min')" :value="60" />
+            </el-select>
+          </div>
+        </div>
+
+        <!-- E2EE 加密 -->
+        <div class="settings-row">
+          <div class="settings-row__info">
+            <label class="settings-row__label">{{ t('accountSettings.encryptionLabel') }}</label>
+            <span class="settings-row__desc">{{ t('accountSettings.encryptionDesc') }}</span>
+          </div>
+          <div class="settings-row__control">
+            <el-tag v-if="syncStore.hasEncryptionKey" type="success" size="small">
+              {{ t('accountSettings.encryptionEnabled') }}
+            </el-tag>
+            <el-button
+              v-if="!syncStore.hasEncryptionKey"
+              size="small"
+              @click="showEncryptionDialog = true"
+            >
+              {{ t('accountSettings.setEncryptionBtn') }}
+            </el-button>
+            <el-button
+              v-else
+              size="small"
+              @click="handleClearEncryption"
+            >
+              {{ t('accountSettings.lockEncryptionBtn') }}
+            </el-button>
+          </div>
+        </div>
+      </div>
+
       <!-- ===== 危险操作区块 ===== -->
       <div class="settings-block settings-block--danger">
         <h4 class="settings-block__title settings-block__title--danger">{{ t('accountSettings.dangerSection') }}</h4>
@@ -202,6 +312,42 @@
       </div>
 
     </template>
+
+    <!-- ===== E2EE 加密设置弹窗 ===== -->
+    <el-dialog
+      v-model="showEncryptionDialog"
+      :title="t('accountSettings.encryptionDialogTitle')"
+      width="420px"
+      :close-on-click-modal="false"
+    >
+      <p class="encryption-dialog__desc">{{ t('accountSettings.encryptionDialogDesc') }}</p>
+      <el-input
+        v-model="encryptionPassphrase"
+        type="password"
+        show-password
+        :placeholder="t('accountSettings.encryptionPassphrasePlaceholder')"
+        style="margin-top: 16px"
+      />
+      <el-input
+        v-if="!syncStore.encryptionSalt"
+        v-model="encryptionPassphraseConfirm"
+        type="password"
+        show-password
+        :placeholder="t('accountSettings.encryptionPassphraseConfirmPlaceholder')"
+        style="margin-top: 12px"
+      />
+      <template #footer>
+        <el-button @click="showEncryptionDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button
+          type="primary"
+          :loading="settingEncryption"
+          :disabled="!encryptionPassphrase || (!syncStore.encryptionSalt && encryptionPassphrase !== encryptionPassphraseConfirm)"
+          @click="handleSetEncryption"
+        >
+          {{ t('accountSettings.encryptionConfirmBtn') }}
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- ===== 删除账户确认弹窗 ===== -->
     <el-dialog
@@ -242,10 +388,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { UserFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth.store'
+import { useSyncStore } from '../../stores/sync.store'
+import { useSettingsStore } from '../../stores/settings.store'
+import { api } from '../../services/api'
+import { IPC_SERVER } from '../../../shared/types/ipc-channels'
 
 const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
+const syncStore = useSyncStore()
+const settingsStore = useSettingsStore()
 
 // ===== 用户信息 =====
 
@@ -284,14 +436,7 @@ async function handleSaveUsername(): Promise<void> {
   if (!trimmed) return
   savingUsername.value = true
   try {
-    // TODO: authStore.updateProfile 由另一个 agent 实现，现在使用类型断言兼容
-    const store = authStore as typeof authStore & { updateProfile?: (data: { username: string }) => Promise<void> }
-    if (typeof store.updateProfile === 'function') {
-      await store.updateProfile({ username: trimmed })
-    } else {
-      // 另一个 agent 尚未实现时的占位
-      throw new Error('updateProfile not yet implemented')
-    }
+    await authStore.updateProfile({ username: trimmed })
     ElMessage.success(t('accountSettings.saveSuccess'))
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : t('accountSettings.saveFailed'))
@@ -406,18 +551,10 @@ async function handleChangePassword(): Promise<void> {
   if (!valid) return
   savingPassword.value = true
   try {
-    // TODO: authStore.changePassword 由另一个 agent 实现
-    const store = authStore as typeof authStore & {
-      changePassword?: (currentPassword: string, newPassword: string) => Promise<void>
-    }
-    if (typeof store.changePassword === 'function') {
-      await store.changePassword(
-        passwordForm.value.currentPassword,
-        passwordForm.value.newPassword
-      )
-    } else {
-      throw new Error('changePassword not yet implemented')
-    }
+    await authStore.changePassword(
+      passwordForm.value.currentPassword,
+      passwordForm.value.newPassword
+    )
     ElMessage.success(t('accountSettings.passwordChanged'))
     passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
     passwordStrength.value = 0
@@ -455,17 +592,10 @@ async function handleDeleteAccount(): Promise<void> {
   if (!deleteConfirmPassword.value) return
   deletingAccount.value = true
   try {
-    // TODO: authStore.deleteAccount 由另一个 agent 实现
-    const store = authStore as typeof authStore & {
-      deleteAccount?: (password: string) => Promise<void>
-    }
-    if (typeof store.deleteAccount === 'function') {
-      await store.deleteAccount(deleteConfirmPassword.value)
-    } else {
-      throw new Error('deleteAccount not yet implemented')
-    }
+    await authStore.deleteAccount(deleteConfirmPassword.value)
     ElMessage.success(t('accountSettings.accountDeleted'))
     showDeleteDialog.value = false
+    await syncStore.stopSync()
     authStore.logout()
     router.push('/login')
   } catch (err) {
@@ -474,6 +604,136 @@ async function handleDeleteAccount(): Promise<void> {
     deletingAccount.value = false
     deleteConfirmPassword.value = ''
   }
+}
+
+// ===== 服务器地址 =====
+
+const currentServerUrl = ref(api.getServerUrl())
+
+async function handleChangeServer(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      t('accountSettings.changeServerConfirm'),
+      t('accountSettings.changeServerTitle'),
+      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' }
+    )
+  } catch { return }
+  await syncStore.stopSync()
+  await authStore.logout()
+  router.push('/login')
+}
+
+// ===== 云同步 =====
+
+const syncStatusText = computed(() => {
+  switch (syncStore.status.state) {
+    case 'idle': return t('accountSettings.syncStatusIdle')
+    case 'syncing': return t('accountSettings.syncStatusSyncing')
+    case 'error': return t('accountSettings.syncStatusError')
+    case 'stopped': return t('accountSettings.syncStatusStopped')
+    default: return '—'
+  }
+})
+
+const syncStatusDesc = computed(() => {
+  if (syncStore.status.state === 'error' && syncStore.status.message) {
+    return syncStore.status.message
+  }
+  return t('accountSettings.syncStatusDesc')
+})
+
+const syncStatusTagType = computed(() => {
+  switch (syncStore.status.state) {
+    case 'idle': return 'success'
+    case 'syncing': return 'warning'
+    case 'error': return 'danger'
+    case 'stopped': return 'info'
+    default: return 'info' as const
+  }
+})
+
+function formatSyncTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString()
+  } catch {
+    return iso
+  }
+}
+
+async function handleStartSync(): Promise<void> {
+  if (!authStore.token) return
+  try {
+    await syncStore.startSync(authStore.token)
+    // 检查是否需要设置加密
+    const salt = await syncStore.fetchSalt()
+    if (salt) {
+      // 已有 salt，需要输入密码解锁
+      showEncryptionDialog.value = true
+    }
+    ElMessage.success(t('accountSettings.syncStarted'))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('accountSettings.syncStartFailed'))
+  }
+}
+
+async function handleStopSync(): Promise<void> {
+  await syncStore.stopSync()
+  ElMessage.info(t('accountSettings.syncStopped'))
+}
+
+async function handleSyncNow(): Promise<void> {
+  try {
+    await syncStore.syncNow()
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('accountSettings.syncFailed'))
+  }
+}
+
+// ===== 自动同步间隔 =====
+const autoSyncInterval = ref(5)
+
+async function handleAutoSyncChange(val: number): Promise<void> {
+  await settingsStore.setSetting('sync.autoInterval', val)
+  syncStore.setAutoSyncInterval(val)
+}
+
+// E2EE 加密
+const showEncryptionDialog = ref(false)
+const encryptionPassphrase = ref('')
+const encryptionPassphraseConfirm = ref('')
+const settingEncryption = ref(false)
+
+async function handleSetEncryption(): Promise<void> {
+  if (!encryptionPassphrase.value) return
+  settingEncryption.value = true
+  try {
+    await syncStore.setEncryption(
+      encryptionPassphrase.value,
+      syncStore.encryptionSalt ?? undefined
+    )
+    ElMessage.success(t('accountSettings.encryptionSet'))
+    showEncryptionDialog.value = false
+    encryptionPassphrase.value = ''
+    encryptionPassphraseConfirm.value = ''
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('accountSettings.encryptionFailed'))
+  } finally {
+    settingEncryption.value = false
+  }
+}
+
+async function handleClearEncryption(): Promise<void> {
+  await syncStore.clearEncryption()
+  ElMessage.info(t('accountSettings.encryptionCleared'))
+}
+
+// 初始化
+if (authStore.isLoggedIn) {
+  syncStore.checkEncryption()
+  syncStore.refreshStatus()
+  settingsStore.getSetting<number>('sync.autoInterval').then(val => {
+    if (val != null) autoSyncInterval.value = val
+  }).catch(() => { /* use default */ })
 }
 </script>
 
@@ -716,6 +976,14 @@ async function handleDeleteAccount(): Promise<void> {
 
 // ===== 删除弹窗 =====
 .delete-dialog__desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+// ===== 加密弹窗 =====
+.encryption-dialog__desc {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.6;

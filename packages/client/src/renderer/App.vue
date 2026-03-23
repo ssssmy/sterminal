@@ -14,19 +14,31 @@ import { ElMessageBox } from 'element-plus'
 import { useUiStore } from './stores/ui.store'
 import { useSettingsStore } from './stores/settings.store'
 import { useAuthStore } from './stores/auth.store'
-import { IPC_WINDOW, IPC_SSH } from '@shared/types/ipc-channels'
+import { useSyncStore } from './stores/sync.store'
+import { api } from './services/api'
+import { IPC_WINDOW, IPC_SSH, IPC_SERVER } from '@shared/types/ipc-channels'
 
 const { locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
 const authStore = useAuthStore()
+const syncStore = useSyncStore()
 
 onMounted(async () => {
   // 从数据库恢复保存的主题设置
   uiStore.restoreTheme()
 
+  // 同步服务器地址到主进程（localStorage 为权威源，主进程需要同步读取）
+  const savedServerUrl = api.getServerUrl()
+  window.electronAPI?.ipc.invoke(IPC_SERVER.SET_URL, savedServerUrl).catch(() => {})
+
   // 恢复登录状态（静默降级为离线模式，不阻塞启动）
-  authStore.restoreSession().catch(() => { /* 静默忽略 */ })
+  authStore.restoreSession().then(() => {
+    // 登录成功后自动启动同步
+    if (authStore.isLoggedIn && authStore.token) {
+      syncStore.startSync(authStore.token).catch(() => { /* 静默忽略 */ })
+    }
+  }).catch(() => { /* 静默忽略 */ })
 
   // 恢复语言
   const lang = await settingsStore.getSetting<string>('app.language')

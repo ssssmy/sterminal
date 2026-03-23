@@ -7,15 +7,15 @@ export const EntityTypeEnum = z.enum([
   'host',
   'host_group',
   'local_terminal',
+  'local_terminal_group',
   'snippet',
   'snippet_group',
   'port_forward',
-  'key',
-  'known_host',
-  'vault_entry',
   'tag',
   'settings',
-  'terminal_theme',
+  'custom_theme',
+  'sftp_bookmark',
+  'keybinding',
 ]);
 
 export type EntityType = z.infer<typeof EntityTypeEnum>;
@@ -24,12 +24,12 @@ export type EntityType = z.infer<typeof EntityTypeEnum>;
  * 单个同步实体 Schema
  */
 export const SyncEntitySchema = z.object({
-  id: z.string().uuid('实体 ID 必须是 UUID'),
+  id: z.string().min(1, '实体 ID 不能为空'),
   entityType: EntityTypeEnum,
   data: z.string().min(1, '实体数据不能为空'),  // JSON 字符串
   version: z.number().int().positive(),
   deleted: z.boolean().default(false),
-  updatedAt: z.string().datetime('时间格式不正确'),
+  updatedAt: z.string().min(1, '更新时间不能为空'),
 });
 
 export type SyncEntityInput = z.infer<typeof SyncEntitySchema>;
@@ -49,7 +49,7 @@ export type PushSyncInput = z.infer<typeof PushSyncSchema>;
  */
 export const PullSyncQuerySchema = z.object({
   deviceId: z.string().min(1, '设备 ID 不能为空'),
-  since: z.string().datetime('时间格式不正确').optional(),
+  since: z.string().optional(),
   entityType: EntityTypeEnum.optional(),
   limit: z.coerce.number().int().positive().max(1000).default(200),
 });

@@ -9,6 +9,8 @@ import { registerLogHandlers } from './log.handler'
 import { registerPortForwardHandlers } from './port-forward.handler'
 import { registerSftpHandlers } from './sftp.handler'
 import { registerLocalFsHandlers } from './local-fs.handler'
+import { registerSyncHandlers } from './sync.handler'
+import { registerServerUrlHandlers } from '../services/server-url-service'
 
 /**
  * 注册所有 IPC handlers
@@ -23,5 +25,7 @@ export function registerAllHandlers(): void {
   registerPortForwardHandlers()
   registerSftpHandlers()
   registerLocalFsHandlers()
+  registerSyncHandlers()
+  registerServerUrlHandlers()
   console.log('[IPC] 所有 handlers 注册完成')
 }

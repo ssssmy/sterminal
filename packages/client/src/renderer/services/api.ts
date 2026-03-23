@@ -1,13 +1,25 @@
-// HTTP API 客户端
-// 封装对后端 REST API 的调用
+import { deriveApiBase, normalizeServerUrl, DEFAULT_SERVER_URL } from '../../shared/utils/server-url'
 
-const API_BASE = 'http://localhost:3000/api/v1'
+const SERVER_URL_KEY = 'server_url'
 
 class ApiClient {
   private token: string | null = null
+  private apiBase: string = deriveApiBase(
+    localStorage.getItem(SERVER_URL_KEY) || DEFAULT_SERVER_URL
+  )
 
   setToken(token: string | null): void {
     this.token = token
+  }
+
+  setServerUrl(url: string): void {
+    const normalized = normalizeServerUrl(url)
+    localStorage.setItem(SERVER_URL_KEY, normalized)
+    this.apiBase = deriveApiBase(normalized)
+  }
+
+  getServerUrl(): string {
+    return localStorage.getItem(SERVER_URL_KEY) || DEFAULT_SERVER_URL
   }
 
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -20,7 +32,7 @@ class ApiClient {
 
     let res: Response
     try {
-      res = await fetch(`${API_BASE}${path}`, {
+      res = await fetch(`${this.apiBase}${path}`, {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
@@ -31,7 +43,9 @@ class ApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: res.statusText }))
-      throw new Error(error.message || `HTTP ${res.status}`)
+      const err = new Error(error.message || `HTTP ${res.status}`)
+      ;(err as Error & { status: number }).status = res.status
+      throw err
     }
 
     if (res.status === 204) return undefined as T

@@ -165,8 +165,14 @@ export const IPC_PORT_FORWARD = {
 export const IPC_SYNC = {
   START: 'sync:start',
   STOP: 'sync:stop',
+  SYNC_NOW: 'sync:sync-now',
   STATUS: 'sync:status',
+  STATUS_CHANGED: 'sync:status-changed',
   SET_ENCRYPTION: 'sync:set-encryption',
+  CLEAR_ENCRYPTION: 'sync:clear-encryption',
+  HAS_ENCRYPTION: 'sync:has-encryption',
+  GET_SALT: 'sync:get-salt',
+  SET_AUTO_INTERVAL: 'sync:set-auto-interval',
 } as const
 
 // ===== 会话日志 =====
@@ -195,6 +201,12 @@ export const IPC_SYSTEM = {
   BACKUP: 'system:backup',
   RESTORE: 'system:restore',
   PING: 'system:ping',
+} as const
+
+// ===== 服务器配置 =====
+export const IPC_SERVER = {
+  GET_URL: 'server:get-url',
+  SET_URL: 'server:set-url',
 } as const
 
 // ===== 窗口管理 =====

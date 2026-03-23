@@ -88,6 +88,28 @@
             {{ t('loginView.offlineMode') }}
           </el-button>
 
+          <!-- 服务器设置（折叠） -->
+          <div class="login-form__server">
+            <el-link :underline="false" class="login-form__server-toggle" @click="showServerUrl = !showServerUrl">
+              <el-icon :size="13"><Setting /></el-icon>
+              {{ t('loginView.serverSettings') }}
+              <el-icon :size="12"><ArrowDown v-if="!showServerUrl" /><ArrowUp v-else /></el-icon>
+            </el-link>
+            <el-collapse-transition>
+              <div v-show="showServerUrl" class="login-form__server-input">
+                <label class="field-label">{{ t('loginView.serverUrl') }}</label>
+                <el-input v-model="serverUrl" placeholder="http://localhost:3000" clearable @change="handleServerUrlChange">
+                  <template #append>
+                    <el-button :loading="testingServer" @click="handleTestServer">
+                      {{ t('loginView.testConnection') }}
+                    </el-button>
+                  </template>
+                </el-input>
+                <span class="login-form__server-hint">{{ t('loginView.serverUrlHint') }}</span>
+              </div>
+            </el-collapse-transition>
+          </div>
+
           <div class="login-form__divider"><span>{{ t('loginView.or') }}</span></div>
 
           <div class="login-form__oauth">
@@ -119,10 +141,13 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
-import { Message, Lock } from '@element-plus/icons-vue'
+import { Message, Lock, Setting, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth.store'
+import { api } from '../../services/api'
+import { normalizeServerUrl } from '../../../shared/utils/server-url'
+import { IPC_SERVER } from '../../../shared/types/ipc-channels'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -168,6 +193,38 @@ function handleOfflineMode(): void {
 
 function handleOAuth(provider: 'github' | 'google'): void {
   ElMessage.info(t('loginView.oauthTip', { provider: provider === 'github' ? 'GitHub' : 'Google' }))
+}
+
+// ===== 服务器设置 =====
+const showServerUrl = ref(false)
+const serverUrl = ref(api.getServerUrl())
+const testingServer = ref(false)
+
+function handleServerUrlChange(): void {
+  const url = serverUrl.value.trim()
+  if (!url) return
+  try {
+    new URL(url)
+  } catch {
+    ElMessage.error(t('loginView.invalidUrl'))
+    return
+  }
+  api.setServerUrl(url)
+  api.setToken(null)
+  window.electronAPI?.ipc.invoke(IPC_SERVER.SET_URL, url)
+}
+
+async function handleTestServer(): Promise<void> {
+  handleServerUrlChange()
+  testingServer.value = true
+  try {
+    await fetch(`${normalizeServerUrl(serverUrl.value)}/health`, { signal: AbortSignal.timeout(5000) })
+    ElMessage.success(t('loginView.testSuccess'))
+  } catch {
+    ElMessage.error(t('loginView.testFailed'))
+  } finally {
+    testingServer.value = false
+  }
 }
 </script>
 
@@ -383,6 +440,31 @@ function handleOAuth(provider: 'github' | 'google'): void {
     margin-left: 0 !important;
     margin-top: 8px;
     &:hover { border-color: var(--accent); color: var(--text-primary); background: var(--bg-hover); }
+  }
+
+  &__server {
+    margin-top: 12px;
+  }
+
+  &__server-toggle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    &:hover { color: var(--text-secondary); }
+  }
+
+  &__server-input {
+    margin-top: 8px;
+    .field-label { margin-bottom: 4px; }
+  }
+
+  &__server-hint {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+    display: block;
   }
 
   &__divider {

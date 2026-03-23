@@ -395,6 +395,7 @@ class SyncEngine {
     updated_at: string
   }): void {
     const entityType = entity.entity_type
+    console.log(`[Sync] Applying ${entityType}:${entity.id} v${entity.version} deleted=${entity.deleted}`)
 
     if (entity.deleted) {
       this.deleteLocalEntity(entityType, entity.id)
@@ -431,7 +432,8 @@ class SyncEngine {
         [entity.id]
       )
       if (local && local.sync_version > entity.version) {
-        return // Local is newer, skip
+        console.log(`[Sync] Skip ${entityType}:${entity.id} — local v${local.sync_version} > remote v${entity.version}`)
+        return
       }
     }
 
@@ -513,15 +515,18 @@ class SyncEngine {
       return v === undefined || v === null ? null : typeof v === 'object' ? JSON.stringify(v) : v
     })
 
-    try {
-      dbRun(
-        `INSERT INTO ${tableInfo.table} (${columns.join(', ')}, sync_version, sync_updated_at)
+    const sql = `INSERT INTO ${tableInfo.table} (${columns.join(', ')}, sync_version, sync_updated_at)
          VALUES (${placeholders}, ?, ?)
-         ON CONFLICT(${tableInfo.idField}) DO UPDATE SET ${updates}, sync_version = excluded.sync_version, sync_updated_at = excluded.sync_updated_at`,
-        [...values, version, updatedAt]
-      )
+         ON CONFLICT(${tableInfo.idField}) DO UPDATE SET ${updates}, sync_version = excluded.sync_version, sync_updated_at = excluded.sync_updated_at`
+
+    try {
+      dbRun(sql, [...values, version, updatedAt])
+      console.log(`[Sync] Upserted ${entityType}:${id}`)
     } catch (err) {
       console.error(`[Sync] Failed to upsert ${entityType}:${id}:`, err)
+      console.error(`[Sync] SQL: ${sql}`)
+      console.error(`[Sync] Columns: ${columns.join(', ')}`)
+      console.error(`[Sync] Values:`, values)
       return
     }
 

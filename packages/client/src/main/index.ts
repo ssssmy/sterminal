@@ -121,6 +121,13 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
   }
 
+  // Cmd+Shift+I / Ctrl+Shift+I 打开 DevTools（生产环境也可用）
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'I' && input.shift && (input.meta || input.control)) {
+      mainWindow?.webContents.toggleDevTools()
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })

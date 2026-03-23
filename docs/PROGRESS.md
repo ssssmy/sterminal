@@ -1,6 +1,6 @@
 # STerminal 开发进展记录
 
-> 更新日期: 2026-03-22 | 当前阶段: P0 MVP 已完成，P1 命令片段+端口转发+设置+国际化已完成
+> 更新日期: 2026-03-23 | 当前阶段: P0 MVP 已完成，P1 核心增强大部分完成（剩云同步）
 
 ---
 
@@ -209,14 +209,22 @@ brightCyan: #22d3ee     brightWhite: #f8fafc
 
 ### P1: 核心增强（预计工作量：中等）
 
-#### 5.1.1 SFTP 文件管理
-- [ ] 基于已有 ssh2 连接实现 SFTP 子系统
-- [ ] `src/main/ipc/sftp.handler.ts` — 实现 16 个 SFTP IPC channel（list/stat/mkdir/rm/rename/chmod/chown/upload/download/readFile/writeFile/transferProgress/transferComplete/transferCancel）
-- [ ] 创建 `SftpFileManager.vue` — 双栏文件浏览器（本地 + 远程）
-- [ ] 文件上传/下载进度条 + 取消 + 队列管理
-- [ ] 文件拖拽上传/下载
-- [ ] SFTP 书签管理
-- [ ] 集成到 WorkspaceView（工具栏 SFTP 按钮触发）
+#### 5.1.1 SFTP 文件管理 ✅ 已完成
+- [x] `sftp.handler.ts` — 13 个 SFTP IPC handler（open/list/stat/mkdir/rm/rename/chmod/chown/read-file/write-file/upload/download/transfer-cancel）
+- [x] `local-fs.handler.ts` — 本地文件系统浏览（list/home）
+- [x] `SftpPanel.vue` — 双栏文件浏览器（本地 + 远程），可拖拽调整比例
+- [x] `SftpFileList.vue` — 可排序表头、多选、内联重命名、右键菜单
+- [x] `SftpPathBar.vue` — 面包屑导航 + 可编辑路径
+- [x] `SftpToolbar.vue` — 上传/下载/新建/刷新/隐藏文件/视图切换
+- [x] `SftpTransferQueue.vue` — 传输进度条、速度显示、取消
+- [x] `SftpFileEditor.vue` — 远程文本文件编辑器（< 1MB）
+- [x] 递归目录上传/下载（collectRemoteFiles/collectLocalFiles + mkdirpRemote）
+- [x] 传输进度实时推送 + 目录传输可取消
+- [x] SFTP 书签 CRUD（db.handler.ts）
+- [x] Tab 系统集成：contentType 'sftp'，FolderOpened 图标
+- [x] 远程默认路径用 sftp.realpath('.') 获取用户 home
+- [x] SSH 已知主机验证（首次连接弹窗确认，指纹变更警告）
+- [ ] 拖拽上传（从系统文件管理器拖入）— 延后
 
 #### 5.1.2 命令片段管理 ✅ 已完成
 - [x] `SnippetEditDialog.vue` — 片段新建/编辑对话框（名称、多行命令、描述、标签、分组选择）

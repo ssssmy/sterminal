@@ -18,8 +18,8 @@ Monorepo 结构：
 |------|------|------|
 | **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
 | **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
-| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 部分完成（片段+端口转发+设置+i18n 已完成，剩 SFTP+云同步） |
-| **P2 进阶功能** | SSH密钥管理、已知主机、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
+| **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 大部分完成（SFTP+片段+端口转发+设置+i18n+已知主机，剩云同步） |
+| **P2 进阶功能** | SSH密钥管理、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
 | **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
 
 详细进展和待办项见 `docs/PROGRESS.md`。PRD 见 `docs/PRD.md`。技术架构见 `docs/ARCHITECTURE.md`。
@@ -30,7 +30,7 @@ packages/client/src/
   main/                    # Electron 主进程
     index.ts                 窗口创建，平台特定配置
     database/schema.ts       SQLite 建表语句（20+ 张表）
-    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward)
+    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward, sftp, local-fs)
     services/db.ts           better-sqlite3 封装
     services/session-recorder.ts  asciicast v2 会话录制服务
   preload/index.ts         # contextBridge，暴露 ipc + platform
@@ -46,6 +46,12 @@ packages/client/src/
       snippet/SnippetEditDialog.vue         片段新建/编辑对话框
       snippet/SnippetVariableDialog.vue     片段变量填写对话框
       port-forward/PortForwardDialog.vue   端口转发配置对话框
+      sftp/SftpPanel.vue                   SFTP 双栏文件浏览器（根组件）
+      sftp/SftpFileList.vue                文件列表（排序/多选/重命名/右键菜单）
+      sftp/SftpPathBar.vue                 路径面包屑导航
+      sftp/SftpToolbar.vue                 SFTP 工具栏
+      sftp/SftpTransferQueue.vue           传输队列面板
+      sftp/SftpFileEditor.vue              远程文件编辑器
       icons/Icon{MacOS,Windows,Linux}.vue  OS图标SVG组件
     composables/useIpc.ts          IPC 封装（invoke/on/off + 自动清理）
     stores/
@@ -56,6 +62,7 @@ packages/client/src/
       settings.store.ts    全局设置管理
       snippets.store.ts    命令片段管理（CRUD+分组+变量+拖拽排序）
       port-forwards.store.ts  端口转发规则+隧道状态+自动启动
+      sftp.store.ts        SFTP 会话状态+传输队列（直接 IPC，非 useIpc）
       auth.store.ts        用户认证（当前 mock，P1 对接真实 API）
     views/
       workspace/WorkspaceView.vue  主工作区（KeepAlive 缓存）
@@ -174,6 +181,16 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - `SshSession` 接口增加了 `hostId` 字段，支持隧道迁移时按主机匹配
 - `stopAllTunnels()` 在 `app.before-quit` 中调用，强制 destroy 所有 socket 释放端口
 - 主机删除保护：侧边栏删除主机前检查 `portForwardsStore.rules`，有绑定规则时阻止并提示
+
+### SFTP 文件管理（sftp.handler.ts + sftp.store.ts）
+- SFTP 会话通过 `sshSessions.get(connectionId).client.sftp()` 创建，存入 `sftpSessions` Map
+- `sftp:open` 返回 `sftpId` + `homePath`（通过 `sftp.realpath('.')` 获取远程 home）
+- 递归目录操作：`collectRemoteFiles` / `collectLocalFiles` 收集文件列表，`mkdirpRemote` 递归创建远程目录
+- 传输进度通过 `webContents.send(IPC_SFTP.TRANSFER_PROGRESS)` 推送，store 用直接 IPC 监听（非 useIpc，避免 listener 泄漏）
+- `sftp.store.ts` 用 `reactive<Record>` 存 session 状态（非 Map，确保 Vue 响应式）
+- Tab 集成：`TabSession.contentType: 'sftp'`，WorkspaceView 条件渲染 SftpPanel vs TerminalPane
+- symlink 检测用 `(mode & 0o170000) === 0o120000`（POSIX 完整类型位掩码）
+- `closeAllSftpSessions()` 在 app before-quit 中调用
 
 ### 设置系统
 - 通用 KV 存储：`settings` 表 + `settings.store.ts`（`getSetting/setSetting`，自动回退 `DEFAULT_SETTINGS`）

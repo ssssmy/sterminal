@@ -16,6 +16,7 @@ import { useSessionsStore } from '@/stores/sessions.store'
 import { useUiStore } from '@/stores/ui.store'
 import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
+import { findThemePreset } from '@shared/constants/terminal-themes'
 import { nextTick } from 'vue'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
@@ -182,60 +183,24 @@ function pooledWrite(pooled: PooledTerminal, data: string): void {
 }
 
 // ===== xterm 主题配置 =====
-const XTERM_THEME_DARK = {
-  background: '#1a1b2e',
-  foreground: '#e2e8f0',
-  cursor: '#6366f1',
-  cursorAccent: '#1a1b2e',
-  selectionBackground: 'rgba(99, 102, 241, 0.3)',
-  black: '#1a1b2e',
-  red: '#ef4444',
-  green: '#22c55e',
-  yellow: '#eab308',
-  blue: '#3b82f6',
-  magenta: '#a855f7',
-  cyan: '#06b6d4',
-  white: '#e2e8f0',
-  brightBlack: '#64748b',
-  brightRed: '#f87171',
-  brightGreen: '#4ade80',
-  brightYellow: '#facc15',
-  brightBlue: '#60a5fa',
-  brightMagenta: '#c084fc',
-  brightCyan: '#22d3ee',
-  brightWhite: '#f8fafc',
-}
 
-const XTERM_THEME_LIGHT = {
-  background: '#f8f9fc',
-  foreground: '#1e293b',
-  cursor: '#6366f1',
-  cursorAccent: '#f8f9fc',
-  selectionBackground: 'rgba(99, 102, 241, 0.2)',
-  black: '#1e293b',
-  red: '#dc2626',
-  green: '#16a34a',
-  yellow: '#ca8a04',
-  blue: '#2563eb',
-  magenta: '#9333ea',
-  cyan: '#0891b2',
-  white: '#f1f5f9',
-  brightBlack: '#94a3b8',
-  brightRed: '#ef4444',
-  brightGreen: '#22c55e',
-  brightYellow: '#eab308',
-  brightBlue: '#3b82f6',
-  brightMagenta: '#a855f7',
-  brightCyan: '#06b6d4',
-  brightWhite: '#ffffff',
-}
-
-function getResolvedTheme(): 'dark' | 'light' {
+function getResolvedAppTheme(): 'dark' | 'light' {
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
 }
 
-function getXtermTheme(): typeof XTERM_THEME_DARK {
-  return getResolvedTheme() === 'light' ? XTERM_THEME_LIGHT : XTERM_THEME_DARK
+/**
+ * 根据 terminal.theme 设置返回 xterm 主题颜色对象。
+ * 若设置为 'sterminal-dark'/'sterminal-light' 或其他预设 id，则使用对应预设。
+ * 若设置值为空，则按当前 app 主题自动选择 sterminal-dark / sterminal-light。
+ */
+function getXtermTheme(): Record<string, string> {
+  const s = useSettingsStoreModule().settings
+  const themeId = (s.get('terminal.theme') || DEFAULT_SETTINGS['terminal.theme']) as string
+  if (themeId) {
+    return findThemePreset(themeId).colors
+  }
+  const fallback = getResolvedAppTheme() === 'light' ? 'sterminal-light' : 'sterminal-dark'
+  return findThemePreset(fallback).colors
 }
 
 function getXtermBaseOptions() {
@@ -306,6 +271,7 @@ const terminalSettingKeys = [
   'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
   'terminal.cursorStyle', 'terminal.cursorBlink',
   'terminal.scrollback', 'terminal.scrollSensitivity',
+  'terminal.theme',
 ]
 watch(
   () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
@@ -320,8 +286,10 @@ watch(
       scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
       scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
     }
+    const theme = getXtermTheme()
     for (const pooled of terminalPool.values()) {
       Object.assign(pooled.terminal.options, opts)
+      pooled.terminal.options.theme = theme
       pooled.fitAddon.fit()
     }
   },

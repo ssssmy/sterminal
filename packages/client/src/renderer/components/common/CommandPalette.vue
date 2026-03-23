@@ -10,7 +10,7 @@
             ref="inputRef"
             v-model="query"
             type="text"
-            placeholder="搜索命令、主机、片段..."
+            :placeholder="t('commandPalette.placeholder')"
             class="command-palette__input"
             @keydown="handleKeydown"
           />
@@ -18,27 +18,38 @@
         </div>
 
         <!-- 结果列表 -->
-        <div class="command-palette__results">
-          <div
-            v-for="(item, index) in filteredItems"
-            :key="item.id"
-            class="command-palette__item"
-            :class="{ 'command-palette__item--active': selectedIndex === index }"
-            @click="executeItem(item)"
-            @mouseenter="selectedIndex = index"
-          >
-            <el-icon class="command-palette__item-icon">
-              <component :is="item.icon" />
-            </el-icon>
-            <div class="command-palette__item-content">
-              <span class="command-palette__item-name">{{ item.name }}</span>
-              <span v-if="item.desc" class="command-palette__item-desc">{{ item.desc }}</span>
-            </div>
-            <kbd v-if="item.shortcut" class="command-palette__item-shortcut">{{ item.shortcut }}</kbd>
-          </div>
+        <div ref="resultsRef" class="command-palette__results">
+          <template v-if="groupedResults.length > 0">
+            <template v-for="group in groupedResults" :key="group.category">
+              <!-- 分组标题 -->
+              <div class="command-palette__group-label">{{ group.label }}</div>
+              <!-- 分组条目 -->
+              <div
+                v-for="item in group.items"
+                :key="item.id"
+                class="command-palette__item"
+                :class="{ 'command-palette__item--active': selectedIndex === item._flatIndex }"
+                @click="executeItem(item)"
+                @mouseenter="selectedIndex = item._flatIndex"
+              >
+                <el-icon class="command-palette__item-icon" :style="{ color: item.iconColor }">
+                  <component :is="item.icon" />
+                </el-icon>
+                <div class="command-palette__item-content">
+                  <span class="command-palette__item-name">{{ item.name }}</span>
+                  <span v-if="item.desc" class="command-palette__item-desc">{{ item.desc }}</span>
+                </div>
+                <span
+                  v-if="item.categoryLabel"
+                  class="command-palette__item-badge"
+                >{{ item.categoryLabel }}</span>
+                <kbd v-if="item.shortcut" class="command-palette__item-shortcut">{{ item.shortcut }}</kbd>
+              </div>
+            </template>
+          </template>
 
-          <div v-if="filteredItems.length === 0" class="command-palette__empty">
-            没有找到匹配的命令
+          <div v-else class="command-palette__empty">
+            {{ t('commandPalette.empty') }}
           </div>
         </div>
       </div>
@@ -47,66 +58,288 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Monitor, Setting, Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+import {
+  Search, Monitor, Setting, Plus, Connection, Document,
+  Cpu, FullScreen, VideoCamera, Microphone, ScaleToOriginal,
+} from '@element-plus/icons-vue'
 import { useUiStore } from '../../stores/ui.store'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useHostsStore } from '../../stores/hosts.store'
+import { useSnippetsStore } from '../../stores/snippets.store'
+import { useTerminalsStore } from '../../stores/terminals.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
+import { hasVariables } from '@shared/utils/snippet-variables'
+import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const uiStore = useUiStore()
 const sessionsStore = useSessionsStore()
 const hostsStore = useHostsStore()
+const snippetsStore = useSnippetsStore()
+const terminalsStore = useTerminalsStore()
+const portForwardsStore = usePortForwardsStore()
 
 const inputRef = ref<HTMLInputElement | null>(null)
+const resultsRef = ref<HTMLDivElement | null>(null)
 const query = ref('')
 const selectedIndex = ref(0)
+
+type Category = 'command' | 'host' | 'snippet' | 'terminal' | 'portforward' | 'settings'
 
 interface CommandItem {
   id: string
   name: string
   desc?: string
   icon: typeof Monitor
+  iconColor?: string
   shortcut?: string
+  categoryLabel?: string
+  category: Category
+  /** 扁平化后的下标，用于键盘选中 */
+  _flatIndex: number
   action: () => void
 }
 
-// 命令列表（静态命令 + 动态主机列表）
-const allItems = computed<CommandItem[]>(() => [
-  {
-    id: 'new-tab',
-    name: '新建标签页',
-    desc: '打开一个新的本地终端',
-    icon: Plus,
-    shortcut: 'Ctrl+T',
-    action: () => sessionsStore.createTab(),
-  },
-  {
-    id: 'settings',
-    name: '打开设置',
-    icon: Setting,
-    action: () => router.push('/settings'),
-  },
-  // 动态主机列表
-  ...hostsStore.hosts.map(host => ({
-    id: `host-${host.id}`,
-    name: `连接 ${host.label || host.address}`,
-    desc: `${host.username || ''}@${host.address}:${host.port}`,
-    icon: Monitor,
-    action: () => sessionsStore.createTab(host.label || host.address, 'ssh', host.id),
-  })),
-])
+interface ResultGroup {
+  category: Category
+  label: string
+  items: CommandItem[]
+}
 
-const filteredItems = computed(() => {
-  if (!query.value.trim()) return allItems.value
-  const q = query.value.toLowerCase()
-  return allItems.value.filter(
-    item =>
-      item.name.toLowerCase().includes(q) ||
-      item.desc?.toLowerCase().includes(q)
+// ===== 所有条目（未过滤） =====
+const allItems = computed<CommandItem[]>(() => {
+  const items: Omit<CommandItem, '_flatIndex'>[] = []
+
+  // --- 常用命令 ---
+  items.push(
+    {
+      id: 'cmd-new-tab',
+      name: t('commandPalette.cmdNewTab'),
+      desc: t('commandPalette.cmdNewTabDesc'),
+      icon: Plus,
+      iconColor: 'var(--el-color-primary)',
+      shortcut: 'Ctrl+T',
+      category: 'command',
+      action: () => sessionsStore.createTab(),
+    },
+    {
+      id: 'cmd-split-h',
+      name: t('commandPalette.cmdSplitH'),
+      icon: ScaleToOriginal,
+      category: 'command',
+      action: () => {
+        const tab = sessionsStore.activeTab
+        if (!tab) return
+        const ids = sessionsStore.getActiveTabTerminalIds()
+        if (ids.length > 0) sessionsStore.splitPane(tab.id, ids[0], 'horizontal')
+      },
+    },
+    {
+      id: 'cmd-split-v',
+      name: t('commandPalette.cmdSplitV'),
+      icon: ScaleToOriginal,
+      category: 'command',
+      action: () => {
+        const tab = sessionsStore.activeTab
+        if (!tab) return
+        const ids = sessionsStore.getActiveTabTerminalIds()
+        if (ids.length > 0) sessionsStore.splitPane(tab.id, ids[0], 'vertical')
+      },
+    },
+    {
+      id: 'cmd-broadcast',
+      name: t('commandPalette.cmdBroadcast'),
+      icon: Microphone,
+      category: 'command',
+      action: () => { sessionsStore.broadcastMode = !sessionsStore.broadcastMode },
+    },
+    {
+      id: 'cmd-record',
+      name: t('commandPalette.cmdRecord'),
+      icon: VideoCamera,
+      category: 'command',
+      action: () => { /* 录制切换由 toolbar 处理，此处打开设置日志页 */ router.push('/settings/logs') },
+    },
+    {
+      id: 'cmd-search',
+      name: t('commandPalette.cmdSearch'),
+      icon: Search,
+      category: 'command',
+      action: () => { uiStore.showTerminalSearch = !uiStore.showTerminalSearch },
+    },
+    {
+      id: 'cmd-fullscreen',
+      name: t('commandPalette.cmdFullscreen'),
+      icon: FullScreen,
+      shortcut: 'F11',
+      category: 'command',
+      action: () => { document.documentElement.requestFullscreen?.() },
+    },
+    {
+      id: 'cmd-settings',
+      name: t('commandPalette.cmdSettings'),
+      icon: Setting,
+      category: 'command',
+      action: () => router.push('/settings'),
+    },
+    {
+      id: 'cmd-settings-terminal',
+      name: t('commandPalette.cmdSettingsTerminal'),
+      icon: Setting,
+      category: 'settings',
+      action: () => router.push('/settings/terminal'),
+    },
+    {
+      id: 'cmd-settings-appearance',
+      name: t('commandPalette.cmdSettingsAppearance'),
+      icon: Setting,
+      category: 'settings',
+      action: () => router.push('/settings/appearance'),
+    },
+    {
+      id: 'cmd-settings-keys',
+      name: t('commandPalette.cmdSettingsKeys'),
+      icon: Setting,
+      category: 'settings',
+      action: () => router.push('/settings/keys'),
+    },
+    {
+      id: 'cmd-settings-logs',
+      name: t('commandPalette.cmdSettingsLogs'),
+      icon: Setting,
+      category: 'settings',
+      action: () => router.push('/settings/logs'),
+    },
   )
+
+  // --- 主机 ---
+  for (const host of hostsStore.hosts) {
+    items.push({
+      id: `host-${host.id}`,
+      name: host.label || host.address,
+      desc: `${host.username || 'root'}@${host.address}:${host.port}`,
+      icon: Monitor,
+      iconColor: 'var(--el-color-success)',
+      categoryLabel: t('commandPalette.categoryHost'),
+      category: 'host',
+      action: () => sessionsStore.createTab(host.label || host.address, 'ssh', host.id),
+    })
+  }
+
+  // --- 命令片段（按 useCount 降序排列，最近使用的靠前） ---
+  const sortedSnippets = [...snippetsStore.snippets].sort((a, b) => {
+    if (b.useCount !== a.useCount) return b.useCount - a.useCount
+    const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0
+    const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0
+    return bTime - aTime
+  })
+  for (const snippet of sortedSnippets) {
+    items.push({
+      id: `snippet-${snippet.id}`,
+      name: snippet.name,
+      desc: snippet.content.slice(0, 60).replace(/\n/g, ' '),
+      icon: Document,
+      iconColor: 'var(--el-color-warning)',
+      categoryLabel: t('commandPalette.categorySnippet'),
+      category: 'snippet',
+      action: () => {
+        if (hasVariables(snippet.content)) {
+          uiStore.openSnippetVariableDialog(snippet)
+        } else {
+          const ids = sessionsStore.getActiveTabTerminalIds()
+          if (ids.length === 0) return
+          snippetsStore.incrementUseCount(snippet.id)
+          sendCommandToTerminal(ids[0], snippet.content)
+        }
+      },
+    })
+  }
+
+  // --- 本地终端配置 ---
+  for (const terminal of terminalsStore.terminals) {
+    items.push({
+      id: `terminal-${terminal.id}`,
+      name: terminal.name,
+      desc: terminal.cwd || terminal.shell,
+      icon: Cpu,
+      iconColor: 'var(--el-color-info)',
+      categoryLabel: t('commandPalette.categoryTerminal'),
+      category: 'terminal',
+      action: () => sessionsStore.createTab(terminal.name, 'local', terminal.id),
+    })
+  }
+
+  // --- 端口转发规则 ---
+  for (const rule of portForwardsStore.rules) {
+    const hostName = hostsStore.hosts.find(h => h.id === rule.hostId)?.label
+      || hostsStore.hosts.find(h => h.id === rule.hostId)?.address
+      || rule.hostId
+    items.push({
+      id: `pf-${rule.id}`,
+      name: rule.name || `${rule.type === 'local' ? 'L' : 'R'}:${rule.localPort ?? rule.remotePort}`,
+      desc: hostName,
+      icon: Connection,
+      iconColor: 'var(--el-color-danger)',
+      categoryLabel: t('commandPalette.categoryPortForward'),
+      category: 'portforward',
+      action: () => uiStore.openPortForwardDialog(rule.id),
+    })
+  }
+
+  // 追加 _flatIndex
+  return items.map((item, i) => ({ ...item, _flatIndex: i }))
 })
+
+// ===== 过滤 + 分组 =====
+const CATEGORY_ORDER: Category[] = ['command', 'host', 'snippet', 'terminal', 'portforward', 'settings']
+
+function getCategoryLabel(cat: Category): string {
+  const map: Record<Category, string> = {
+    command: t('commandPalette.groupCommand'),
+    host: t('commandPalette.groupHost'),
+    snippet: t('commandPalette.groupSnippet'),
+    terminal: t('commandPalette.groupTerminal'),
+    portforward: t('commandPalette.groupPortForward'),
+    settings: t('commandPalette.groupSettings'),
+  }
+  return map[cat]
+}
+
+const groupedResults = computed<ResultGroup[]>(() => {
+  const q = query.value.toLowerCase().trim()
+  const filtered = q
+    ? allItems.value.filter(item =>
+        item.name.toLowerCase().includes(q) ||
+        item.desc?.toLowerCase().includes(q)
+      )
+    : allItems.value
+
+  const map = new Map<Category, CommandItem[]>()
+  for (const item of filtered) {
+    if (!map.has(item.category)) map.set(item.category, [])
+    map.get(item.category)!.push(item)
+  }
+
+  const groups: ResultGroup[] = []
+  for (const cat of CATEGORY_ORDER) {
+    const items = map.get(cat)
+    if (items && items.length > 0) {
+      groups.push({ category: cat, label: getCategoryLabel(cat), items })
+    }
+  }
+  return groups
+})
+
+const flatResults = computed(() =>
+  groupedResults.value.flatMap(g => g.items)
+)
+
+// 过滤变化时重置选中
+watch(query, () => { selectedIndex.value = 0 })
 
 function handleKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
@@ -115,15 +348,25 @@ function handleKeydown(e: KeyboardEvent): void {
   }
   if (e.key === 'ArrowDown') {
     e.preventDefault()
-    selectedIndex.value = Math.min(selectedIndex.value + 1, filteredItems.value.length - 1)
+    selectedIndex.value = Math.min(selectedIndex.value + 1, flatResults.value.length - 1)
+    scrollActiveIntoView()
   }
   if (e.key === 'ArrowUp') {
     e.preventDefault()
     selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+    scrollActiveIntoView()
   }
-  if (e.key === 'Enter' && filteredItems.value[selectedIndex.value]) {
-    executeItem(filteredItems.value[selectedIndex.value])
+  if (e.key === 'Enter') {
+    const item = flatResults.value.find(i => i._flatIndex === selectedIndex.value)
+    if (item) executeItem(item)
   }
+}
+
+function scrollActiveIntoView(): void {
+  nextTick(() => {
+    const el = resultsRef.value?.querySelector('.command-palette__item--active') as HTMLElement | null
+    el?.scrollIntoView({ block: 'nearest' })
+  })
 }
 
 function executeItem(item: CommandItem): void {
@@ -161,7 +404,7 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
 }
 
 .command-palette {
-  width: 560px;
+  width: 600px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -202,12 +445,22 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 2px 6px;
+    flex-shrink: 0;
   }
 
   &__results {
-    max-height: 360px;
+    max-height: 420px;
     overflow-y: auto;
     padding: 6px;
+  }
+
+  &__group-label {
+    padding: 8px 12px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   &__item {
@@ -225,9 +478,9 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
   }
 
   &__item-icon {
-    color: var(--text-secondary);
     font-size: 16px;
     flex-shrink: 0;
+    color: var(--text-secondary);
   }
 
   &__item-content {
@@ -239,6 +492,9 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
     display: block;
     font-size: 14px;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__item-desc {
@@ -246,6 +502,19 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
     font-size: 12px;
     color: var(--text-tertiary);
     margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__item-badge {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    flex-shrink: 0;
   }
 
   &__item-shortcut {
@@ -259,7 +528,7 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
   }
 
   &__empty {
-    padding: 24px;
+    padding: 32px;
     text-align: center;
     color: var(--text-tertiary);
     font-size: 13px;

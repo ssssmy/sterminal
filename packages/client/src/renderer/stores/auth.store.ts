@@ -1,9 +1,9 @@
 // 认证状态 Store
 // 管理用户登录/注册/登出状态和 JWT Token
-// 当前 API 调用使用 mock 数据（setTimeout 模拟），后续对接真实后端
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { api } from '../services/api'
 
 export interface UserInfo {
   id: string
@@ -14,9 +14,30 @@ export interface UserInfo {
   createdAt: string
 }
 
+// 后端返回的用户字段（snake_case）
+interface ApiUserRecord {
+  id: string
+  username: string
+  email: string
+  email_verified: number
+  avatar_url: string | null
+  created_at: string
+}
+
 // localStorage key 常量
 const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
+
+function mapApiUser(u: ApiUserRecord): UserInfo {
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    emailVerified: !!u.email_verified,
+    avatarUrl: u.avatar_url ?? undefined,
+    createdAt: u.created_at,
+  }
+}
 
 export const useAuthStore = defineStore('auth', () => {
   // ===== 状态 =====
@@ -33,6 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // ===== 计算属性 =====
   const isLoggedIn = computed(() => !!token.value && !!user.value)
+  const isOfflineMode = computed(() => !token.value)
 
   // ===== 内部方法 =====
 
@@ -52,6 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
   function clearSession(): void {
     token.value = null
     user.value = null
+    api.setToken(null)
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
   }
@@ -65,36 +88,15 @@ export const useAuthStore = defineStore('auth', () => {
    * @param remember 是否记住登录（持久化 token）
    */
   async function login(email: string, password: string, remember = true): Promise<void> {
-    // Mock 模拟：延迟 800ms 后返回假数据
-    // TODO: 替换为真实 API 调用 POST /api/v1/auth/login
-    await new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        // 模拟邮箱/密码校验（真实环境由后端校验）
-        if (!email || !password) {
-          reject(new Error('邮箱或密码不能为空'))
-          return
-        }
-        // 模拟登录成功，返回假 token 和用户信息
-        const mockToken = `mock_token_${Date.now()}`
-        const mockUser: UserInfo = {
-          id: 'mock_user_001',
-          username: email.split('@')[0],
-          email,
-          emailVerified: true,
-          avatarUrl: undefined,
-          createdAt: new Date().toISOString(),
-        }
-        if (remember) {
-          // 记住登录：持久化到 localStorage
-          persistSession(mockToken, mockUser)
-        } else {
-          // 不记住：只写入内存状态
-          token.value = mockToken
-          user.value = mockUser
-        }
-        resolve()
-      }, 800)
-    })
+    const result = await api.post<{ token: string; user: ApiUserRecord }>('/auth/login', { email, password, remember })
+    const userInfo = mapApiUser(result.user)
+    api.setToken(result.token)
+    if (remember) {
+      persistSession(result.token, userInfo)
+    } else {
+      token.value = result.token
+      user.value = userInfo
+    }
   }
 
   /**
@@ -104,47 +106,57 @@ export const useAuthStore = defineStore('auth', () => {
    * @param password 密码
    */
   async function register(username: string, email: string, password: string): Promise<void> {
-    // Mock 模拟：延迟 1000ms 后返回假数据
-    // TODO: 替换为真实 API 调用 POST /api/v1/auth/register
-    await new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        if (!username || !email || !password) {
-          reject(new Error('注册信息不完整'))
-          return
-        }
-        // 模拟注册成功（真实环境后端会发送验证邮件）
-        resolve()
-      }, 1000)
-    })
+    await api.post('/auth/register', { username, email, password })
   }
 
   /**
    * 退出登录
    */
-  function logout(): void {
+  async function logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      // 忽略退出登录的网络错误，仍然清除本地状态
+    }
     clearSession()
   }
 
   /**
    * 从本地存储恢复会话（应用启动时调用）
+   * 失败时静默降级为离线模式
    */
   async function restoreSession(): Promise<void> {
     const savedToken = localStorage.getItem(TOKEN_KEY)
     if (!savedToken) return
 
     try {
-      const savedUser = localStorage.getItem(USER_KEY)
-      if (savedUser) {
-        token.value = savedToken
-        user.value = JSON.parse(savedUser) as UserInfo
-        // TODO: 向后端验证 token 有效性，无效则清除
-        // const response = await fetch('/api/v1/auth/me', { headers: { Authorization: `Bearer ${savedToken}` } })
-        // if (!response.ok) clearSession()
-      }
+      api.setToken(savedToken)
+      const userRecord = await api.get<ApiUserRecord>('/user/me')
+      const userInfo = mapApiUser(userRecord)
+      token.value = savedToken
+      user.value = userInfo
+      localStorage.setItem(USER_KEY, JSON.stringify(userInfo))
     } catch {
-      // 解析失败时清除无效数据
+      // token 过期或网络不可达，静默清除本地 token
       clearSession()
     }
+  }
+
+  /**
+   * 更新用户资料
+   */
+  async function updateProfile(data: { username?: string; avatarUrl?: string }): Promise<void> {
+    const userRecord = await api.patch<ApiUserRecord>('/user/me', data)
+    const userInfo = mapApiUser(userRecord)
+    user.value = userInfo
+    localStorage.setItem(USER_KEY, JSON.stringify(userInfo))
+  }
+
+  /**
+   * 修改密码
+   */
+  async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.put('/user/me/password', { currentPassword, newPassword })
   }
 
   /**
@@ -152,6 +164,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function saveToken(newToken: string): void {
     token.value = newToken
+    api.setToken(newToken)
     localStorage.setItem(TOKEN_KEY, newToken)
   }
 
@@ -159,10 +172,13 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isLoggedIn,
+    isOfflineMode,
     login,
     register,
     logout,
     restoreSession,
+    updateProfile,
+    changePassword,
     saveToken,
   }
 })

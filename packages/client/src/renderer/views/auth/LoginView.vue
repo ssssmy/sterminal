@@ -69,6 +69,14 @@
           {{ t('loginView.loginBtn') }}
         </el-button>
 
+        <!-- 离线模式按钮 -->
+        <el-button
+          class="login-card__offline"
+          @click="handleOfflineMode"
+        >
+          {{ t('loginView.offlineMode') }}
+        </el-button>
+
         <!-- "或" 分割线 -->
         <div class="login-card__divider">
           <span>{{ t('loginView.or') }}</span>
@@ -169,6 +177,11 @@ async function handleLogin(): Promise<void> {
 // 忘记密码占位处理
 function handleForgotPassword(): void {
   ElMessage.info(t('loginView.forgotPasswordTip'))
+}
+
+// 离线模式：不登录直接进入主界面
+function handleOfflineMode(): void {
+  router.push('/')
 }
 
 // OAuth 登录占位处理
@@ -349,6 +362,25 @@ function handleOAuth(provider: 'github' | 'google'): void {
 
     &:active {
       background-color: color-mix(in srgb, var(--accent) 75%, black);
+    }
+  }
+
+  /* 离线模式按钮 */
+  &__offline {
+    width: 100%;
+    height: 40px;
+    border-radius: 8px;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+
+    &:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      background-color: var(--bg-hover);
     }
   }
 

@@ -13,15 +13,20 @@ import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
 import { useUiStore } from './stores/ui.store'
 import { useSettingsStore } from './stores/settings.store'
+import { useAuthStore } from './stores/auth.store'
 import { IPC_WINDOW, IPC_SSH } from '@shared/types/ipc-channels'
 
 const { locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
+const authStore = useAuthStore()
 
 onMounted(async () => {
   // 从数据库恢复保存的主题设置
   uiStore.restoreTheme()
+
+  // 恢复登录状态（静默降级为离线模式，不阻塞启动）
+  authStore.restoreSession().catch(() => { /* 静默忽略 */ })
 
   // 恢复语言
   const lang = await settingsStore.getSetting<string>('app.language')

@@ -483,6 +483,10 @@ class SyncEngine {
       delete data._tags
     }
 
+    // Remove sync metadata fields from data (they are added separately)
+    delete data.sync_version
+    delete data.sync_updated_at
+
     // Build UPSERT query
     const columns = Object.keys(data).filter(k => !k.endsWith('_encrypted'))
     const placeholders = columns.map(() => '?').join(', ')

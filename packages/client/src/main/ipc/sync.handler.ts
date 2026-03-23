@@ -11,6 +11,10 @@ export function registerSyncHandlers(): void {
       for (const win of windows) {
         if (!win.isDestroyed()) {
           win.webContents.send(IPC_SYNC.STATUS_CHANGED, status)
+          // 同步完成后通知前端刷新数据
+          if (status.state === 'idle') {
+            win.webContents.send(IPC_SYNC.DATA_CHANGED)
+          }
         }
       }
     })

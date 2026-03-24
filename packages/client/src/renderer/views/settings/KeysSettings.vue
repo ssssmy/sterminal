@@ -41,6 +41,9 @@
           <el-button size="small" text @click="copyPublicKey(key)">
             {{ t('keys.copyPublicKey') }}
           </el-button>
+          <el-button size="small" text @click="openDeployDialog(key)">
+            {{ t('keys.deploy') }}
+          </el-button>
           <el-button size="small" text type="danger" @click="deleteKey(key.id, key.name)">
             {{ t('common.delete') }}
           </el-button>
@@ -97,6 +100,57 @@
       </template>
     </el-dialog>
 
+    <!-- 部署密钥对话框 -->
+    <el-dialog
+      v-model="showDeployDialog"
+      :title="t('keys.deployTitle')"
+      width="480px"
+      @closed="resetDeployForm"
+    >
+      <p class="deploy-desc">{{ t('keys.deployDesc', { name: deployKeyName }) }}</p>
+      <el-form label-width="100px" style="margin-top: 16px">
+        <el-form-item :label="t('keys.deployHost')">
+          <el-select
+            v-model="deployForm.hostId"
+            :placeholder="t('keys.deployHostPlaceholder')"
+            filterable
+            style="width: 100%"
+            @change="onDeployHostChange"
+          >
+            <el-option
+              v-for="host in hostsStore.hosts"
+              :key="host.id"
+              :label="host.label || host.address"
+              :value="host.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('hostDialog.address')">
+          <el-input v-model="deployForm.host" :placeholder="t('keys.deployAddrPlaceholder')" />
+        </el-form-item>
+        <el-form-item :label="t('hostDialog.port')">
+          <el-input-number v-model="deployForm.port" :min="1" :max="65535" />
+        </el-form-item>
+        <el-form-item :label="t('hostDialog.username')">
+          <el-input v-model="deployForm.username" placeholder="root" />
+        </el-form-item>
+        <el-form-item :label="t('hostDialog.password')">
+          <el-input v-model="deployForm.password" type="password" show-password :placeholder="t('keys.deployPasswordPlaceholder')" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showDeployDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button
+          type="primary"
+          :loading="deploying"
+          :disabled="!deployForm.host || !deployForm.username"
+          @click="doDeploy"
+        >
+          {{ t('keys.deployBtn') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 导入密钥对话框 -->
     <el-dialog
       v-model="showImportDialog"
@@ -147,10 +201,12 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useKeysStore } from '../../stores/keys.store'
+import { useHostsStore } from '../../stores/hosts.store'
 import type { SshKey } from '../../../shared/types/key'
 
 const { t } = useI18n()
 const keysStore = useKeysStore()
+const hostsStore = useHostsStore()
 
 // ===== 对话框状态 =====
 
@@ -275,6 +331,62 @@ async function deleteKey(id: string, name: string): Promise<void> {
   }
 }
 
+// ===== 部署密钥 =====
+
+const showDeployDialog = ref(false)
+const deploying = ref(false)
+const deployKeyId = ref('')
+const deployKeyName = ref('')
+const deployForm = reactive({
+  hostId: '',
+  host: '',
+  port: 22,
+  username: 'root',
+  password: '',
+})
+
+function openDeployDialog(key: SshKey): void {
+  deployKeyId.value = key.id
+  deployKeyName.value = key.name
+  hostsStore.fetchHosts()
+  showDeployDialog.value = true
+}
+
+function resetDeployForm(): void {
+  deployForm.hostId = ''
+  deployForm.host = ''
+  deployForm.port = 22
+  deployForm.username = 'root'
+  deployForm.password = ''
+}
+
+function onDeployHostChange(hostId: string): void {
+  const host = hostsStore.hosts.find(h => h.id === hostId)
+  if (!host) return
+  deployForm.host = host.address
+  deployForm.port = host.port
+  deployForm.username = host.username || 'root'
+  deployForm.password = host.password || ''
+}
+
+async function doDeploy(): Promise<void> {
+  deploying.value = true
+  try {
+    await keysStore.deployKey(deployKeyId.value, {
+      host: deployForm.host,
+      port: deployForm.port,
+      username: deployForm.username,
+      password: deployForm.password || undefined,
+    })
+    showDeployDialog.value = false
+    ElMessage.success(t('keys.deploySuccess'))
+  } catch (err: unknown) {
+    ElMessage.error(err instanceof Error ? err.message : t('keys.deployFailed'))
+  } finally {
+    deploying.value = false
+  }
+}
+
 // ===== 工具函数 =====
 
 function tagType(keyType: string): 'success' | 'primary' | 'warning' {
@@ -344,5 +456,12 @@ onMounted(() => keysStore.fetchKeys())
   &__actions {
     display: flex; gap: 4px; flex-shrink: 0; margin-left: 12px;
   }
+}
+
+.deploy-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
 }
 </style>

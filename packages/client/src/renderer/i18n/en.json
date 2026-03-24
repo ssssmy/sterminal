@@ -651,7 +651,17 @@
     "importContent": "Key Content",
     "importContentPlaceholder": "Paste OpenSSH or PEM format private key",
     "ed25519Recommended": "Ed25519 (Recommended)",
-    "createdAt": "Created"
+    "createdAt": "Created",
+    "deploy": "Deploy",
+    "deployTitle": "Deploy Public Key to Server",
+    "deployDesc": "Deploy the public key of \"{name}\" to the remote server's ~/.ssh/authorized_keys",
+    "deployHost": "Target Host",
+    "deployHostPlaceholder": "Select a host or fill in manually",
+    "deployAddrPlaceholder": "Enter server address",
+    "deployPasswordPlaceholder": "Password to connect",
+    "deployBtn": "Deploy Key",
+    "deploySuccess": "Public key deployed successfully",
+    "deployFailed": "Public key deployment failed"
   },
   "vault": {
     "title": "Vault",

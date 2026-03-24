@@ -654,7 +654,17 @@
     "importContent": "密钥内容",
     "importContentPlaceholder": "粘贴 OpenSSH 或 PEM 格式的私钥内容",
     "ed25519Recommended": "Ed25519（推荐）",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "deploy": "部署",
+    "deployTitle": "部署公钥到服务器",
+    "deployDesc": "将密钥「{name}」的公钥部署到远程服务器的 ~/.ssh/authorized_keys",
+    "deployHost": "目标主机",
+    "deployHostPlaceholder": "选择已有主机或手动填写",
+    "deployAddrPlaceholder": "输入服务器地址",
+    "deployPasswordPlaceholder": "用于连接的密码",
+    "deployBtn": "部署公钥",
+    "deploySuccess": "公钥部署成功",
+    "deployFailed": "公钥部署失败"
   },
   "vault": {
     "title": "密码库",

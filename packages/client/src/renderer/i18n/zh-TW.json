@@ -651,7 +651,17 @@
     "importContent": "金鑰內容",
     "importContentPlaceholder": "貼上 OpenSSH 或 PEM 格式的私鑰內容",
     "ed25519Recommended": "Ed25519（推薦）",
-    "createdAt": "建立時間"
+    "createdAt": "建立時間",
+    "deploy": "部署",
+    "deployTitle": "部署公鑰到伺服器",
+    "deployDesc": "將金鑰「{name}」的公鑰部署到遠端伺服器的 ~/.ssh/authorized_keys",
+    "deployHost": "目標主機",
+    "deployHostPlaceholder": "選擇已有主機或手動填寫",
+    "deployAddrPlaceholder": "輸入伺服器位址",
+    "deployPasswordPlaceholder": "用於連線的密碼",
+    "deployBtn": "部署公鑰",
+    "deploySuccess": "公鑰部署成功",
+    "deployFailed": "公鑰部署失敗"
   },
   "vault": {
     "title": "密碼庫",

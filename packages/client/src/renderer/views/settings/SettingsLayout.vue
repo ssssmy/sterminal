@@ -67,6 +67,8 @@
           <AppearanceSettings v-else-if="activeSection === 'appearance'" />
           <LogSettings v-else-if="activeSection === 'logs'" />
           <KnownHostsSettings v-else-if="activeSection === 'known-hosts'" />
+          <KeysSettings v-else-if="activeSection === 'keys'" />
+          <VaultSettings v-else-if="activeSection === 'vault'" />
           <div v-else class="settings-layout__placeholder">
             <el-empty :description="t('settings.underDevelopment')" />
           </div>
@@ -88,6 +90,8 @@ import TerminalSettings from './TerminalSettings.vue'
 import AppearanceSettings from './AppearanceSettings.vue'
 import LogSettings from './LogSettings.vue'
 import KnownHostsSettings from './KnownHostsSettings.vue'
+import KeysSettings from './KeysSettings.vue'
+import VaultSettings from './VaultSettings.vue'
 
 const router = useRouter()
 const { t } = useI18n()

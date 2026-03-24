@@ -141,6 +141,7 @@ export const IPC_VAULT = {
   LOCK: 'vault:lock',
   SETUP: 'vault:setup',
   GENERATE_PASSWORD: 'vault:generate-password',
+  IS_SETUP: 'vault:is-setup',
 } as const
 
 // ===== SSH 密钥管理 =====

@@ -7,6 +7,7 @@ import { dbAll, dbGet, dbRun } from '../services/db'
 import { IPC_DB } from '../../shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 import { syncEngine } from '../services/sync-engine'
+import { vaultService } from '../services/vault-service'
 
 /**
  * 数据变更后防抖触发同步（5 秒内多次变更只触发一次）
@@ -45,6 +46,8 @@ export function registerDbHandlers(): void {
   registerSnippetGroupsHandlers()
   registerPortForwardsHandlers()
   registerSftpBookmarksHandlers()
+  registerKeysHandlers()
+  registerVaultHandlers()
 }
 
 // ===== 设置 =====
@@ -705,6 +708,191 @@ function registerSftpBookmarksHandlers(): void {
   ipcMain.handle(IPC_DB.SFTP_BOOKMARKS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM sftp_bookmarks WHERE id = ?', [id])
     trackDelete('sftp_bookmark', id)
+    return true
+  })
+}
+
+// ===== SSH 密钥 =====
+
+function mapKeyRow(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: row.name,
+    keyType: row.key_type,
+    bits: row.bits ?? null,
+    curve: row.curve ?? null,
+    fingerprint: row.fingerprint,
+    publicKey: row.public_key,
+    privateKeyEnc: row.private_key_enc,
+    passphraseEnc: row.passphrase_enc ?? null,
+    comment: row.comment ?? null,
+    autoLoadAgent: !!(row.auto_load_agent),
+    createdAt: row.created_at,
+  }
+}
+
+function registerKeysHandlers(): void {
+  ipcMain.handle(IPC_DB.KEYS_LIST, () => {
+    const rows = dbAll<Record<string, unknown>>('SELECT * FROM keys ORDER BY created_at DESC')
+    return rows.map(mapKeyRow)
+  })
+
+  ipcMain.handle(IPC_DB.KEYS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, data.name, data.keyType,
+        data.bits ?? null, data.curve ?? null,
+        data.fingerprint, data.publicKey, data.privateKeyEnc,
+        data.passphraseEnc ?? null, data.comment ?? null,
+        data.autoLoadAgent ? 1 : 0,
+      ]
+    )
+    scheduleSyncAfterChange()
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
+    return row ? mapKeyRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.KEYS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+    const fields: [string, string][] = [
+      ['name', 'name'], ['comment', 'comment'],
+      ['passphrase_enc', 'passphraseEnc'],
+    ]
+    for (const [col, key] of fields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    }
+    if ('autoLoadAgent' in data) {
+      sets.push('auto_load_agent = ?'); params.push(data.autoLoadAgent ? 1 : 0)
+    }
+    if (sets.length === 0) {
+      const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
+      return row ? mapKeyRow(row) : null
+    }
+    sets.push("sync_updated_at = datetime('now'), sync_version = sync_version + 1")
+    params.push(id)
+    dbRun(`UPDATE keys SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
+    return row ? mapKeyRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.KEYS_DELETE, (_event, id: string) => {
+    // 检查是否有主机引用此密钥
+    const refs = dbAll('SELECT id FROM hosts WHERE key_id = ?', [id])
+    if (refs.length > 0) {
+      throw new Error(`此密钥被 ${refs.length} 个主机引用，请先取消关联`)
+    }
+    dbRun('DELETE FROM keys WHERE id = ?', [id])
+    trackDelete('key', id)
+    return true
+  })
+}
+
+// ===== Vault 条目 =====
+
+// Vault 辅助：加密字段（前端传明文，handler 负责加密存储）
+function vaultEncrypt(val: unknown): string | null {
+  if (val == null || val === '') return null
+  if (!vaultService.isUnlocked()) return String(val)
+  return vaultService.encrypt(String(val))
+}
+
+function vaultDecrypt(val: unknown): string | null {
+  if (val == null || val === '') return null
+  if (!vaultService.isUnlocked()) return String(val)
+  try { return vaultService.decrypt(String(val)) } catch { return String(val) }
+}
+
+function mapVaultRow(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: vaultDecrypt(row.name_enc) ?? '',
+    type: row.type,
+    username: vaultDecrypt(row.username_enc),
+    value: vaultDecrypt(row.value_enc) ?? '',
+    url: vaultDecrypt(row.url_enc),
+    notes: vaultDecrypt(row.notes_enc),
+    tags: row.tags_enc ? (() => { try { const d = vaultDecrypt(row.tags_enc); return d ? JSON.parse(d) : [] } catch { return [] } })() : [],
+    expiresAt: row.expires_at,
+    groupId: row.group_id,
+    sortOrder: row.sort_order ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function registerVaultHandlers(): void {
+  ipcMain.handle(IPC_DB.VAULT_LIST, () => {
+    const rows = dbAll<Record<string, unknown>>('SELECT * FROM vault_entries ORDER BY sort_order ASC, created_at ASC')
+    return rows.map(mapVaultRow)
+  })
+
+  ipcMain.handle(IPC_DB.VAULT_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO vault_entries (id, name_enc, type, username_enc, value_enc, url_enc, notes_enc, tags_enc, expires_at, group_id, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        vaultEncrypt(data.name),
+        data.type ?? 'password',
+        vaultEncrypt(data.username),
+        vaultEncrypt(data.value),
+        vaultEncrypt(data.url),
+        vaultEncrypt(data.notes),
+        data.tags ? vaultEncrypt(JSON.stringify(data.tags)) : null,
+        data.expiresAt ?? null,
+        data.groupId ?? null,
+        data.sortOrder ?? 0,
+      ]
+    )
+    scheduleSyncAfterChange()
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
+    return row ? mapVaultRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.VAULT_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+    // 需要加密的字段
+    const encFields: [string, string][] = [
+      ['name_enc', 'name'], ['username_enc', 'username'],
+      ['value_enc', 'value'], ['url_enc', 'url'], ['notes_enc', 'notes'],
+    ]
+    for (const [col, key] of encFields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(vaultEncrypt(data[key])) }
+    }
+    if ('tags' in data) {
+      sets.push('tags_enc = ?')
+      params.push(data.tags ? vaultEncrypt(JSON.stringify(data.tags)) : null)
+    }
+    // 不需要加密的字段
+    const plainFields: [string, string][] = [
+      ['type', 'type'], ['expires_at', 'expiresAt'],
+      ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
+    ]
+    for (const [col, key] of plainFields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    }
+    if (sets.length === 0) {
+      const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
+      return row ? mapVaultRow(row) : null
+    }
+    sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
+    params.push(id)
+    dbRun(`UPDATE vault_entries SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
+    return row ? mapVaultRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.VAULT_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM vault_entries WHERE id = ?', [id])
+    trackDelete('vault_entry', id)
     return true
   })
 }

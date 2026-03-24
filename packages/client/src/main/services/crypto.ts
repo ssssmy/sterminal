@@ -1,7 +1,7 @@
 // E2EE 加密模块
 // 使用 libsodium (Argon2id + XSalsa20-Poly1305) 加密同步数据中的敏感字段
 
-import sodium from 'libsodium-wrappers'
+import sodium from 'libsodium-wrappers-sumo'
 
 class E2ECrypto {
   private key: Uint8Array | null = null

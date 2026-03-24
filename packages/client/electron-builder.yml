@@ -18,8 +18,11 @@ files:
   - from: ../../node_modules/libsodium
     to: node_modules/libsodium
     filter: ["**/*"]
-  - from: ../../node_modules/libsodium-wrappers
-    to: node_modules/libsodium-wrappers
+  - from: ../../node_modules/libsodium-sumo
+    to: node_modules/libsodium-sumo
+    filter: ["**/*"]
+  - from: ../../node_modules/libsodium-wrappers-sumo
+    to: node_modules/libsodium-wrappers-sumo
     filter: ["**/*"]
   - from: ../../node_modules/ws
     to: node_modules/ws

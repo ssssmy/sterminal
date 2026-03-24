@@ -11,6 +11,8 @@ import { registerSftpHandlers } from './sftp.handler'
 import { registerLocalFsHandlers } from './local-fs.handler'
 import { registerSyncHandlers } from './sync.handler'
 import { registerServerUrlHandlers } from '../services/server-url-service'
+import { registerKeyHandlers } from './key.handler'
+import { registerVaultHandlers } from './vault.handler'
 
 /**
  * 注册所有 IPC handlers
@@ -27,5 +29,7 @@ export function registerAllHandlers(): void {
   registerLocalFsHandlers()
   registerSyncHandlers()
   registerServerUrlHandlers()
+  registerKeyHandlers()
+  registerVaultHandlers()
   console.log('[IPC] 所有 handlers 注册完成')
 }

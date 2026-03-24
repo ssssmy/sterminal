@@ -61,8 +61,8 @@ export function registerKeyHandlers(): void {
     const passphraseEnc = params.passphrase && e2eCrypto.hasKey() ? e2eCrypto.encrypt(params.passphrase) : (params.passphrase ?? null)
 
     dbRun(
-      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         id,
         params.name,
@@ -74,8 +74,6 @@ export function registerKeyHandlers(): void {
         privateKeyEnc,
         passphraseEnc,
         params.comment ?? null,
-        now,
-        now,
       ]
     )
 
@@ -99,8 +97,8 @@ export function registerKeyHandlers(): void {
     const privateKeyEnc = e2eCrypto.hasKey() ? e2eCrypto.encrypt(keyInfo.privateKey) : keyInfo.privateKey
 
     dbRun(
-      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         id,
         name,
@@ -111,8 +109,6 @@ export function registerKeyHandlers(): void {
         keyInfo.publicKey,
         privateKeyEnc,
         keyInfo.comment ?? null,
-        now,
-        now,
       ]
     )
 

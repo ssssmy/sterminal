@@ -70,13 +70,29 @@
             :label="t('hostDialog.password')"
             prop="password"
           >
-            <el-input
-              v-model="form.password"
-              type="password"
-              show-password
-              :placeholder="t('hostDialog.passwordPlaceholder')"
-              clearable
-            />
+            <div style="display: flex; gap: 8px; width: 100%">
+              <el-input
+                v-model="form.password"
+                type="password"
+                show-password
+                :placeholder="t('hostDialog.passwordPlaceholder')"
+                clearable
+                style="flex: 1"
+              />
+              <el-select
+                v-if="vaultPasswords.length > 0"
+                :placeholder="t('hostDialog.selectFromVault')"
+                style="width: 180px"
+                @change="handleVaultSelect"
+              >
+                <el-option
+                  v-for="entry in vaultPasswords"
+                  :key="entry.id"
+                  :label="entry.name"
+                  :value="entry.value"
+                />
+              </el-select>
+            </div>
           </el-form-item>
 
           <el-form-item
@@ -90,7 +106,12 @@
               clearable
               style="width: 100%"
             >
-              <!-- 后续集成密钥管理 -->
+              <el-option
+                v-for="key in keysStore.keys"
+                :key="key.id"
+                :label="`${key.name} (${key.keyType})`"
+                :value="key.id"
+              />
             </el-select>
           </el-form-item>
 
@@ -244,12 +265,16 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { useHostsStore } from '../../stores/hosts.store'
+import { useKeysStore } from '../../stores/keys.store'
+import { useVaultStore } from '../../stores/vault.store'
 import type { Host } from '@shared/types/host'
 
 const { t } = useI18n()
 
 const uiStore = useUiStore()
 const hostsStore = useHostsStore()
+const keysStore = useKeysStore()
+const vaultStore = useVaultStore()
 
 // ===== 对话框控制 =====
 const visible = computed({
@@ -331,6 +356,15 @@ const showKey = computed(() =>
   form.value.authType === 'key' || form.value.authType === 'password_key'
 )
 
+// 密码库中的密码类型条目
+const vaultPasswords = computed(() =>
+  vaultStore.entries.filter(e => e.type === 'password' || e.type === 'ssh_password')
+)
+
+function handleVaultSelect(value: string): void {
+  form.value.password = value
+}
+
 // ===== 表单验证规则 =====
 const labelValidator = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!value) return callback()
@@ -369,6 +403,10 @@ const rules: FormRules = {
 watch(
   () => uiStore.editingHostId,
   (hostId) => {
+    // 加载密钥和密码库数据
+    keysStore.fetchKeys()
+    vaultStore.fetchEntries()
+
     if (!hostId) {
       form.value = defaultForm()
       activeTab.value = 'basic'

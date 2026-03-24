@@ -457,9 +457,11 @@ export const keyManager = {
         done(err)
       })
 
-      conn.on('keyboard-interactive', (_name, _instructions, _lang, _prompts, finish) => {
+      conn.on('keyboard-interactive', (_name: string, _instructions: string, _lang: string, _prompts: unknown[], finish: (responses: string[]) => void) => {
         finish([connectionConfig.password || ''])
       })
+
+      console.log('[KeyManager] Connecting to', connectionConfig.host, connectionConfig.port, connectionConfig.username)
 
       conn.connect({
         host: connectionConfig.host,
@@ -468,7 +470,13 @@ export const keyManager = {
         password: connectionConfig.password || undefined,
         privateKey: connectionConfig.privateKey || undefined,
         readyTimeout: 15000,
-        hostVerifier: () => true,
+        // ssh2 hostVerifier: return undefined for async, call verify callback
+        hostVerifier: (_key: unknown, verify: unknown) => {
+          if (typeof verify === 'function') {
+            (verify as (accept: boolean) => void)(true)
+          }
+          return undefined
+        },
         tryKeyboard: true,
       } as Parameters<Client['connect']>[0])
     })

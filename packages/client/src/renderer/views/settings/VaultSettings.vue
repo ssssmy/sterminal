@@ -241,9 +241,10 @@ const genOptions = reactive({
 
 async function handleGenerate(): Promise<void> {
   try {
-    generatedPassword.value = await vaultStore.generatePassword(genOptions)
-  } catch {
-    ElMessage.error(t('vault.generateFailed'))
+    generatedPassword.value = await vaultStore.generatePassword({ ...genOptions })
+  } catch (err) {
+    console.error('[Vault] Generate password error:', err)
+    ElMessage.error(err instanceof Error ? err.message : t('vault.generateFailed'))
   }
 }
 

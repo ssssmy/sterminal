@@ -157,9 +157,26 @@ export function registerKeyHandlers(): void {
         })
       })
 
-      conn.on('error', (err) => done(err))
+      conn.on('error', (err) => {
+        console.error('[KeyManager] Deploy error:', err.message)
+        done(err)
+      })
 
-      conn.on('keyboard-interactive', (_name, _instr, _lang, _prompts, finish) => {
+      conn.on('handshake', () => {
+        console.log('[KeyManager] SSH handshake complete')
+      })
+
+      conn.on('banner', (msg: string) => {
+        console.log('[KeyManager] Banner:', msg)
+      })
+
+      conn.on('close', () => {
+        console.log('[KeyManager] Connection closed')
+        done(new Error('Connection closed before ready'))
+      })
+
+      conn.on('keyboard-interactive', (_name: string, _instr: string, _lang: string, _prompts: unknown[], finish: (r: string[]) => void) => {
+        console.log('[KeyManager] keyboard-interactive, prompts:', _prompts)
         finish([params.password || ''])
       })
 

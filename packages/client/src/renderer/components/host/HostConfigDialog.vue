@@ -81,6 +81,7 @@
               />
               <el-select
                 v-if="vaultPasswords.length > 0"
+                v-model="selectedVaultId"
                 :placeholder="t('hostDialog.selectFromVault')"
                 style="width: 180px"
                 @change="handleVaultSelect"
@@ -89,7 +90,7 @@
                   v-for="entry in vaultPasswords"
                   :key="entry.id"
                   :label="entry.name"
-                  :value="entry.value"
+                  :value="entry.id"
                 />
               </el-select>
             </div>
@@ -361,8 +362,16 @@ const vaultPasswords = computed(() =>
   vaultStore.entries.filter(e => e.type === 'password' || e.type === 'ssh_password')
 )
 
-function handleVaultSelect(value: string): void {
-  form.value.password = value
+const selectedVaultId = ref('')
+
+function handleVaultSelect(entryId: string): void {
+  const entry = vaultStore.entries.find(e => e.id === entryId)
+  if (!entry) return
+  form.value.password = entry.value
+  // 同时填入用户名（如果有且当前为空）
+  if (entry.username && !form.value.username) {
+    form.value.username = entry.username
+  }
 }
 
 // ===== 表单验证规则 =====
@@ -406,6 +415,7 @@ watch(
     // 加载密钥和密码库数据
     keysStore.fetchKeys()
     vaultStore.fetchEntries()
+    selectedVaultId.value = ''
 
     if (!hostId) {
       form.value = defaultForm()

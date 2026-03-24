@@ -7,7 +7,7 @@ import { dbAll, dbGet, dbRun } from '../services/db'
 import { IPC_DB } from '../../shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 import { syncEngine } from '../services/sync-engine'
-import { vaultService } from '../services/vault-service'
+import { e2eCrypto } from '../services/crypto'
 
 /**
  * 数据变更后防抖触发同步（5 秒内多次变更只触发一次）
@@ -794,16 +794,30 @@ function registerKeysHandlers(): void {
 
 // ===== Vault 条目 =====
 
+// E2EE 辅助：有密钥时加密，无密钥时明文存储
+function encryptField(val: unknown): string | null {
+  if (val == null || val === '') return null
+  const s = String(val)
+  return e2eCrypto.hasKey() ? e2eCrypto.encrypt(s) : s
+}
+
+function decryptField(val: unknown): string | null {
+  if (val == null || val === '') return null
+  const s = String(val)
+  if (!e2eCrypto.hasKey()) return s
+  try { return e2eCrypto.decrypt(s) } catch { return s }
+}
+
 function mapVaultRow(row: Record<string, unknown>) {
   return {
     id: row.id,
-    name: row.name_enc ?? '',
+    name: decryptField(row.name_enc) ?? '',
     type: row.type,
-    username: row.username_enc ?? null,
-    value: row.value_enc ?? '',
-    url: row.url_enc ?? null,
-    notes: row.notes_enc ?? null,
-    tags: row.tags_enc ? (() => { try { return JSON.parse(row.tags_enc as string) } catch { return [] } })() : [],
+    username: decryptField(row.username_enc),
+    value: decryptField(row.value_enc) ?? '',
+    url: decryptField(row.url_enc),
+    notes: decryptField(row.notes_enc),
+    tags: row.tags_enc ? (() => { try { const d = decryptField(row.tags_enc); return d ? JSON.parse(d) : [] } catch { return [] } })() : [],
     expiresAt: row.expires_at,
     groupId: row.group_id,
     sortOrder: row.sort_order ?? 0,
@@ -825,13 +839,13 @@ function registerVaultHandlers(): void {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
-        data.name ?? '',
+        encryptField(data.name),
         data.type ?? 'password',
-        data.username ?? null,
-        data.value ?? '',
-        data.url ?? null,
-        data.notes ?? null,
-        data.tags ? JSON.stringify(data.tags) : null,
+        encryptField(data.username),
+        encryptField(data.value),
+        encryptField(data.url),
+        encryptField(data.notes),
+        data.tags ? encryptField(JSON.stringify(data.tags)) : null,
         data.expiresAt ?? null,
         data.groupId ?? null,
         data.sortOrder ?? 0,
@@ -845,18 +859,25 @@ function registerVaultHandlers(): void {
   ipcMain.handle(IPC_DB.VAULT_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
-    const fields: [string, string][] = [
-      ['name_enc', 'name'], ['type', 'type'],
-      ['username_enc', 'username'], ['value_enc', 'value'],
-      ['url_enc', 'url'], ['notes_enc', 'notes'],
-      ['expires_at', 'expiresAt'], ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
+    // 敏感字段加密
+    const encFields: [string, string][] = [
+      ['name_enc', 'name'], ['username_enc', 'username'],
+      ['value_enc', 'value'], ['url_enc', 'url'], ['notes_enc', 'notes'],
     ]
-    for (const [col, key] of fields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    for (const [col, key] of encFields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(encryptField(data[key])) }
     }
     if ('tags' in data) {
       sets.push('tags_enc = ?')
-      params.push(data.tags ? JSON.stringify(data.tags) : null)
+      params.push(data.tags ? encryptField(JSON.stringify(data.tags)) : null)
+    }
+    // 非敏感字段
+    const plainFields: [string, string][] = [
+      ['type', 'type'], ['expires_at', 'expiresAt'],
+      ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
+    ]
+    for (const [col, key] of plainFields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
     }
     if (sets.length === 0) {
       const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])

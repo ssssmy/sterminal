@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { IPC_KEY } from '../../shared/types/ipc-channels'
 import { keyManager } from '../services/key-manager'
 import { dbRun, dbGet } from '../services/db'
+import { e2eCrypto } from '../services/crypto'
 import type { SshKey } from '../../shared/types/key'
 
 interface SshKeyRow {
@@ -55,10 +56,13 @@ export function registerKeyHandlers(): void {
     const id = uuidv4()
     const now = new Date().toISOString()
 
-    // 暂不加密私钥，直接存储 PEM（待 vault 集成后完善）
+    // E2EE 加密私钥（有密钥时加密，无密钥时明文）
+    const privateKeyEnc = e2eCrypto.hasKey() ? e2eCrypto.encrypt(keyInfo.privateKey) : keyInfo.privateKey
+    const passphraseEnc = params.passphrase && e2eCrypto.hasKey() ? e2eCrypto.encrypt(params.passphrase) : (params.passphrase ?? null)
+
     dbRun(
-      `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       [
         id,
         params.name,
@@ -67,7 +71,8 @@ export function registerKeyHandlers(): void {
         keyInfo.curve ?? null,
         keyInfo.fingerprint,
         keyInfo.publicKey,
-        keyInfo.privateKey,
+        privateKeyEnc,
+        passphraseEnc,
         params.comment ?? null,
         now,
         now,
@@ -91,6 +96,8 @@ export function registerKeyHandlers(): void {
     const now = new Date().toISOString()
     const name = params.name || `Imported ${keyInfo.keyType.toUpperCase()} Key`
 
+    const privateKeyEnc = e2eCrypto.hasKey() ? e2eCrypto.encrypt(keyInfo.privateKey) : keyInfo.privateKey
+
     dbRun(
       `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
@@ -102,7 +109,7 @@ export function registerKeyHandlers(): void {
         keyInfo.curve ?? null,
         keyInfo.fingerprint,
         keyInfo.publicKey,
-        keyInfo.privateKey,
+        privateKeyEnc,
         keyInfo.comment ?? null,
         now,
         now,

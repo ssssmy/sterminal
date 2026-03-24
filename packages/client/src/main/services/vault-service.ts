@@ -1,7 +1,7 @@
 // Vault 加密服务
 // 使用 libsodium (Argon2id + XSalsa20-Poly1305) 实现主密码保护的密钥库
 
-import sodium from 'libsodium-wrappers'
+import sodium from 'libsodium-wrappers-sumo'
 import { dbGet, dbRun } from './db'
 import type { PasswordGeneratorOptions } from '../../shared/types/vault'
 

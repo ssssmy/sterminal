@@ -4,6 +4,7 @@
 import { ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { IPC_KEY } from '../../shared/types/ipc-channels'
+import { Client } from 'ssh2'
 import { keyManager } from '../services/key-manager'
 import { dbRun, dbGet } from '../services/db'
 import { e2eCrypto } from '../services/crypto'
@@ -117,7 +118,7 @@ export function registerKeyHandlers(): void {
     return mapRow(row)
   })
 
-  // 部署公钥到远程主机
+  // 部署公钥到远程主机（直接用 ssh2 Client，与 ssh.handler 一致）
   ipcMain.handle(IPC_KEY.DEPLOY, async (_event, params: {
     keyId: string
     host: string
@@ -128,15 +129,53 @@ export function registerKeyHandlers(): void {
     const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [params.keyId])
     if (!row) throw new Error(`Key not found: ${params.keyId}`)
 
-    await keyManager.deployKey(
-      {
+    const openSshPubKey = keyManager.getOpenSshPublicKey(row.public_key)
+    const escapedKey = openSshPubKey.replace(/'/g, "'\\''")
+    const command = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${escapedKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+
+    return new Promise<void>((resolve, reject) => {
+      const conn = new Client()
+      let settled = false
+      const timer = setTimeout(() => done(new Error('Deploy timeout (30s)')), 30000)
+
+      function done(err?: Error): void {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        conn.end()
+        err ? reject(err) : resolve()
+      }
+
+      conn.on('ready', () => {
+        conn.exec(command, (err, stream) => {
+          if (err) return done(err)
+          let stderr = ''
+          stream.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
+          stream.on('close', (code: number) => {
+            code !== 0 ? done(new Error(`Exit ${code}: ${stderr.trim()}`)) : done()
+          })
+        })
+      })
+
+      conn.on('error', (err) => done(err))
+
+      conn.on('keyboard-interactive', (_name, _instr, _lang, _prompts, finish) => {
+        finish([params.password || ''])
+      })
+
+      conn.connect({
         host: params.host,
         port: params.port,
         username: params.username,
-        password: params.password,
-      },
-      row.public_key
-    )
+        password: params.password || undefined,
+        readyTimeout: 15000,
+        tryKeyboard: true,
+        hostVerifier: (_key: unknown, verify: unknown) => {
+          if (typeof verify === 'function') (verify as (b: boolean) => void)(true)
+          return undefined
+        },
+      } as Parameters<typeof conn.connect>[0])
+    })
   })
 
   // SSH Agent 加载（存根）

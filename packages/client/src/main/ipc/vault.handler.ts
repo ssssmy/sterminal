@@ -44,7 +44,7 @@ export function registerVaultHandlers(): void {
   })
 
   // 查询 Vault 是否已设置
-  ipcMain.handle('vault:is-setup', () => {
+  ipcMain.handle(IPC_VAULT.IS_SETUP, () => {
     return vaultService.isSetup()
   })
 }

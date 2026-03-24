@@ -7,6 +7,7 @@ import { dbAll, dbGet, dbRun } from '../services/db'
 import { IPC_DB } from '../../shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 import { syncEngine } from '../services/sync-engine'
+import { vaultService } from '../services/vault-service'
 
 /**
  * 数据变更后防抖触发同步（5 秒内多次变更只触发一次）
@@ -793,9 +794,41 @@ function registerKeysHandlers(): void {
 
 // ===== Vault 条目 =====
 
+// Vault 辅助：加密字段（前端传明文，handler 负责加密存储）
+function vaultEncrypt(val: unknown): string | null {
+  if (val == null || val === '') return null
+  if (!vaultService.isUnlocked()) return String(val)
+  return vaultService.encrypt(String(val))
+}
+
+function vaultDecrypt(val: unknown): string | null {
+  if (val == null || val === '') return null
+  if (!vaultService.isUnlocked()) return String(val)
+  try { return vaultService.decrypt(String(val)) } catch { return String(val) }
+}
+
+function mapVaultRow(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: vaultDecrypt(row.name_enc) ?? '',
+    type: row.type,
+    username: vaultDecrypt(row.username_enc),
+    value: vaultDecrypt(row.value_enc) ?? '',
+    url: vaultDecrypt(row.url_enc),
+    notes: vaultDecrypt(row.notes_enc),
+    tags: row.tags_enc ? (() => { try { const d = vaultDecrypt(row.tags_enc); return d ? JSON.parse(d) : [] } catch { return [] } })() : [],
+    expiresAt: row.expires_at,
+    groupId: row.group_id,
+    sortOrder: row.sort_order ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 function registerVaultHandlers(): void {
   ipcMain.handle(IPC_DB.VAULT_LIST, () => {
-    return dbAll('SELECT * FROM vault_entries ORDER BY sort_order ASC, created_at ASC')
+    const rows = dbAll<Record<string, unknown>>('SELECT * FROM vault_entries ORDER BY sort_order ASC, created_at ASC')
+    return rows.map(mapVaultRow)
   })
 
   ipcMain.handle(IPC_DB.VAULT_CREATE, (_event, data: Record<string, unknown>) => {
@@ -804,36 +837,57 @@ function registerVaultHandlers(): void {
       `INSERT INTO vault_entries (id, name_enc, type, username_enc, value_enc, url_enc, notes_enc, tags_enc, expires_at, group_id, sort_order)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id, data.nameEnc, data.type ?? 'password',
-        data.usernameEnc ?? null, data.valueEnc,
-        data.urlEnc ?? null, data.notesEnc ?? null,
-        data.tagsEnc ?? null, data.expiresAt ?? null,
-        data.groupId ?? null, data.sortOrder ?? 0,
+        id,
+        vaultEncrypt(data.name),
+        data.type ?? 'password',
+        vaultEncrypt(data.username),
+        vaultEncrypt(data.value),
+        vaultEncrypt(data.url),
+        vaultEncrypt(data.notes),
+        data.tags ? vaultEncrypt(JSON.stringify(data.tags)) : null,
+        data.expiresAt ?? null,
+        data.groupId ?? null,
+        data.sortOrder ?? 0,
       ]
     )
     scheduleSyncAfterChange()
-    return dbGet('SELECT * FROM vault_entries WHERE id = ?', [id])
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
+    return row ? mapVaultRow(row) : null
   })
 
   ipcMain.handle(IPC_DB.VAULT_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
-    const fields: [string, string][] = [
-      ['name_enc', 'nameEnc'], ['type', 'type'],
-      ['username_enc', 'usernameEnc'], ['value_enc', 'valueEnc'],
-      ['url_enc', 'urlEnc'], ['notes_enc', 'notesEnc'],
-      ['tags_enc', 'tagsEnc'], ['expires_at', 'expiresAt'],
+    // 需要加密的字段
+    const encFields: [string, string][] = [
+      ['name_enc', 'name'], ['username_enc', 'username'],
+      ['value_enc', 'value'], ['url_enc', 'url'], ['notes_enc', 'notes'],
+    ]
+    for (const [col, key] of encFields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(vaultEncrypt(data[key])) }
+    }
+    if ('tags' in data) {
+      sets.push('tags_enc = ?')
+      params.push(data.tags ? vaultEncrypt(JSON.stringify(data.tags)) : null)
+    }
+    // 不需要加密的字段
+    const plainFields: [string, string][] = [
+      ['type', 'type'], ['expires_at', 'expiresAt'],
       ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
     ]
-    for (const [col, key] of fields) {
+    for (const [col, key] of plainFields) {
       if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
     }
-    if (sets.length === 0) return dbGet('SELECT * FROM vault_entries WHERE id = ?', [id])
+    if (sets.length === 0) {
+      const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
+      return row ? mapVaultRow(row) : null
+    }
     sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE vault_entries SET ${sets.join(', ')} WHERE id = ?`, params)
     scheduleSyncAfterChange()
-    return dbGet('SELECT * FROM vault_entries WHERE id = ?', [id])
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
+    return row ? mapVaultRow(row) : null
   })
 
   ipcMain.handle(IPC_DB.VAULT_DELETE, (_event, id: string) => {

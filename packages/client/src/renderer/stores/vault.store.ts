@@ -21,15 +21,11 @@ export const useVaultStore = defineStore('vault', () => {
   })
 
   async function checkSetup(): Promise<void> {
-    const result = await invoke<VaultConfig>(IPC_VAULT.UNLOCK, '__check_setup__')
-      .catch(() => null)
-    if (result) {
-      config.value = result
-    } else {
-      // 检查 vault_config 是否存在
-      const setup = await invoke<boolean>('vault:is-setup')
-        .catch(() => false)
+    try {
+      const setup = await invoke<boolean>(IPC_VAULT.IS_SETUP)
       config.value.isSetup = setup
+    } catch {
+      config.value.isSetup = false
     }
   }
 

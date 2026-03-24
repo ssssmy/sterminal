@@ -180,28 +180,20 @@ export function registerKeyHandlers(): void {
         finish([params.password || ''])
       })
 
-      console.log('[KeyManager] Deploy params:', params.host, params.port, params.username, 'hasPassword:', !!params.password, 'passwordLen:', params.password?.length)
+      console.log('[KeyManager] Deploy params:', params.host, params.port, params.username, 'hasPassword:', !!params.password)
 
-      const connectOpts: Record<string, unknown> = {
+      conn.connect({
         host: params.host,
         port: params.port,
         username: params.username,
-        password: params.password || undefined,
+        password: params.password,
         readyTimeout: 15000,
         tryKeyboard: true,
-        authHandler: ['password', 'keyboard-interactive'],
-      }
-
-      // deploy 场景：直接信任主机密钥
-      connectOpts['hostVerifier'] = function (_key: unknown, verify: unknown) {
-        console.log('[KeyManager] hostVerifier called, verify type:', typeof verify)
-        if (typeof verify === 'function') {
-          ;(verify as (b: boolean) => void)(true)
-        }
-        return undefined
-      }
-
-      conn.connect(connectOpts as Parameters<typeof conn.connect>[0])
+        hostVerifier: (_key: Buffer, verify: (accept: boolean) => void) => {
+          verify(true)
+          return undefined
+        },
+      } as Parameters<typeof conn.connect>[0])
     })
   })
 

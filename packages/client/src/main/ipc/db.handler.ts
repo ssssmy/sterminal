@@ -45,6 +45,8 @@ export function registerDbHandlers(): void {
   registerSnippetGroupsHandlers()
   registerPortForwardsHandlers()
   registerSftpBookmarksHandlers()
+  registerKeysHandlers()
+  registerVaultHandlers()
 }
 
 // ===== 设置 =====
@@ -705,6 +707,138 @@ function registerSftpBookmarksHandlers(): void {
   ipcMain.handle(IPC_DB.SFTP_BOOKMARKS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM sftp_bookmarks WHERE id = ?', [id])
     trackDelete('sftp_bookmark', id)
+    return true
+  })
+}
+
+// ===== SSH 密钥 =====
+
+function mapKeyRow(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: row.name,
+    keyType: row.key_type,
+    bits: row.bits ?? null,
+    curve: row.curve ?? null,
+    fingerprint: row.fingerprint,
+    publicKey: row.public_key,
+    privateKeyEnc: row.private_key_enc,
+    passphraseEnc: row.passphrase_enc ?? null,
+    comment: row.comment ?? null,
+    autoLoadAgent: !!(row.auto_load_agent),
+    createdAt: row.created_at,
+  }
+}
+
+function registerKeysHandlers(): void {
+  ipcMain.handle(IPC_DB.KEYS_LIST, () => {
+    const rows = dbAll<Record<string, unknown>>('SELECT * FROM keys ORDER BY created_at DESC')
+    return rows.map(mapKeyRow)
+  })
+
+  ipcMain.handle(IPC_DB.KEYS_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, data.name, data.keyType,
+        data.bits ?? null, data.curve ?? null,
+        data.fingerprint, data.publicKey, data.privateKeyEnc,
+        data.passphraseEnc ?? null, data.comment ?? null,
+        data.autoLoadAgent ? 1 : 0,
+      ]
+    )
+    scheduleSyncAfterChange()
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
+    return row ? mapKeyRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.KEYS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+    const fields: [string, string][] = [
+      ['name', 'name'], ['comment', 'comment'],
+      ['passphrase_enc', 'passphraseEnc'],
+    ]
+    for (const [col, key] of fields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    }
+    if ('autoLoadAgent' in data) {
+      sets.push('auto_load_agent = ?'); params.push(data.autoLoadAgent ? 1 : 0)
+    }
+    if (sets.length === 0) {
+      const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
+      return row ? mapKeyRow(row) : null
+    }
+    sets.push("sync_updated_at = datetime('now'), sync_version = sync_version + 1")
+    params.push(id)
+    dbRun(`UPDATE keys SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
+    const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
+    return row ? mapKeyRow(row) : null
+  })
+
+  ipcMain.handle(IPC_DB.KEYS_DELETE, (_event, id: string) => {
+    // 检查是否有主机引用此密钥
+    const refs = dbAll('SELECT id FROM hosts WHERE key_id = ?', [id])
+    if (refs.length > 0) {
+      throw new Error(`此密钥被 ${refs.length} 个主机引用，请先取消关联`)
+    }
+    dbRun('DELETE FROM keys WHERE id = ?', [id])
+    trackDelete('key', id)
+    return true
+  })
+}
+
+// ===== Vault 条目 =====
+
+function registerVaultHandlers(): void {
+  ipcMain.handle(IPC_DB.VAULT_LIST, () => {
+    return dbAll('SELECT * FROM vault_entries ORDER BY sort_order ASC, created_at ASC')
+  })
+
+  ipcMain.handle(IPC_DB.VAULT_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO vault_entries (id, name_enc, type, username_enc, value_enc, url_enc, notes_enc, tags_enc, expires_at, group_id, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, data.nameEnc, data.type ?? 'password',
+        data.usernameEnc ?? null, data.valueEnc,
+        data.urlEnc ?? null, data.notesEnc ?? null,
+        data.tagsEnc ?? null, data.expiresAt ?? null,
+        data.groupId ?? null, data.sortOrder ?? 0,
+      ]
+    )
+    scheduleSyncAfterChange()
+    return dbGet('SELECT * FROM vault_entries WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.VAULT_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+    const fields: [string, string][] = [
+      ['name_enc', 'nameEnc'], ['type', 'type'],
+      ['username_enc', 'usernameEnc'], ['value_enc', 'valueEnc'],
+      ['url_enc', 'urlEnc'], ['notes_enc', 'notesEnc'],
+      ['tags_enc', 'tagsEnc'], ['expires_at', 'expiresAt'],
+      ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
+    ]
+    for (const [col, key] of fields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    }
+    if (sets.length === 0) return dbGet('SELECT * FROM vault_entries WHERE id = ?', [id])
+    sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
+    params.push(id)
+    dbRun(`UPDATE vault_entries SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
+    return dbGet('SELECT * FROM vault_entries WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.VAULT_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM vault_entries WHERE id = ?', [id])
+    trackDelete('vault_entry', id)
     return true
   })
 }

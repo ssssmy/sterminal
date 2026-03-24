@@ -8,7 +8,7 @@
     "terminals": "终端",
     "snippets": "片段",
     "portForwards": "端口转发",
-    "vault": "密钥库",
+    "vault": "密码库",
     "settings": "设置"
   },
   "auth": {
@@ -71,7 +71,7 @@
     "appearance": "外观",
     "keys": "SSH 密钥",
     "knownHosts": "已知主机",
-    "vault": "密钥库",
+    "vault": "密码库",
     "logs": "日志",
     "data": "数据管理",
     "save": "保存",
@@ -444,7 +444,7 @@
     "portForwards": "端口转发",
     "addPortForward": "新建转发",
     "noPortForwards": "暂无端口转发",
-    "vault": "密钥库",
+    "vault": "密码库",
     "dragToUngrouped": "拖放到此处移为未分组",
     "groupRename": "重命名",
     "groupDelete": "删除分组",

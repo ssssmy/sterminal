@@ -8,7 +8,7 @@
     "terminals": "終端",
     "snippets": "片段",
     "portForwards": "連接埠轉發",
-    "vault": "金鑰庫",
+    "vault": "密碼庫",
     "settings": "設定"
   },
   "auth": {
@@ -71,7 +71,7 @@
     "appearance": "外觀",
     "keys": "SSH 金鑰",
     "knownHosts": "已知主機",
-    "vault": "金鑰庫",
+    "vault": "密碼庫",
     "logs": "日誌",
     "data": "資料管理",
     "save": "儲存",
@@ -441,7 +441,7 @@
     "portForwards": "連接埠轉發",
     "addPortForward": "新建轉發",
     "noPortForwards": "尚無連接埠轉發",
-    "vault": "金鑰庫",
+    "vault": "密碼庫",
     "dragToUngrouped": "拖放到此處移為未分組",
     "groupRename": "重新命名",
     "groupDelete": "刪除群組",

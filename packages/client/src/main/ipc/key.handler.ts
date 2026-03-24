@@ -61,7 +61,7 @@ export function registerKeyHandlers(): void {
     const passphraseEnc = params.passphrase && e2eCrypto.hasKey() ? e2eCrypto.encrypt(params.passphrase) : (params.passphrase ?? null)
 
     dbRun(
-      `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent, created_at, updated_at)
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       [
         id,
@@ -79,7 +79,7 @@ export function registerKeyHandlers(): void {
       ]
     )
 
-    const row = dbGet<SshKeyRow>('SELECT * FROM ssh_keys WHERE id = ?', [id])
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [id])
     if (!row) throw new Error('Failed to retrieve generated key')
     return mapRow(row)
   })
@@ -99,7 +99,7 @@ export function registerKeyHandlers(): void {
     const privateKeyEnc = e2eCrypto.hasKey() ? e2eCrypto.encrypt(keyInfo.privateKey) : keyInfo.privateKey
 
     dbRun(
-      `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent, created_at, updated_at)
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       [
         id,
@@ -116,7 +116,7 @@ export function registerKeyHandlers(): void {
       ]
     )
 
-    const row = dbGet<SshKeyRow>('SELECT * FROM ssh_keys WHERE id = ?', [id])
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [id])
     if (!row) throw new Error('Failed to retrieve imported key')
     return mapRow(row)
   })
@@ -129,7 +129,7 @@ export function registerKeyHandlers(): void {
     username: string
     password?: string
   }) => {
-    const row = dbGet<SshKeyRow>('SELECT * FROM ssh_keys WHERE id = ?', [params.keyId])
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [params.keyId])
     if (!row) throw new Error(`Key not found: ${params.keyId}`)
 
     await keyManager.deployKey(

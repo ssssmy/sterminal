@@ -195,6 +195,16 @@ export function registerKeyHandlers(): void {
         return undefined
       }
 
+      console.log('[KeyManager] connectConfig:', JSON.stringify({
+        host: connectConfig.host,
+        port: connectConfig.port,
+        username: connectConfig.username,
+        hasPassword: !!connectConfig.password,
+        passwordFirst3: connectConfig.password?.substring(0, 3),
+        tryKeyboard: connectConfig.tryKeyboard,
+        hasHostVerifier: !!connectConfig.hostVerifier,
+      }))
+
       conn.connect(connectConfig)
     })
   })

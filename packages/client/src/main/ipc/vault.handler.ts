@@ -16,16 +16,17 @@ function notifyLocked(): void {
 }
 
 export function registerVaultHandlers(): void {
+  // 注册一次锁定回调（所有 setup/unlock 共用）
+  vaultService.setOnLockCallback(notifyLocked)
+
   // 首次设置主密码
   ipcMain.handle(IPC_VAULT.SETUP, async (_event, masterPassword: string) => {
     await vaultService.setup(masterPassword)
-    vaultService.setOnLockCallback(notifyLocked)
   })
 
   // 解锁 Vault
   ipcMain.handle(IPC_VAULT.UNLOCK, async (_event, masterPassword: string) => {
     await vaultService.unlock(masterPassword)
-    vaultService.setOnLockCallback(notifyLocked)
     return {
       isSetup: vaultService.isSetup(),
       isLocked: !vaultService.isUnlocked(),

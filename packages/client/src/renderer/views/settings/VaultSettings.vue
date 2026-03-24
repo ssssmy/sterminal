@@ -186,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Lock, Search } from '@element-plus/icons-vue'
@@ -319,17 +319,24 @@ async function handleDelete(entry: VaultEntry): Promise<void> {
 }
 
 // Clipboard
+const clipboardTimers: ReturnType<typeof setTimeout>[] = []
+
+onUnmounted(() => {
+  clipboardTimers.forEach(t => clearTimeout(t))
+  clipboardTimers.length = 0
+})
+
 async function handleCopy(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text)
     ElMessage.success(t('vault.copied'))
-    // 30 秒后自动清除剪贴板
-    setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const current = await navigator.clipboard.readText()
         if (current === text) await navigator.clipboard.writeText('')
       } catch { /* ignore */ }
     }, 30000)
+    clipboardTimers.push(timer)
   } catch {
     ElMessage.error(t('vault.copyFailed'))
   }

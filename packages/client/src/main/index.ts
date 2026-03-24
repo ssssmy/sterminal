@@ -11,6 +11,7 @@ import { stopAllRecordings, autoCleanRecordings } from './services/session-recor
 import { stopAllTunnels } from './ipc/port-forward.handler'
 import { closeAllSftpSessions } from './ipc/sftp.handler'
 import { stopSync } from './ipc/sync.handler'
+import { vaultService } from './services/vault-service'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -185,6 +186,7 @@ app.on('window-all-closed', () => {
 // 应用退出前清理资源
 app.on('before-quit', () => {
   saveWindowBounds()
+  vaultService.lock()
   stopSync()
   stopAllRecordings()
   stopAllTunnels()

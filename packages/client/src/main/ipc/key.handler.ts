@@ -163,18 +163,25 @@ export function registerKeyHandlers(): void {
         finish([params.password || ''])
       })
 
-      conn.connect({
+      const connectOpts: Record<string, unknown> = {
         host: params.host,
         port: params.port,
         username: params.username,
         password: params.password || undefined,
         readyTimeout: 15000,
         tryKeyboard: true,
-        hostVerifier: (_key: unknown, verify: unknown) => {
-          if (typeof verify === 'function') (verify as (b: boolean) => void)(true)
-          return undefined
-        },
-      } as Parameters<typeof conn.connect>[0])
+      }
+
+      // deploy 场景：直接信任主机密钥
+      connectOpts['hostVerifier'] = function (_key: unknown, verify: unknown) {
+        console.log('[KeyManager] hostVerifier called, verify type:', typeof verify)
+        if (typeof verify === 'function') {
+          ;(verify as (b: boolean) => void)(true)
+        }
+        return undefined
+      }
+
+      conn.connect(connectOpts as Parameters<typeof conn.connect>[0])
     })
   })
 

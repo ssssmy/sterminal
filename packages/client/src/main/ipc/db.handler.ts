@@ -358,6 +358,7 @@ function registerHostGroupsHandlers(): void {
   })
 
   ipcMain.handle(IPC_DB.HOST_GROUPS_DELETE, (_event, id: string) => {
+    dbRun('UPDATE hosts SET group_id = NULL WHERE group_id = ?', [id])
     dbRun('DELETE FROM host_groups WHERE id = ?', [id])
     trackDelete('host_group', id)
     return true

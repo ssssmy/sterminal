@@ -706,7 +706,8 @@
     "genNumbers": "数字 (0-9)",
     "genSymbols": "特殊字符 (!@#$...)",
     "generateBtn": "生成",
-    "generateFailed": "生成失败"
+    "generateFailed": "生成失败",
+    "saveAsEntry": "存入密码库"
   },
   "sftp": {
     "local": "本地",

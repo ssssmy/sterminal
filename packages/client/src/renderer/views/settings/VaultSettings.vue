@@ -96,6 +96,9 @@
           <el-button size="small" :disabled="!generatedPassword" @click="handleCopy(generatedPassword)">
             {{ t('vault.copy') }}
           </el-button>
+          <el-button size="small" type="primary" :disabled="!generatedPassword" @click="handleUsePassword">
+            {{ t('vault.saveAsEntry') }}
+          </el-button>
         </div>
         <div class="password-generator__options">
           <div class="password-generator__row">
@@ -238,6 +241,14 @@ const genOptions = reactive({
   symbols: true,
   excludeAmbiguous: false,
 })
+
+function handleUsePassword(): void {
+  resetForm()
+  entryForm.value = generatedPassword.value
+  entryForm.type = 'password'
+  showGeneratorDialog.value = false
+  showAddDialog.value = true
+}
 
 async function handleGenerate(): Promise<void> {
   try {

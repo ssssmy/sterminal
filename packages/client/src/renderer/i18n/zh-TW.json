@@ -703,7 +703,8 @@
     "genNumbers": "數字 (0-9)",
     "genSymbols": "特殊字元 (!@#$...)",
     "generateBtn": "產生",
-    "generateFailed": "產生失敗"
+    "generateFailed": "產生失敗",
+    "saveAsEntry": "存入密碼庫"
   },
   "sftp": {
     "local": "本地",

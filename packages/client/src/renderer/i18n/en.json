@@ -703,7 +703,8 @@
     "genNumbers": "Numbers (0-9)",
     "genSymbols": "Symbols (!@#$...)",
     "generateBtn": "Generate",
-    "generateFailed": "Generation failed"
+    "generateFailed": "Generation failed",
+    "saveAsEntry": "Save to Vault"
   },
   "sftp": {
     "local": "Local",

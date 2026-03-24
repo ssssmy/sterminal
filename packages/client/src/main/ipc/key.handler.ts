@@ -180,20 +180,22 @@ export function registerKeyHandlers(): void {
         finish([params.password || ''])
       })
 
-      console.log('[KeyManager] Deploy params:', params.host, params.port, params.username, 'hasPassword:', !!params.password)
-
-      conn.connect({
+      const connectConfig: Parameters<Client['connect']>[0] = {
         host: params.host,
         port: params.port,
         username: params.username,
-        password: params.password,
         readyTimeout: 15000,
-        tryKeyboard: true,
-        hostVerifier: (_key: Buffer, verify: (accept: boolean) => void) => {
-          verify(true)
-          return undefined
-        },
-      } as Parameters<typeof conn.connect>[0])
+      }
+
+      connectConfig.password = params.password || ''
+      connectConfig.tryKeyboard = true
+
+      connectConfig.hostVerifier = (_key: Buffer, verify: (accept: boolean) => void) => {
+        verify(true)
+        return undefined
+      }
+
+      conn.connect(connectConfig)
     })
   })
 

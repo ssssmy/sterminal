@@ -16,6 +16,8 @@ export const EntityTypeEnum = z.enum([
   'custom_theme',
   'sftp_bookmark',
   'keybinding',
+  'key',
+  'vault_entry',
 ]);
 
 export type EntityType = z.infer<typeof EntityTypeEnum>;

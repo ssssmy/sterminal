@@ -55,6 +55,8 @@ const SYNC_TABLES: Array<{
   { table: 'tags', entityType: 'tag', idField: 'id' },
   { table: 'custom_themes', entityType: 'custom_theme', idField: 'id' },
   { table: 'sftp_bookmarks', entityType: 'sftp_bookmark', idField: 'id' },
+  { table: 'keys', entityType: 'key', idField: 'id' },
+  { table: 'vault_entries', entityType: 'vault_entry', idField: 'id' },
 ]
 
 // 主机表中需要加密的敏感字段

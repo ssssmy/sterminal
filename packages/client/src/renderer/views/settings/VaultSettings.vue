@@ -3,84 +3,20 @@
     <h3 class="section-title">{{ t('vault.title') }}</h3>
     <p class="section-desc">{{ t('vault.desc') }}</p>
 
-    <!-- 未设置状态 -->
-    <div v-if="!vaultStore.isSetup" class="vault-setup">
-      <div class="vault-setup__icon">
-        <el-icon :size="48"><Lock /></el-icon>
-      </div>
-      <p class="vault-setup__title">{{ t('vault.setupTitle') }}</p>
-      <p class="vault-setup__desc">{{ t('vault.setupDesc') }}</p>
-      <el-form class="vault-setup__form" @submit.prevent="handleSetup">
-        <el-form-item>
-          <el-input
-            v-model="setupPassword"
-            type="password"
-            show-password
-            :placeholder="t('vault.masterPasswordPlaceholder')"
-            style="width: 320px"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-input
-            v-model="setupPasswordConfirm"
-            type="password"
-            show-password
-            :placeholder="t('vault.confirmPasswordPlaceholder')"
-            style="width: 320px"
-          />
-        </el-form-item>
-        <el-button
-          type="primary"
-          :loading="settingUp"
-          :disabled="!setupPassword || setupPassword !== setupPasswordConfirm"
-          @click="handleSetup"
-        >
-          {{ t('vault.setupBtn') }}
-        </el-button>
-      </el-form>
-    </div>
-
-    <!-- 已锁定状态 -->
-    <div v-else-if="vaultStore.isLocked" class="vault-locked">
-      <div class="vault-locked__icon">
-        <el-icon :size="48"><Lock /></el-icon>
-      </div>
-      <p class="vault-locked__title">{{ t('vault.lockedTitle') }}</p>
-      <div class="vault-locked__form">
-        <el-input
-          v-model="unlockPassword"
-          type="password"
-          show-password
-          :placeholder="t('vault.masterPasswordPlaceholder')"
-          style="width: 280px"
-          @keyup.enter="handleUnlock"
-        />
-        <el-button type="primary" :loading="unlocking" @click="handleUnlock">
-          {{ t('vault.unlockBtn') }}
-        </el-button>
+    <!-- 工具栏 -->
+    <div class="vault-toolbar">
+      <el-input
+        v-model="searchQuery"
+        :placeholder="t('vault.searchPlaceholder')"
+        clearable
+        :prefix-icon="Search"
+        style="width: 240px"
+      />
+      <div class="vault-toolbar__actions">
+        <el-button type="primary" @click="showAddDialog = true">{{ t('vault.addEntry') }}</el-button>
+        <el-button @click="showGeneratorDialog = true">{{ t('vault.passwordGenerator') }}</el-button>
       </div>
     </div>
-
-    <!-- 已解锁状态 -->
-    <template v-else>
-      <!-- 工具栏 -->
-      <div class="vault-toolbar">
-        <el-input
-          v-model="searchQuery"
-          :placeholder="t('vault.searchPlaceholder')"
-          clearable
-          :prefix-icon="Search"
-          style="width: 240px"
-        />
-        <div class="vault-toolbar__actions">
-          <el-button type="primary" @click="showAddDialog = true">{{ t('vault.addEntry') }}</el-button>
-          <el-button @click="showGeneratorDialog = true">{{ t('vault.passwordGenerator') }}</el-button>
-          <el-button @click="handleLock">
-            <el-icon><Lock /></el-icon>
-            {{ t('vault.lockBtn') }}
-          </el-button>
-        </div>
-      </div>
 
       <!-- 条目列表 -->
       <div v-if="filteredEntries.length === 0" class="vault-empty">
@@ -112,8 +48,6 @@
           </div>
         </div>
       </div>
-    </template>
-
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="showAddDialog"
@@ -189,7 +123,7 @@
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Lock, Search } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 import { useVaultStore } from '../../stores/vault.store'
 import type { VaultEntry, VaultEntryType } from '../../../shared/types/vault'
 
@@ -197,47 +131,6 @@ const { t } = useI18n()
 const vaultStore = useVaultStore()
 
 const entryTypes: VaultEntryType[] = ['password', 'ssh_password', 'api_key', 'token', 'certificate', 'custom']
-
-// Setup
-const setupPassword = ref('')
-const setupPasswordConfirm = ref('')
-const settingUp = ref(false)
-
-async function handleSetup(): Promise<void> {
-  if (!setupPassword.value || setupPassword.value !== setupPasswordConfirm.value) return
-  settingUp.value = true
-  try {
-    await vaultStore.setup(setupPassword.value)
-    ElMessage.success(t('vault.setupSuccess'))
-    setupPassword.value = ''
-    setupPasswordConfirm.value = ''
-  } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : t('vault.setupFailed'))
-  } finally {
-    settingUp.value = false
-  }
-}
-
-// Unlock
-const unlockPassword = ref('')
-const unlocking = ref(false)
-
-async function handleUnlock(): Promise<void> {
-  if (!unlockPassword.value) return
-  unlocking.value = true
-  try {
-    await vaultStore.unlock(unlockPassword.value)
-    unlockPassword.value = ''
-  } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : t('vault.unlockFailed'))
-  } finally {
-    unlocking.value = false
-  }
-}
-
-function handleLock(): void {
-  vaultStore.lock()
-}
 
 // Search
 const searchQuery = ref('')
@@ -371,7 +264,7 @@ function getTypeTagType(type: VaultEntryType): string {
 }
 
 onMounted(() => {
-  vaultStore.checkSetup()
+  vaultStore.fetchEntries()
 })
 </script>
 
@@ -391,36 +284,6 @@ onMounted(() => {
     color: var(--text-secondary);
     margin-bottom: 24px;
   }
-}
-
-.vault-setup, .vault-locked {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 24px;
-  border: 1px dashed var(--divider);
-  border-radius: 12px;
-  text-align: center;
-  gap: 12px;
-
-  &__icon { color: var(--text-tertiary); }
-  &__title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0; }
-  &__desc { font-size: 13px; color: var(--text-secondary); margin: 0; max-width: 400px; }
-}
-
-.vault-setup__form {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  :deep(.el-form-item) { margin-bottom: 12px; }
-}
-
-.vault-locked__form {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
 }
 
 .vault-toolbar {

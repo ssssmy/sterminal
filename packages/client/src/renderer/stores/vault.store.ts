@@ -1,54 +1,16 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useIpc } from '../composables/useIpc'
 import { IPC_DB, IPC_VAULT } from '../../shared/types/ipc-channels'
-import type { VaultEntry, VaultConfig, VaultEntryType, PasswordGeneratorOptions } from '../../shared/types/vault'
+import type { VaultEntry, PasswordGeneratorOptions } from '../../shared/types/vault'
 
 export const useVaultStore = defineStore('vault', () => {
-  const { invoke, on } = useIpc()
+  const { invoke } = useIpc()
 
   const entries = ref<VaultEntry[]>([])
-  const config = ref<VaultConfig>({ isSetup: false, isLocked: true, lockTimeout: 900 })
   const loading = ref(false)
 
-  const isSetup = computed(() => config.value.isSetup)
-  const isLocked = computed(() => config.value.isLocked)
-
-  // 监听主进程自动锁定事件
-  on(IPC_VAULT.LOCK, () => {
-    config.value.isLocked = true
-    entries.value = []
-  })
-
-  async function checkSetup(): Promise<void> {
-    try {
-      const setup = await invoke<boolean>(IPC_VAULT.IS_SETUP)
-      config.value.isSetup = setup
-    } catch {
-      config.value.isSetup = false
-    }
-  }
-
-  async function setup(masterPassword: string): Promise<void> {
-    await invoke(IPC_VAULT.SETUP, masterPassword)
-    config.value.isSetup = true
-    config.value.isLocked = false
-  }
-
-  async function unlock(masterPassword: string): Promise<void> {
-    await invoke(IPC_VAULT.UNLOCK, masterPassword)
-    config.value.isLocked = false
-    await fetchEntries()
-  }
-
-  async function lock(): Promise<void> {
-    await invoke(IPC_VAULT.LOCK)
-    config.value.isLocked = true
-    entries.value = []
-  }
-
   async function fetchEntries(): Promise<void> {
-    if (config.value.isLocked) return
     loading.value = true
     try {
       const rows = await invoke<VaultEntry[]>(IPC_DB.VAULT_LIST)
@@ -83,14 +45,7 @@ export const useVaultStore = defineStore('vault', () => {
 
   return {
     entries,
-    config,
     loading,
-    isSetup,
-    isLocked,
-    checkSetup,
-    setup,
-    unlock,
-    lock,
     fetchEntries,
     createEntry,
     updateEntry,

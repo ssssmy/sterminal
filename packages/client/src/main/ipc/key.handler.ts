@@ -175,36 +175,22 @@ export function registerKeyHandlers(): void {
         done(new Error('Connection closed before ready'))
       })
 
-      conn.on('keyboard-interactive', (_name: string, _instr: string, _lang: string, _prompts: unknown[], finish: (r: string[]) => void) => {
-        console.log('[KeyManager] keyboard-interactive, prompts:', _prompts)
-        finish([params.password || ''])
-      })
-
+      // 完全复制 ssh.handler.ts 的连接方式
       const connectConfig: Parameters<Client['connect']>[0] = {
         host: params.host,
         port: params.port,
         username: params.username,
         readyTimeout: 15000,
       }
-
       connectConfig.password = params.password || ''
-      connectConfig.tryKeyboard = true
 
+      // hostVerifier: 直接接受
       connectConfig.hostVerifier = (_key: Buffer, verify: (accept: boolean) => void) => {
         verify(true)
         return undefined
       }
 
-      console.log('[KeyManager] connectConfig:', JSON.stringify({
-        host: connectConfig.host,
-        port: connectConfig.port,
-        username: connectConfig.username,
-        hasPassword: !!connectConfig.password,
-        passwordFirst3: connectConfig.password?.substring(0, 3),
-        tryKeyboard: connectConfig.tryKeyboard,
-        hasHostVerifier: !!connectConfig.hostVerifier,
-      }))
-
+      console.log('[KeyManager] Connecting with password auth only')
       conn.connect(connectConfig)
     })
   })

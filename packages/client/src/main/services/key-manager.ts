@@ -416,9 +416,15 @@ export const keyManager = {
       const conn = new Client()
       let settled = false
 
+      // 30 秒超时保护
+      const timeout = setTimeout(() => {
+        done(new Error('Deploy timeout: connection took too long'))
+      }, 30000)
+
       function done(err?: Error): void {
         if (settled) return
         settled = true
+        clearTimeout(timeout)
         conn.end()
         if (err) reject(err)
         else resolve()
@@ -455,7 +461,9 @@ export const keyManager = {
         port: connectionConfig.port,
         username: connectionConfig.username,
         readyTimeout: 15000,
-      }
+        // 部署时信任主机密钥（一次性操作）
+        hostVerifier: (_key: Buffer, verify: (accept: boolean) => void) => { verify(true) },
+      } as Parameters<Client['connect']>[0]
 
       if (connectionConfig.password) {
         connectConfig.password = connectionConfig.password

@@ -180,6 +180,8 @@ export function registerKeyHandlers(): void {
         finish([params.password || ''])
       })
 
+      console.log('[KeyManager] Deploy params:', params.host, params.port, params.username, 'hasPassword:', !!params.password, 'passwordLen:', params.password?.length)
+
       const connectOpts: Record<string, unknown> = {
         host: params.host,
         port: params.port,
@@ -187,6 +189,7 @@ export function registerKeyHandlers(): void {
         password: params.password || undefined,
         readyTimeout: 15000,
         tryKeyboard: true,
+        authHandler: ['password', 'keyboard-interactive'],
       }
 
       // deploy 场景：直接信任主机密钥

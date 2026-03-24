@@ -453,27 +453,24 @@ export const keyManager = {
       })
 
       conn.on('error', (err) => {
+        console.error('[KeyManager] Deploy connection error:', err.message)
         done(err)
       })
 
-      const connectConfig: Parameters<Client['connect']>[0] = {
+      conn.on('keyboard-interactive', (_name, _instructions, _lang, _prompts, finish) => {
+        finish([connectionConfig.password || ''])
+      })
+
+      conn.connect({
         host: connectionConfig.host,
         port: connectionConfig.port,
         username: connectionConfig.username,
+        password: connectionConfig.password || undefined,
+        privateKey: connectionConfig.privateKey || undefined,
         readyTimeout: 15000,
-        // 部署时信任主机密钥（一次性操作）
-        hostVerifier: (_key: Buffer, verify: (accept: boolean) => void) => { verify(true) },
-      } as Parameters<Client['connect']>[0]
-
-      if (connectionConfig.password) {
-        connectConfig.password = connectionConfig.password
-      }
-
-      if (connectionConfig.privateKey) {
-        connectConfig.privateKey = connectionConfig.privateKey
-      }
-
-      conn.connect(connectConfig)
+        hostVerifier: () => true,
+        tryKeyboard: true,
+      } as Parameters<Client['connect']>[0])
     })
   },
 }

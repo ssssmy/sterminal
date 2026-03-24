@@ -47,12 +47,29 @@
           </el-form-item>
 
           <el-form-item :label="t('hostDialog.username')" prop="username">
-            <el-input
-              v-model="form.username"
-              placeholder="root"
-              clearable
-              @blur="formRef?.validateField('address')"
-            />
+            <div style="display: flex; gap: 8px; width: 100%">
+              <el-input
+                v-model="form.username"
+                placeholder="root"
+                clearable
+                style="flex: 1"
+                @blur="formRef?.validateField('address')"
+              />
+              <el-select
+                v-if="vaultPasswords.length > 0"
+                v-model="selectedVaultId"
+                :placeholder="t('hostDialog.selectFromVault')"
+                style="width: 180px"
+                @change="handleVaultSelect"
+              >
+                <el-option
+                  v-for="entry in vaultPasswords"
+                  :key="entry.id"
+                  :label="entry.name"
+                  :value="entry.id"
+                />
+              </el-select>
+            </div>
           </el-form-item>
 
           <el-form-item :label="t('hostDialog.authType')" prop="authType">
@@ -70,30 +87,13 @@
             :label="t('hostDialog.password')"
             prop="password"
           >
-            <div style="display: flex; gap: 8px; width: 100%">
-              <el-input
-                v-model="form.password"
-                type="password"
-                show-password
-                :placeholder="t('hostDialog.passwordPlaceholder')"
-                clearable
-                style="flex: 1"
-              />
-              <el-select
-                v-if="vaultPasswords.length > 0"
-                v-model="selectedVaultId"
-                :placeholder="t('hostDialog.selectFromVault')"
-                style="width: 180px"
-                @change="handleVaultSelect"
-              >
-                <el-option
-                  v-for="entry in vaultPasswords"
-                  :key="entry.id"
-                  :label="entry.name"
-                  :value="entry.id"
-                />
-              </el-select>
-            </div>
+            <el-input
+              v-model="form.password"
+              type="password"
+              show-password
+              :placeholder="t('hostDialog.passwordPlaceholder')"
+              clearable
+            />
           </el-form-item>
 
           <el-form-item
@@ -368,8 +368,7 @@ function handleVaultSelect(entryId: string): void {
   const entry = vaultStore.entries.find(e => e.id === entryId)
   if (!entry) return
   form.value.password = entry.value
-  // 同时填入用户名（如果有且当前为空）
-  if (entry.username && !form.value.username) {
+  if (entry.username) {
     form.value.username = entry.username
   }
 }

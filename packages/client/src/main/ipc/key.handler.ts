@@ -4,10 +4,10 @@
 import { ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { IPC_KEY } from '../../shared/types/ipc-channels'
-import { Client } from 'ssh2'
 import { keyManager } from '../services/key-manager'
 import { dbRun, dbGet } from '../services/db'
 import { e2eCrypto } from '../services/crypto'
+import { sshSessions } from './ssh.handler'
 import type { SshKey } from '../../shared/types/key'
 
 interface SshKeyRow {
@@ -118,9 +118,10 @@ export function registerKeyHandlers(): void {
     return mapRow(row)
   })
 
-  // 部署公钥到远程主机（直接用 ssh2 Client，与 ssh.handler 一致）
+  // 部署公钥到远程主机（复用已有的 SSH 会话）
   ipcMain.handle(IPC_KEY.DEPLOY, async (_event, params: {
     keyId: string
+    hostId?: string
     host: string
     port: number
     username: string
@@ -133,65 +134,39 @@ export function registerKeyHandlers(): void {
     const escapedKey = openSshPubKey.replace(/'/g, "'\\''")
     const command = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${escapedKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
 
-    return new Promise<void>((resolve, reject) => {
-      const conn = new Client()
-      let settled = false
-      const timer = setTimeout(() => done(new Error('Deploy timeout (30s)')), 30000)
-
-      function done(err?: Error): void {
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        conn.end()
-        err ? reject(err) : resolve()
+    // 查找该主机的活跃 SSH 会话
+    let client: import('ssh2').Client | null = null
+    for (const [, session] of sshSessions) {
+      if (session.hostId === params.hostId || (session.client && params.host)) {
+        // 匹配 hostId 或地址
+        client = session.client
+        break
       }
+    }
 
-      conn.on('ready', () => {
-        conn.exec(command, (err, stream) => {
-          if (err) return done(err)
-          let stderr = ''
-          stream.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
-          stream.on('close', (code: number) => {
-            code !== 0 ? done(new Error(`Exit ${code}: ${stderr.trim()}`)) : done()
-          })
+    if (!client) {
+      throw new Error('请先连接该主机的 SSH 终端，再部署密钥')
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Deploy command timeout (30s)')), 30000)
+
+      client!.exec(command, (err, stream) => {
+        if (err) {
+          clearTimeout(timer)
+          return reject(err)
+        }
+        let stderr = ''
+        stream.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
+        stream.on('close', (code: number) => {
+          clearTimeout(timer)
+          if (code !== 0) {
+            reject(new Error(`Exit ${code}: ${stderr.trim()}`))
+          } else {
+            resolve()
+          }
         })
       })
-
-      conn.on('error', (err) => {
-        console.error('[KeyManager] Deploy error:', err.message)
-        done(err)
-      })
-
-      conn.on('handshake', () => {
-        console.log('[KeyManager] SSH handshake complete')
-      })
-
-      conn.on('banner', (msg: string) => {
-        console.log('[KeyManager] Banner:', msg)
-      })
-
-      conn.on('close', () => {
-        console.log('[KeyManager] Connection closed')
-        done(new Error('Connection closed before ready'))
-      })
-
-      // 完全复制 ssh.handler.ts 的连接方式
-      const connectConfig: Parameters<Client['connect']>[0] = {
-        host: params.host,
-        port: params.port,
-        username: params.username,
-        readyTimeout: 15000,
-      }
-      connectConfig.password = params.password || ''
-
-      // hostVerifier: 直接接受
-      connectConfig.hostVerifier = (_key: Buffer, verify: (accept: boolean) => void) => {
-        verify(true)
-        return undefined
-      }
-
-      console.log('[KeyManager] Connecting with password auth only')
-      conn.connect(connectConfig)
     })
   })
 

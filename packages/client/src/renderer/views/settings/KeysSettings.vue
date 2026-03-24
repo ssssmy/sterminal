@@ -373,6 +373,7 @@ async function doDeploy(): Promise<void> {
   deploying.value = true
   try {
     await keysStore.deployKey(deployKeyId.value, {
+      hostId: deployForm.hostId || undefined,
       host: deployForm.host,
       port: deployForm.port,
       username: deployForm.username,

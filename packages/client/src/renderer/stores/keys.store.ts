@@ -57,7 +57,7 @@ export const useKeysStore = defineStore('keys', () => {
   }
 
   async function deployKey(keyId: string, hostConfig: {
-    host: string; port: number; username: string; password?: string
+    hostId?: string; host: string; port: number; username: string; password?: string
   }): Promise<void> {
     await invoke(IPC_KEY.DEPLOY, { keyId, ...hostConfig })
   }

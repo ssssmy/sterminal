@@ -794,29 +794,16 @@ function registerKeysHandlers(): void {
 
 // ===== Vault 条目 =====
 
-// Vault 辅助：加密字段（前端传明文，handler 负责加密存储）
-function vaultEncrypt(val: unknown): string | null {
-  if (val == null || val === '') return null
-  if (!vaultService.isUnlocked()) return String(val)
-  return vaultService.encrypt(String(val))
-}
-
-function vaultDecrypt(val: unknown): string | null {
-  if (val == null || val === '') return null
-  if (!vaultService.isUnlocked()) return String(val)
-  try { return vaultService.decrypt(String(val)) } catch { return String(val) }
-}
-
 function mapVaultRow(row: Record<string, unknown>) {
   return {
     id: row.id,
-    name: vaultDecrypt(row.name_enc) ?? '',
+    name: row.name_enc ?? '',
     type: row.type,
-    username: vaultDecrypt(row.username_enc),
-    value: vaultDecrypt(row.value_enc) ?? '',
-    url: vaultDecrypt(row.url_enc),
-    notes: vaultDecrypt(row.notes_enc),
-    tags: row.tags_enc ? (() => { try { const d = vaultDecrypt(row.tags_enc); return d ? JSON.parse(d) : [] } catch { return [] } })() : [],
+    username: row.username_enc ?? null,
+    value: row.value_enc ?? '',
+    url: row.url_enc ?? null,
+    notes: row.notes_enc ?? null,
+    tags: row.tags_enc ? (() => { try { return JSON.parse(row.tags_enc as string) } catch { return [] } })() : [],
     expiresAt: row.expires_at,
     groupId: row.group_id,
     sortOrder: row.sort_order ?? 0,
@@ -838,13 +825,13 @@ function registerVaultHandlers(): void {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
-        vaultEncrypt(data.name),
+        data.name ?? '',
         data.type ?? 'password',
-        vaultEncrypt(data.username),
-        vaultEncrypt(data.value),
-        vaultEncrypt(data.url),
-        vaultEncrypt(data.notes),
-        data.tags ? vaultEncrypt(JSON.stringify(data.tags)) : null,
+        data.username ?? null,
+        data.value ?? '',
+        data.url ?? null,
+        data.notes ?? null,
+        data.tags ? JSON.stringify(data.tags) : null,
         data.expiresAt ?? null,
         data.groupId ?? null,
         data.sortOrder ?? 0,
@@ -858,25 +845,18 @@ function registerVaultHandlers(): void {
   ipcMain.handle(IPC_DB.VAULT_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
-    // 需要加密的字段
-    const encFields: [string, string][] = [
-      ['name_enc', 'name'], ['username_enc', 'username'],
-      ['value_enc', 'value'], ['url_enc', 'url'], ['notes_enc', 'notes'],
+    const fields: [string, string][] = [
+      ['name_enc', 'name'], ['type', 'type'],
+      ['username_enc', 'username'], ['value_enc', 'value'],
+      ['url_enc', 'url'], ['notes_enc', 'notes'],
+      ['expires_at', 'expiresAt'], ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
     ]
-    for (const [col, key] of encFields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(vaultEncrypt(data[key])) }
+    for (const [col, key] of fields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
     }
     if ('tags' in data) {
       sets.push('tags_enc = ?')
-      params.push(data.tags ? vaultEncrypt(JSON.stringify(data.tags)) : null)
-    }
-    // 不需要加密的字段
-    const plainFields: [string, string][] = [
-      ['type', 'type'], ['expires_at', 'expiresAt'],
-      ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
-    ]
-    for (const [col, key] of plainFields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+      params.push(data.tags ? JSON.stringify(data.tags) : null)
     }
     if (sets.length === 0) {
       const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])

@@ -76,9 +76,6 @@
             :placeholder="t('vault.entryValuePlaceholder')"
           />
         </el-form-item>
-        <el-form-item :label="t('vault.entryUrl')">
-          <el-input v-model="entryForm.url" placeholder="https://" />
-        </el-form-item>
         <el-form-item :label="t('vault.entryNotes')">
           <el-input v-model="entryForm.notes" type="textarea" :rows="3" />
         </el-form-item>
@@ -139,8 +136,7 @@ const filteredEntries = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return vaultStore.entries.filter(e =>
     e.name.toLowerCase().includes(q) ||
-    (e.username && e.username.toLowerCase().includes(q)) ||
-    (e.url && e.url.toLowerCase().includes(q))
+    (e.username && e.username.toLowerCase().includes(q))
   )
 })
 
@@ -152,7 +148,6 @@ const entryForm = reactive({
   type: 'password' as VaultEntryType,
   username: '',
   value: '',
-  url: '',
   notes: '',
 })
 
@@ -162,7 +157,6 @@ function resetForm(): void {
   entryForm.type = 'password'
   entryForm.username = ''
   entryForm.value = ''
-  entryForm.url = ''
   entryForm.notes = ''
 }
 
@@ -172,7 +166,6 @@ function openEditDialog(entry: VaultEntry): void {
   entryForm.type = entry.type
   entryForm.username = entry.username || ''
   entryForm.value = entry.value
-  entryForm.url = entry.url || ''
   entryForm.notes = entry.notes || ''
   showAddDialog.value = true
 }
@@ -183,7 +176,6 @@ async function handleSaveEntry(): Promise<void> {
     type: entryForm.type,
     username: entryForm.username || undefined,
     value: entryForm.value,
-    url: entryForm.url || undefined,
     notes: entryForm.notes || undefined,
   }
   try {

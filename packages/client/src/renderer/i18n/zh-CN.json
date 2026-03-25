@@ -666,7 +666,15 @@
     "importError": "密钥导入失败",
     "copiedPublicKey": "公钥已复制到剪贴板",
     "copyError": "复制失败",
-    "deleteSuccess": "密钥已删除"
+    "deleteSuccess": "密钥已删除",
+    "deploy": "部署到主机",
+    "deployTitle": "部署公钥到远程主机",
+    "deployHost": "目标主机",
+    "deploySelectHost": "从已有主机选择",
+    "deployPassword": "登录密码",
+    "deployPasswordPlaceholder": "输入密码以连接目标主机",
+    "deploySuccess": "公钥已成功部署",
+    "deployFailed": "部署失败"
   },
   "vault": {
     "title": "密码库",

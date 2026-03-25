@@ -663,7 +663,15 @@
     "importError": "金鑰匯入失敗",
     "copiedPublicKey": "公鑰已複製到剪貼簿",
     "copyError": "複製失敗",
-    "deleteSuccess": "金鑰已刪除"
+    "deleteSuccess": "金鑰已刪除",
+    "deploy": "部署到主機",
+    "deployTitle": "部署公鑰到遠端主機",
+    "deployHost": "目標主機",
+    "deploySelectHost": "從已有主機選擇",
+    "deployPassword": "登入密碼",
+    "deployPasswordPlaceholder": "輸入密碼以連線目標主機",
+    "deploySuccess": "公鑰已成功部署",
+    "deployFailed": "部署失敗"
   },
   "vault": {
     "title": "密碼庫",

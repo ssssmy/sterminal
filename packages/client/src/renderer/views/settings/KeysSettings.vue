@@ -41,7 +41,7 @@
           <el-button size="small" text @click="copyPublicKey(key)">
             {{ t('keys.copyPublicKey') }}
           </el-button>
-          <el-button size="small" text @click="openDeployDialog(key)">
+          <el-button size="small" text @click="openDeploy(key)">
             {{ t('keys.deploy') }}
           </el-button>
           <el-button size="small" text type="danger" @click="deleteKey(key.id, key.name)">
@@ -141,51 +141,50 @@
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 部署密钥对话框 -->
-    <el-dialog
-      v-model="showDeployDialog"
-      :title="t('keys.deployTitle')"
-      width="480px"
-      @closed="resetDeployForm"
-    >
-      <p class="deploy-desc">{{ t('keys.deployDesc', { name: deployKeyName }) }}</p>
-
-      <!-- 从已有主机选择 -->
-      <el-form-item v-if="hostsStore.hosts.length > 0" :label="t('keys.deploySelectHost')">
-        <el-select
-          v-model="deploySelectedHostId"
-          :placeholder="t('keys.deploySelectHostPlaceholder')"
-          clearable
-          style="width: 100%"
-          @change="handleDeployHostSelect"
-        >
-          <el-option
-            v-for="host in hostsStore.hosts"
-            :key="host.id"
-            :label="host.label || host.address"
-            :value="host.id"
-          />
-        </el-select>
-      </el-form-item>
-
-      <el-divider v-if="hostsStore.hosts.length > 0">{{ t('keys.deployOrManual') }}</el-divider>
-
-      <el-form label-width="80px">
+    <!-- 部署公钥对话框 -->
+    <el-dialog v-model="showDeployDialog" :title="t('keys.deployTitle')" width="480px">
+      <el-form label-position="top">
         <el-form-item :label="t('keys.deployHost')">
-          <el-input v-model="deployForm.host" placeholder="192.168.1.1" />
+          <el-select
+            v-model="deployHostId"
+            :placeholder="t('keys.deploySelectHost')"
+            clearable
+            filterable
+            style="width: 100%"
+            @change="handleDeployHostSelect"
+          >
+            <el-option
+              v-for="host in hostsStore.hosts"
+              :key="host.id"
+              :label="`${host.label || host.address} (${host.username || 'root'}@${host.address}:${host.port})`"
+              :value="host.id"
+            />
+          </el-select>
         </el-form-item>
-        <el-form-item :label="t('keys.deployPort')">
-          <el-input-number v-model="deployForm.port" :min="1" :max="65535" style="width: 120px" />
+        <el-form-item :label="t('hostDialog.address')">
+          <el-input v-model="deployForm.host" placeholder="192.168.1.100" />
         </el-form-item>
-        <el-form-item :label="t('keys.deployUser')">
-          <el-input v-model="deployForm.username" placeholder="root" />
-        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item :label="t('hostDialog.port')">
+              <el-input-number v-model="deployForm.port" :min="1" :max="65535" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="t('hostDialog.username')">
+              <el-input v-model="deployForm.username" placeholder="root" />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item :label="t('keys.deployPassword')">
-          <el-input v-model="deployForm.password" type="password" show-password :placeholder="t('keys.deployPasswordPlaceholder')" />
+          <el-input
+            v-model="deployForm.password"
+            type="password"
+            show-password
+            :placeholder="t('keys.deployPasswordPlaceholder')"
+          />
         </el-form-item>
       </el-form>
-
       <template #footer>
         <el-button @click="showDeployDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button
@@ -194,7 +193,7 @@
           :disabled="!deployForm.host || !deployForm.username"
           @click="doDeploy"
         >
-          {{ t('keys.deployBtn') }}
+          {{ t('keys.deploy') }}
         </el-button>
       </template>
     </el-dialog>
@@ -337,13 +336,12 @@ async function deleteKey(id: string, name: string): Promise<void> {
   }
 }
 
-// ===== 部署密钥 =====
+// ===== 部署公钥 =====
 
 const showDeployDialog = ref(false)
 const deploying = ref(false)
 const deployKeyId = ref('')
-const deployKeyName = ref('')
-const deploySelectedHostId = ref('')
+const deployHostId = ref('')
 const deployForm = reactive({
   host: '',
   port: 22,
@@ -351,15 +349,15 @@ const deployForm = reactive({
   password: '',
 })
 
-function openDeployDialog(key: SshKey): void {
+function openDeploy(key: SshKey): void {
   deployKeyId.value = key.id
-  deployKeyName.value = key.name
-  deploySelectedHostId.value = ''
+  deployHostId.value = ''
   deployForm.host = ''
   deployForm.port = 22
   deployForm.username = 'root'
   deployForm.password = ''
   showDeployDialog.value = true
+  hostsStore.fetchHosts()
 }
 
 function handleDeployHostSelect(hostId: string): void {
@@ -368,17 +366,9 @@ function handleDeployHostSelect(hostId: string): void {
   deployForm.host = host.address
   deployForm.port = host.port
   deployForm.username = host.username || 'root'
-  deployForm.password = host.password || ''
-}
-
-function resetDeployForm(): void {
-  deployKeyId.value = ''
-  deployKeyName.value = ''
-  deploySelectedHostId.value = ''
 }
 
 async function doDeploy(): Promise<void> {
-  if (!deployForm.host || !deployForm.username) return
   deploying.value = true
   try {
     await keysStore.deployKey(deployKeyId.value, {
@@ -387,9 +377,9 @@ async function doDeploy(): Promise<void> {
       username: deployForm.username,
       password: deployForm.password || undefined,
     })
-    showDeployDialog.value = false
     ElMessage.success(t('keys.deploySuccess'))
-  } catch (err: unknown) {
+    showDeployDialog.value = false
+  } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : t('keys.deployFailed'))
   } finally {
     deploying.value = false
@@ -465,12 +455,5 @@ onMounted(() => keysStore.fetchKeys())
   &__actions {
     display: flex; gap: 4px; flex-shrink: 0; margin-left: 12px;
   }
-}
-
-.deploy-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0 0 16px;
-  line-height: 1.6;
 }
 </style>

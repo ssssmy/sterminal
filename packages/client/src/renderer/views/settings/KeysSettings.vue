@@ -41,8 +41,8 @@
           <el-button size="small" text @click="copyPublicKey(key)">
             {{ t('keys.copyPublicKey') }}
           </el-button>
-          <el-button size="small" text @click="openDeploy(key)">
-            {{ t('keys.deploy') }}
+          <el-button size="small" text @click="copyDeployCommand(key)">
+            {{ t('keys.copyDeployCmd') }}
           </el-button>
           <el-button size="small" text type="danger" @click="deleteKey(key.id, key.name)">
             {{ t('common.delete') }}
@@ -141,62 +141,6 @@
         </el-button>
       </template>
     </el-dialog>
-    <!-- 部署公钥对话框 -->
-    <el-dialog v-model="showDeployDialog" :title="t('keys.deployTitle')" width="480px">
-      <el-form label-position="top">
-        <el-form-item :label="t('keys.deployHost')">
-          <el-select
-            v-model="deployHostId"
-            :placeholder="t('keys.deploySelectHost')"
-            clearable
-            filterable
-            style="width: 100%"
-            @change="handleDeployHostSelect"
-          >
-            <el-option
-              v-for="host in hostsStore.hosts"
-              :key="host.id"
-              :label="`${host.label || host.address} (${host.username || 'root'}@${host.address}:${host.port})`"
-              :value="host.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('hostDialog.address')">
-          <el-input v-model="deployForm.host" placeholder="192.168.1.100" />
-        </el-form-item>
-        <el-row :gutter="12">
-          <el-col :span="12">
-            <el-form-item :label="t('hostDialog.port')">
-              <el-input-number v-model="deployForm.port" :min="1" :max="65535" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('hostDialog.username')">
-              <el-input v-model="deployForm.username" placeholder="root" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item :label="t('keys.deployPassword')">
-          <el-input
-            v-model="deployForm.password"
-            type="password"
-            show-password
-            :placeholder="t('keys.deployPasswordPlaceholder')"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showDeployDialog = false">{{ t('common.cancel') }}</el-button>
-        <el-button
-          type="primary"
-          :loading="deploying"
-          :disabled="!deployForm.host || !deployForm.username"
-          @click="doDeploy"
-        >
-          {{ t('keys.deploy') }}
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -206,12 +150,10 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useKeysStore } from '../../stores/keys.store'
-import { useHostsStore } from '../../stores/hosts.store'
 import type { SshKey } from '../../../shared/types/key'
 
 const { t } = useI18n()
 const keysStore = useKeysStore()
-const hostsStore = useHostsStore()
 
 // ===== 对话框状态 =====
 
@@ -322,6 +264,18 @@ async function copyPublicKey(key: SshKey): Promise<void> {
   }
 }
 
+async function copyDeployCommand(key: SshKey): Promise<void> {
+  // 生成可在远程主机上粘贴执行的部署命令
+  const pubKey = key.publicKey.trim()
+  const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${pubKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+  try {
+    await navigator.clipboard.writeText(cmd)
+    ElMessage.success(t('keys.copiedDeployCmd'))
+  } catch {
+    ElMessage.error(t('keys.copyError'))
+  }
+}
+
 async function deleteKey(id: string, name: string): Promise<void> {
   try {
     await ElMessageBox.confirm(
@@ -333,56 +287,6 @@ async function deleteKey(id: string, name: string): Promise<void> {
     ElMessage.success(t('keys.deleteSuccess'))
   } catch {
     // user cancelled
-  }
-}
-
-// ===== 部署公钥 =====
-
-const showDeployDialog = ref(false)
-const deploying = ref(false)
-const deployKeyId = ref('')
-const deployHostId = ref('')
-const deployForm = reactive({
-  host: '',
-  port: 22,
-  username: 'root',
-  password: '',
-})
-
-function openDeploy(key: SshKey): void {
-  deployKeyId.value = key.id
-  deployHostId.value = ''
-  deployForm.host = ''
-  deployForm.port = 22
-  deployForm.username = 'root'
-  deployForm.password = ''
-  showDeployDialog.value = true
-  hostsStore.fetchHosts()
-}
-
-function handleDeployHostSelect(hostId: string): void {
-  const host = hostsStore.hosts.find(h => h.id === hostId)
-  if (!host) return
-  deployForm.host = host.address
-  deployForm.port = host.port
-  deployForm.username = host.username || 'root'
-}
-
-async function doDeploy(): Promise<void> {
-  deploying.value = true
-  try {
-    await keysStore.deployKey(deployKeyId.value, {
-      host: deployForm.host,
-      port: deployForm.port,
-      username: deployForm.username,
-      password: deployForm.password || undefined,
-    })
-    ElMessage.success(t('keys.deploySuccess'))
-    showDeployDialog.value = false
-  } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : t('keys.deployFailed'))
-  } finally {
-    deploying.value = false
   }
 }
 

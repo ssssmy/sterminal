@@ -201,6 +201,7 @@ export function registerSshHandlers(): void {
               try {
                 if (e2eCrypto.hasKey()) privateKey = e2eCrypto.decrypt(privateKey)
               } catch { /* 可能是明文存储 */ }
+
               connectConfig.privateKey = privateKey
 
               // 密钥密码短语

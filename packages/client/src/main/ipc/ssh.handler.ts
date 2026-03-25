@@ -9,6 +9,7 @@ import type { Host } from '../../shared/types/host'
 import { recordData, shouldAutoRecord, startRecording } from '../services/session-recorder'
 import { dbGet, dbRun, dbAll } from '../services/db'
 import { v4 as uuidv4 } from 'uuid'
+import { e2eCrypto } from '../services/crypto'
 
 // 待用户确认的主机密钥请求
 const pendingHostVerify = new Map<string, { resolve: (accept: boolean) => void }>()
@@ -184,21 +185,34 @@ export function registerSshHandlers(): void {
           connectConfig.password = hostConfig.password || ''
           break
         case 'key':
-          if (hostConfig.keyPassphrase) {
-            connectConfig.passphrase = hostConfig.keyPassphrase
-          }
-          // keyId 指向密钥内容或路径，此处传入私钥内容
-          if (hostConfig.keyId) {
-            connectConfig.privateKey = hostConfig.keyId
-          }
-          break
         case 'password_key':
-          connectConfig.password = hostConfig.password || ''
-          if (hostConfig.keyId) {
-            connectConfig.privateKey = hostConfig.keyId
+          if (hostConfig.authType === 'password_key') {
+            connectConfig.password = hostConfig.password || ''
           }
-          if (hostConfig.keyPassphrase) {
-            connectConfig.passphrase = hostConfig.keyPassphrase
+          if (hostConfig.keyId) {
+            // 从 keys 表查找私钥
+            const keyRow = dbGet<{ private_key_enc: string; passphrase_enc: string | null }>(
+              'SELECT private_key_enc, passphrase_enc FROM keys WHERE id = ?',
+              [hostConfig.keyId]
+            )
+            if (keyRow) {
+              // 尝试 E2EE 解密（如果是加密存储的）
+              let privateKey = keyRow.private_key_enc
+              try {
+                if (e2eCrypto.hasKey()) privateKey = e2eCrypto.decrypt(privateKey)
+              } catch { /* 可能是明文存储 */ }
+              connectConfig.privateKey = privateKey
+
+              // 密钥密码短语
+              const passphrase = hostConfig.keyPassphrase || keyRow.passphrase_enc
+              if (passphrase) {
+                let pp = passphrase
+                try {
+                  if (e2eCrypto.hasKey()) pp = e2eCrypto.decrypt(pp)
+                } catch { /* 可能是明文 */ }
+                connectConfig.passphrase = pp
+              }
+            }
           }
           break
         case 'agent':

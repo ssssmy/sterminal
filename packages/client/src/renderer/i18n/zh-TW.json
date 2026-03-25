@@ -8,7 +8,7 @@
     "terminals": "終端",
     "snippets": "片段",
     "portForwards": "連接埠轉發",
-    "vault": "金鑰庫",
+    "vault": "密碼庫",
     "settings": "設定"
   },
   "auth": {
@@ -71,7 +71,7 @@
     "appearance": "外觀",
     "keys": "SSH 金鑰",
     "knownHosts": "已知主機",
-    "vault": "金鑰庫",
+    "vault": "密碼庫",
     "logs": "日誌",
     "data": "資料管理",
     "save": "儲存",
@@ -166,6 +166,9 @@
     "replayLoading": "載入錄製資料...",
     "replayError": "無法載入錄製資料",
     "replayEmpty": "錄製資料為空",
+    "replayPlay": "播放",
+    "replayPause": "暫停",
+    "replaySpeed": "播放速度",
     "terminalTheme": "終端主題",
     "terminalThemeDesc": "選擇終端顏色主題，立即生效"
   },
@@ -230,7 +233,8 @@
     "password": "密碼",
     "passwordPlaceholder": "請輸入密碼",
     "sshKey": "SSH 金鑰",
-    "sshKeyPlaceholder": "選擇金鑰（暫無）",
+    "sshKeyPlaceholder": "選擇 SSH 金鑰",
+    "selectFromVault": "從密碼庫選擇",
     "keyPassphrase": "金鑰密語",
     "keyPassphrasePlaceholder": "金鑰密語（選填）",
     "group": "群組",
@@ -440,7 +444,7 @@
     "portForwards": "連接埠轉發",
     "addPortForward": "新建轉發",
     "noPortForwards": "尚無連接埠轉發",
-    "vault": "金鑰庫",
+    "vault": "密碼庫",
     "dragToUngrouped": "拖放到此處移為未分組",
     "groupRename": "重新命名",
     "groupDelete": "刪除群組",
@@ -649,8 +653,22 @@
     "importFailed": "金鑰匯入失敗",
     "importContent": "金鑰內容",
     "importContentPlaceholder": "貼上 OpenSSH 或 PEM 格式的私鑰內容",
+    "copyDeployCmd": "複製部署命令",
+    "copiedDeployCmd": "部署命令已複製，可在遠端主機終端中貼上執行",
     "ed25519Recommended": "Ed25519（推薦）",
-    "createdAt": "建立時間"
+    "createdAt": "建立時間",
+    "created": "建立時間",
+    "type": "類型",
+    "copiedPublicKey": "公鑰已複製",
+    "copyError": "複製失敗",
+    "nameRequired": "請輸入金鑰名稱",
+    "privateKey": "私鑰內容",
+    "privateKeyPlaceholder": "貼上 OpenSSH 或 PEM 格式的私鑰",
+    "privateKeyRequired": "請輸入私鑰內容",
+    "importNamePlaceholder": "輸入金鑰名稱（選填）",
+    "generateError": "金鑰產生失敗",
+    "importError": "金鑰匯入失敗",
+    "deleteSuccess": "金鑰已刪除"
   },
   "vault": {
     "title": "密碼庫",
@@ -702,7 +720,8 @@
     "genNumbers": "數字 (0-9)",
     "genSymbols": "特殊字元 (!@#$...)",
     "generateBtn": "產生",
-    "generateFailed": "產生失敗"
+    "generateFailed": "產生失敗",
+    "saveAsEntry": "存入密碼庫"
   },
   "sftp": {
     "local": "本地",

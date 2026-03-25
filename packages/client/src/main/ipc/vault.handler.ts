@@ -6,8 +6,13 @@ import type { PasswordGeneratorOptions } from '../../shared/types/vault'
 export function registerVaultHandlers(): void {
   // 密码生成器
   ipcMain.handle(IPC_VAULT.GENERATE_PASSWORD, async (_event, options: PasswordGeneratorOptions) => {
-    await vaultService.init()
-    return vaultService.generatePassword(options)
+    try {
+      await vaultService.init()
+      return vaultService.generatePassword(options)
+    } catch (err) {
+      console.error('[Vault] generatePassword error:', err)
+      throw err
+    }
   })
 
   // Vault 始终可用（无主密码模式）

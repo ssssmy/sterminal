@@ -166,6 +166,9 @@
     "replayLoading": "Loading recording...",
     "replayError": "Failed to load recording",
     "replayEmpty": "Recording is empty",
+    "replayPlay": "Play",
+    "replayPause": "Pause",
+    "replaySpeed": "Speed",
     "terminalTheme": "Terminal Theme",
     "terminalThemeDesc": "Choose a terminal color theme, applied immediately"
   },
@@ -230,7 +233,8 @@
     "password": "Password",
     "passwordPlaceholder": "Enter password",
     "sshKey": "SSH Key",
-    "sshKeyPlaceholder": "Select key (none)",
+    "sshKeyPlaceholder": "Select SSH key",
+    "selectFromVault": "From Vault",
     "keyPassphrase": "Key Passphrase",
     "keyPassphrasePlaceholder": "Key passphrase (optional)",
     "group": "Group",
@@ -649,8 +653,22 @@
     "importFailed": "Key import failed",
     "importContent": "Key Content",
     "importContentPlaceholder": "Paste OpenSSH or PEM format private key",
+    "copyDeployCmd": "Copy Deploy Command",
+    "copiedDeployCmd": "Deploy command copied — paste in remote host terminal to install",
     "ed25519Recommended": "Ed25519 (Recommended)",
-    "createdAt": "Created"
+    "createdAt": "Created",
+    "created": "Created",
+    "type": "Type",
+    "copiedPublicKey": "Public key copied",
+    "copyError": "Copy failed",
+    "nameRequired": "Key name is required",
+    "privateKey": "Private Key",
+    "privateKeyPlaceholder": "Paste OpenSSH or PEM format private key",
+    "privateKeyRequired": "Private key content is required",
+    "importNamePlaceholder": "Key name (optional)",
+    "generateError": "Key generation failed",
+    "importError": "Key import failed",
+    "deleteSuccess": "Key deleted"
   },
   "vault": {
     "title": "Vault",
@@ -702,7 +720,8 @@
     "genNumbers": "Numbers (0-9)",
     "genSymbols": "Symbols (!@#$...)",
     "generateBtn": "Generate",
-    "generateFailed": "Generation failed"
+    "generateFailed": "Generation failed",
+    "saveAsEntry": "Save to Vault"
   },
   "sftp": {
     "local": "Local",

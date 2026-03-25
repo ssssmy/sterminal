@@ -7,6 +7,7 @@ import { IPC_KEY } from '../../shared/types/ipc-channels'
 import { keyManager } from '../services/key-manager'
 import { dbRun, dbGet } from '../services/db'
 import { e2eCrypto } from '../services/crypto'
+import { sshSessions } from './ssh.handler'
 import type { SshKey } from '../../shared/types/key'
 
 interface SshKeyRow {
@@ -61,8 +62,8 @@ export function registerKeyHandlers(): void {
     const passphraseEnc = params.passphrase && e2eCrypto.hasKey() ? e2eCrypto.encrypt(params.passphrase) : (params.passphrase ?? null)
 
     dbRun(
-      `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, passphrase_enc, comment, auto_load_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         id,
         params.name,
@@ -74,12 +75,10 @@ export function registerKeyHandlers(): void {
         privateKeyEnc,
         passphraseEnc,
         params.comment ?? null,
-        now,
-        now,
       ]
     )
 
-    const row = dbGet<SshKeyRow>('SELECT * FROM ssh_keys WHERE id = ?', [id])
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [id])
     if (!row) throw new Error('Failed to retrieve generated key')
     return mapRow(row)
   })
@@ -99,8 +98,8 @@ export function registerKeyHandlers(): void {
     const privateKeyEnc = e2eCrypto.hasKey() ? e2eCrypto.encrypt(keyInfo.privateKey) : keyInfo.privateKey
 
     dbRun(
-      `INSERT INTO ssh_keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO keys (id, name, key_type, bits, curve, fingerprint, public_key, private_key_enc, comment, auto_load_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         id,
         name,
@@ -111,36 +110,64 @@ export function registerKeyHandlers(): void {
         keyInfo.publicKey,
         privateKeyEnc,
         keyInfo.comment ?? null,
-        now,
-        now,
       ]
     )
 
-    const row = dbGet<SshKeyRow>('SELECT * FROM ssh_keys WHERE id = ?', [id])
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [id])
     if (!row) throw new Error('Failed to retrieve imported key')
     return mapRow(row)
   })
 
-  // 部署公钥到远程主机
+  // 部署公钥到远程主机（复用已有的 SSH 会话）
   ipcMain.handle(IPC_KEY.DEPLOY, async (_event, params: {
     keyId: string
+    hostId?: string
     host: string
     port: number
     username: string
     password?: string
   }) => {
-    const row = dbGet<SshKeyRow>('SELECT * FROM ssh_keys WHERE id = ?', [params.keyId])
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [params.keyId])
     if (!row) throw new Error(`Key not found: ${params.keyId}`)
 
-    await keyManager.deployKey(
-      {
-        host: params.host,
-        port: params.port,
-        username: params.username,
-        password: params.password,
-      },
-      row.public_key
-    )
+    const openSshPubKey = keyManager.getOpenSshPublicKey(row.public_key)
+    const escapedKey = openSshPubKey.replace(/'/g, "'\\''")
+    const command = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${escapedKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+
+    // 查找该主机的活跃 SSH 会话
+    let client: import('ssh2').Client | null = null
+    for (const [, session] of sshSessions) {
+      if (session.hostId === params.hostId || (session.client && params.host)) {
+        // 匹配 hostId 或地址
+        client = session.client
+        break
+      }
+    }
+
+    if (!client) {
+      throw new Error('请先连接该主机的 SSH 终端，再部署密钥')
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Deploy command timeout (30s)')), 30000)
+
+      client!.exec(command, (err, stream) => {
+        if (err) {
+          clearTimeout(timer)
+          return reject(err)
+        }
+        let stderr = ''
+        stream.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
+        stream.on('close', (code: number) => {
+          clearTimeout(timer)
+          if (code !== 0) {
+            reject(new Error(`Exit ${code}: ${stderr.trim()}`))
+          } else {
+            resolve()
+          }
+        })
+      })
+    })
   })
 
   // SSH Agent 加载（存根）

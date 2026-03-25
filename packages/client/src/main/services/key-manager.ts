@@ -2,7 +2,7 @@
 // 负责生成、导入、计算指纹、导出公钥和远程部署 SSH 密钥
 
 import crypto from 'crypto'
-import { Client } from 'ssh2'
+import { Client, utils as sshUtils } from 'ssh2'
 
 // ===== 类型定义 =====
 
@@ -38,10 +38,21 @@ interface DeployConnectionConfig {
 // ===== 工具函数 =====
 
 /**
- * 从 PEM 格式公钥计算 SSH 指纹（SHA256，与 ssh-keygen -l 输出一致）
+ * 计算 SSH 指纹（SHA256），支持 PEM 和 OpenSSH 格式公钥
  */
-function computeFingerprint(publicKeyPem: string): string {
-  const key = crypto.createPublicKey(publicKeyPem)
+function computeFingerprint(publicKey: string): string {
+  const trimmed = publicKey.trim()
+  if (trimmed.startsWith('ssh-') || trimmed.startsWith('ecdsa-')) {
+    // OpenSSH 一行格式：ssh-ed25519 AAAA...base64...
+    const parts = trimmed.split(/\s+/)
+    if (parts.length >= 2) {
+      const keyData = Buffer.from(parts[1], 'base64')
+      const hash = crypto.createHash('sha256').update(keyData).digest('base64')
+      return `SHA256:${hash.replace(/=+$/, '')}`
+    }
+  }
+  // PEM 格式
+  const key = crypto.createPublicKey(trimmed)
   const der = key.export({ type: 'spki', format: 'der' })
   const hash = crypto.createHash('sha256').update(der).digest('base64')
   return `SHA256:${hash.replace(/=+$/, '')}`
@@ -265,42 +276,29 @@ export const keyManager = {
     let resultCurve: string | undefined
 
     // Helper: private key encoding options (cipher only added when passphrase given)
-    const privEnc = passphrase
-      ? { type: 'pkcs8' as const, format: 'pem' as const, cipher: 'aes-256-cbc' as const, passphrase }
-      : { type: 'pkcs8' as const, format: 'pem' as const }
-
     if (keyType === 'ed25519') {
-      const pair = crypto.generateKeyPairSync('ed25519', {
-        privateKeyEncoding: privEnc,
-        publicKeyEncoding: { type: 'spki' as const, format: 'pem' as const },
-      })
-      privateKeyPem = pair.privateKey
-      publicKeyPem = pair.publicKey
+      // 用 ssh2 生成 OpenSSH 格式的 Ed25519 密钥（ssh2 能正确解析）
+      const pair = sshUtils.generateKeyPairSync('ed25519', passphrase ? { passphrase, cipher: 'aes-256-cbc', rounds: 16 } : {})
+      privateKeyPem = pair.private
+      publicKeyPem = pair.public
     } else if (keyType === 'rsa') {
       const modulusLength = bits === 4096 ? 4096 : 2048
       resultBits = modulusLength
-      const pair = crypto.generateKeyPairSync('rsa', {
-        modulusLength,
-        privateKeyEncoding: privEnc,
-        publicKeyEncoding: { type: 'pkcs1' as const, format: 'pem' as const },
+      const pair = sshUtils.generateKeyPairSync('rsa', {
+        bits: modulusLength,
+        ...(passphrase ? { passphrase, cipher: 'aes-256-cbc', rounds: 16 } : {}),
       })
-      privateKeyPem = pair.privateKey
-      publicKeyPem = pair.publicKey
+      privateKeyPem = pair.private
+      publicKeyPem = pair.public
     } else if (keyType === 'ecdsa') {
-      const namedCurveMap: Record<string, string> = {
-        'P-256': 'prime256v1',
-        'P-384': 'secp384r1',
-        'P-521': 'secp521r1',
-      }
-      const namedCurve = namedCurveMap[curve || 'P-256'] || 'prime256v1'
+      const ecBits = curve === 'P-384' ? 384 : curve === 'P-521' ? 521 : 256
       resultCurve = curve || 'P-256'
-      const pair = crypto.generateKeyPairSync('ec', {
-        namedCurve,
-        privateKeyEncoding: privEnc,
-        publicKeyEncoding: { type: 'spki' as const, format: 'pem' as const },
+      const pair = sshUtils.generateKeyPairSync('ecdsa', {
+        bits: ecBits,
+        ...(passphrase ? { passphrase, cipher: 'aes-256-cbc', rounds: 16 } : {}),
       })
-      privateKeyPem = pair.privateKey
-      publicKeyPem = pair.publicKey
+      privateKeyPem = pair.private
+      publicKeyPem = pair.public
     } else {
       throw new Error(`Unsupported key type: ${keyType}`)
     }

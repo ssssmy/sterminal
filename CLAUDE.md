@@ -19,7 +19,7 @@ Monorepo 结构：
 | **P0 MVP** | 登录注册、本地终端(多配置)、SSH连接、主机管理(CRUD/分组)、多标签/分屏 | ✅ 已完成 |
 | **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
 | **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 大部分完成（SFTP+片段+端口转发+设置+i18n+已知主机+云同步E2EE+同步引擎，剩OAuth客户端流程） |
-| **P2 进阶功能** | SSH密钥管理、Vault密钥库、录制回放器、日志审计 | ⏳ 待开发 |
+| **P2 进阶功能** | SSH密钥管理、Vault密钥库、录制回放器、日志审计 | 🔧 部分完成（密钥管理+Vault+回放器已实现，剩日志审计） |
 | **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
 
 详细进展和待办项见 `docs/PROGRESS.md`。PRD 见 `docs/PRD.md`。技术架构见 `docs/ARCHITECTURE.md`。
@@ -30,10 +30,12 @@ packages/client/src/
   main/                    # Electron 主进程
     index.ts                 窗口创建，平台特定配置
     database/schema.ts       SQLite 建表语句（20+ 张表）
-    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward, sftp, local-fs, sync)
+    ipc/                     IPC handlers (pty, ssh, db, system, log, port-forward, sftp, local-fs, sync, key, vault)
     services/db.ts           better-sqlite3 封装
     services/session-recorder.ts  asciicast v2 会话录制服务
-    services/crypto.ts       E2EE 加密（libsodium，Argon2id 密钥派生 + XSalsa20-Poly1305）
+    services/crypto.ts       E2EE 加密（libsodium-wrappers-sumo，Argon2id 密钥派生 + XSalsa20-Poly1305）
+    services/key-manager.ts  SSH 密钥生成服务（Ed25519/RSA/ECDSA，via ssh2 utils）
+    services/vault-service.ts  Vault 密钥库服务（CRUD + 密码生成）
     services/sync-engine.ts  云同步引擎（push/pull/WebSocket 实时通知/自动周期同步）
     services/server-api.ts   主进程 HTTP 客户端（对接后端 REST API）
     services/server-url-service.ts  可配置服务器 URL 服务（SaaS/自托管双模式，读写 SQLite）
@@ -69,6 +71,8 @@ packages/client/src/
       sftp.store.ts        SFTP 会话状态+传输队列（直接 IPC，非 useIpc）
       auth.store.ts        用户认证（真实后端 API，token 自动续期，restoreSession 网络错误保留本地登录态）
       sync.store.ts        云同步状态管理（SyncState/SyncStatus，触发同步、加密配置）
+      keys.store.ts        SSH 密钥管理（CRUD，与 key.handler.ts 对接）
+      vault.store.ts       Vault 密钥库管理（CRUD，与 vault.handler.ts 对接）
     views/
       workspace/WorkspaceView.vue  主工作区（KeepAlive 缓存）
       auth/LoginView.vue           登录页
@@ -78,6 +82,8 @@ packages/client/src/
       settings/AppearanceSettings.vue  外观设置（主题/语言/缩放/紧凑模式）
       settings/LogSettings.vue       日志设置（录制/清理/文件管理）
       settings/AccountSettings.vue   账户设置（骨架，等云同步）
+      settings/KeysSettings.vue      SSH 密钥管理（列表/生成/导入/部署）
+      settings/VaultSettings.vue     Vault 密钥库（条目CRUD/密码生成/复制自动清除）
     styles/global.scss             全局主题变量 + 紧凑模式 CSS
     i18n/                          国际化（zh-CN/en/zh-TW，约 400 key/语言）
   shared/types/            # 前后端共享类型定义
@@ -88,6 +94,8 @@ packages/client/src/
     snippet.ts     命令片段类型
     port-forward.ts 端口转发类型（PortForward, TunnelState）
     sync.ts        云同步类型（SyncState, SyncStatus）
+    key.ts         SSH 密钥类型（SshKey, KeyType, GenerateKeyOptions）
+    vault.ts       Vault 条目类型（VaultEntry, VaultEntryType）
   shared/utils/
     snippet-variables.ts 片段变量解析/替换工具
     server-url.ts        服务器 URL 工具（normalizeServerUrl / deriveApiBase / deriveWsUrl）

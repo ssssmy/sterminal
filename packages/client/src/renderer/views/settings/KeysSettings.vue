@@ -41,6 +41,9 @@
           <el-button size="small" text @click="copyPublicKey(key)">
             {{ t('keys.copyPublicKey') }}
           </el-button>
+          <el-button size="small" text @click="copyDeployCommand(key)">
+            {{ t('keys.copyDeployCmd') }}
+          </el-button>
           <el-button size="small" text type="danger" @click="deleteKey(key.id, key.name)">
             {{ t('common.delete') }}
           </el-button>
@@ -256,6 +259,18 @@ async function copyPublicKey(key: SshKey): Promise<void> {
   try {
     await navigator.clipboard.writeText(key.publicKey)
     ElMessage.success(t('keys.copiedPublicKey'))
+  } catch {
+    ElMessage.error(t('keys.copyError'))
+  }
+}
+
+async function copyDeployCommand(key: SshKey): Promise<void> {
+  // 生成可在远程主机上粘贴执行的部署命令
+  const pubKey = key.publicKey.trim()
+  const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${pubKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+  try {
+    await navigator.clipboard.writeText(cmd)
+    ElMessage.success(t('keys.copiedDeployCmd'))
   } catch {
     ElMessage.error(t('keys.copyError'))
   }

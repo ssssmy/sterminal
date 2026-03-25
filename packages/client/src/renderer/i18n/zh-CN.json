@@ -8,7 +8,7 @@
     "terminals": "终端",
     "snippets": "片段",
     "portForwards": "端口转发",
-    "vault": "密钥库",
+    "vault": "密码库",
     "settings": "设置"
   },
   "auth": {
@@ -71,7 +71,7 @@
     "appearance": "外观",
     "keys": "SSH 密钥",
     "knownHosts": "已知主机",
-    "vault": "密钥库",
+    "vault": "密码库",
     "logs": "日志",
     "data": "数据管理",
     "save": "保存",
@@ -233,7 +233,8 @@
     "password": "密码",
     "passwordPlaceholder": "请输入密码",
     "sshKey": "SSH 密钥",
-    "sshKeyPlaceholder": "选择密钥（暂无）",
+    "sshKeyPlaceholder": "选择 SSH 密钥",
+    "selectFromVault": "从密码库选择",
     "keyPassphrase": "密钥密码",
     "keyPassphrasePlaceholder": "密钥密码（可选）",
     "group": "分组",
@@ -443,7 +444,7 @@
     "portForwards": "端口转发",
     "addPortForward": "新建转发",
     "noPortForwards": "暂无端口转发",
-    "vault": "密钥库",
+    "vault": "密码库",
     "dragToUngrouped": "拖放到此处移为未分组",
     "groupRename": "重命名",
     "groupDelete": "删除分组",
@@ -652,8 +653,22 @@
     "importFailed": "密钥导入失败",
     "importContent": "密钥内容",
     "importContentPlaceholder": "粘贴 OpenSSH 或 PEM 格式的私钥内容",
+    "copyDeployCmd": "复制部署命令",
+    "copiedDeployCmd": "部署命令已复制，可在远程主机终端中粘贴执行",
     "ed25519Recommended": "Ed25519（推荐）",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "created": "创建时间",
+    "type": "类型",
+    "copiedPublicKey": "公钥已复制",
+    "copyError": "复制失败",
+    "nameRequired": "请输入密钥名称",
+    "privateKey": "私钥内容",
+    "privateKeyPlaceholder": "粘贴 OpenSSH 或 PEM 格式的私钥",
+    "privateKeyRequired": "请输入私钥内容",
+    "importNamePlaceholder": "输入密钥名称（可选）",
+    "generateError": "密钥生成失败",
+    "importError": "密钥导入失败",
+    "deleteSuccess": "密钥已删除"
   },
   "vault": {
     "title": "密码库",
@@ -705,7 +720,8 @@
     "genNumbers": "数字 (0-9)",
     "genSymbols": "特殊字符 (!@#$...)",
     "generateBtn": "生成",
-    "generateFailed": "生成失败"
+    "generateFailed": "生成失败",
+    "saveAsEntry": "存入密码库"
   },
   "sftp": {
     "local": "本地",

@@ -8,7 +8,7 @@
 - **终端**: xterm.js + node-pty (本地) + ssh2 (远程)
 - **后端**: Express + SQLite (better-sqlite3) + WebSocket
 - **认证**: JWT + Argon2id + OAuth (GitHub/Google)
-- **加密**: libsodium-wrappers (端对端加密云同步)
+- **加密**: libsodium-wrappers-sumo (端对端加密云同步，Argon2id 密钥派生)
 
 ## 项目结构
 
@@ -154,8 +154,13 @@ npm run pm2:logs     # 查看日志
 - 10 个预设终端主题 (Dracula/Monokai/Nord/Solarized/One Dark/Gruvbox/Tokyo Night 等)
 - 用户注册 / 登录 / JWT 自动续期
 - 账户管理 (资料编辑 / 修改密码 / 注销账户)
-- 端对端加密云同步 (主机 / 片段 / 设置 / 端口转发 / 主题等，跨设备同步)
+- 端对端加密云同步 (主机 / 片段 / 设置 / 端口转发 / 密钥 / Vault 等，跨设备同步)
 - 可配置服务器 (官方云服务或自托管后端，客户端设置页切换服务器地址)
+
+### P2 进阶功能（部分完成）
+- SSH 密钥管理 (生成 Ed25519/RSA/ECDSA 密钥对，导入，复制公钥，部署到远程主机)
+- Vault 密钥库 (password / API key / token 条目管理，密码生成器，复制后自动清除剪贴板)
+- 主机配置集成：SSH 认证密钥从密钥库选择，登录密码从 Vault 填充
 
 ## 快捷键
 
@@ -173,7 +178,7 @@ npm run pm2:logs     # 查看日志
 | P0 MVP | 本地终端、SSH、主机管理、多标签/分屏 | 已完成 |
 | P0+ | 广播模式、会话录制、终端搜索、远端OS检测、侧边栏折叠 | 已完成 |
 | P1 | SFTP、命令片段、端口转发、设置、i18n、已知主机、真实认证、账户管理、云同步 | 大部分完成 |
-| P2 | 密钥管理、Vault、审计日志 | 计划中 |
+| P2 | 密钥管理、Vault、审计日志 | 部分完成（密钥管理+Vault已实现，剩日志审计） |
 | P3 | 自动补全、快捷键自定义、数据导入导出 | 计划中 |
 
 详见 [docs/PROGRESS.md](docs/PROGRESS.md)。

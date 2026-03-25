@@ -234,15 +234,32 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - Push/pull 采用乐观锁（version+1），Last-Write-Wins 冲突策略
 - WebSocket 实时通知：服务端推送变更后自动触发 pull
 - 周期自动同步：可配置间隔（`sync:set-auto-interval`），默认 5 分钟
-- E2EE 加密敏感字段：`password_enc`、`key_passphrase_enc`、`proxy_password_enc` 在推送前加密、拉取后解密
+- E2EE 加密敏感字段：`password_enc`、`key_passphrase_enc`、`proxy_password_enc`、vault 条目密码字段 在推送前加密、拉取后解密
+- 同步表范围：hosts, host_groups, local_terminals, snippets, port_forwards, settings, keys, vault_entries
 - 同步状态通过 `sync:status-changed` IPC 事件推送到渲染进程，`sync.store.ts` 维护 `SyncState`
 - `sync_deletes` 表追踪删除操作，`sync_meta` 表存储设备 ID 和最后同步时间戳
 
 ### E2EE（crypto.ts）
-- 依赖 `libsodium-wrappers`（WebAssembly）
+- 依赖 `libsodium-wrappers-sumo`（WebAssembly，sumo 版包含完整 Argon2id 支持）
 - 密钥派生：Argon2id（`crypto_pwhash`），salt 存储在 `sync_meta` 表，密钥仅保留在内存
 - 加密算法：XSalsa20-Poly1305（`crypto_secretbox`）
 - 通过 `sync:set-encryption` / `sync:clear-encryption` / `sync:has-encryption` IPC 管理
+
+### SSH 密钥管理（key-manager.ts + key.handler.ts）
+- 密钥生成：通过 ssh2 的 `utils.generateKeyPair()` 生成 Ed25519 / RSA / ECDSA 密钥对，支持可选密码保护
+- 密钥导入：接受 PEM 文件路径或粘贴的 PEM 文本，自动检测密钥格式
+- 公钥操作：复制公钥到剪贴板；生成 `ssh-copy-id` 等效部署命令供用户复制
+- 部署到远程：通过 SSH 连接追加公钥到目标主机 `~/.ssh/authorized_keys`
+- 主机配置集成：`HostConfigDialog.vue` 的 SSH 认证方式下拉列表从 `keys.store.ts` 动态读取
+- 同步：`keys` 表纳入云同步范围，私钥内容作为敏感字段在 E2EE 加密后传输
+
+### Vault 密钥库（vault-service.ts + vault.handler.ts）
+- 无主密码设计：简化架构，不需要额外的 Vault 解锁步骤，依赖系统账户安全和 E2EE 保护
+- 条目类型：`password`（登录凭据）/ `api_key`（API 密钥）/ `token`（访问令牌），含名称/用户名/密码/备注/关联主机
+- 密码生成器：可配置长度（8-128）和字符集（大写/小写/数字/特殊字符）
+- 复制保护：复制密码到剪贴板后 30 秒自动清除剪贴板内容
+- 主机配置集成：`HostConfigDialog.vue` 的密码字段可从 Vault 条目选择自动填充
+- 同步：`vault_entries` 表纳入云同步范围，密码字段（`password_enc`）在 E2EE 加密后传输
 
 ### 可配置服务器 URL
 - SaaS 模式（默认）与自托管双模式

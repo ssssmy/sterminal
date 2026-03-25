@@ -401,9 +401,13 @@ export const keyManager = {
    * 通过 SSH 执行命令将公钥追加到 ~/.ssh/authorized_keys
    */
   async deployKey(connectionConfig: DeployConnectionConfig, publicKeyPem: string): Promise<void> {
-    const openSshPubKey = pemToOpenSshPublicKey(publicKeyPem)
+    let openSshPubKey: string
+    try {
+      openSshPubKey = pemToOpenSshPublicKey(publicKeyPem)
+    } catch (err) {
+      throw new Error(`Failed to convert public key: ${err instanceof Error ? err.message : err}`)
+    }
 
-    // 转义单引号，防止命令注入
     const escapedKey = openSshPubKey.replace(/'/g, "'\\''")
     const command = [
       'mkdir -p ~/.ssh',
@@ -416,7 +420,7 @@ export const keyManager = {
       const conn = new Client()
       let settled = false
 
-      // 30 秒超时保护
+      // 30 秒超时
       const timeout = setTimeout(() => {
         done(new Error('Deploy timeout: connection took too long'))
       }, 30000)
@@ -432,16 +436,10 @@ export const keyManager = {
 
       conn.on('ready', () => {
         conn.exec(command, (err, stream) => {
-          if (err) {
-            done(err)
-            return
-          }
+          if (err) { done(err); return }
 
           let stderr = ''
-          stream.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString()
-          })
-
+          stream.stderr.on('data', (data: Buffer) => { stderr += data.toString() })
           stream.on('close', (code: number) => {
             if (code !== 0) {
               done(new Error(`Remote command failed (exit ${code}): ${stderr.trim()}`))
@@ -452,16 +450,7 @@ export const keyManager = {
         })
       })
 
-      conn.on('error', (err) => {
-        console.error('[KeyManager] Deploy connection error:', err.message)
-        done(err)
-      })
-
-      conn.on('keyboard-interactive', (_name: string, _instructions: string, _lang: string, _prompts: unknown[], finish: (responses: string[]) => void) => {
-        finish([connectionConfig.password || ''])
-      })
-
-      console.log('[KeyManager] Connecting to', connectionConfig.host, connectionConfig.port, connectionConfig.username)
+      conn.on('error', (err) => done(err))
 
       conn.connect({
         host: connectionConfig.host,
@@ -470,14 +459,8 @@ export const keyManager = {
         password: connectionConfig.password || undefined,
         privateKey: connectionConfig.privateKey || undefined,
         readyTimeout: 15000,
-        // ssh2 hostVerifier: return undefined for async, call verify callback
-        hostVerifier: (_key: unknown, verify: unknown) => {
-          if (typeof verify === 'function') {
-            (verify as (accept: boolean) => void)(true)
-          }
-          return undefined
-        },
-        tryKeyboard: true,
+        // 部署时跳过主机密钥验证
+        hostVerifier: () => true,
       } as Parameters<Client['connect']>[0])
     })
   },

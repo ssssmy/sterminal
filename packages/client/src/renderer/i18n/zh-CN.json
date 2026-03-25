@@ -656,7 +656,19 @@
     "copyDeployCmd": "复制部署命令",
     "copiedDeployCmd": "部署命令已复制，可在远程主机终端中粘贴执行",
     "ed25519Recommended": "Ed25519（推荐）",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "created": "创建时间",
+    "type": "类型",
+    "copiedPublicKey": "公钥已复制",
+    "copyError": "复制失败",
+    "nameRequired": "请输入密钥名称",
+    "privateKey": "私钥内容",
+    "privateKeyPlaceholder": "粘贴 OpenSSH 或 PEM 格式的私钥",
+    "privateKeyRequired": "请输入私钥内容",
+    "importNamePlaceholder": "输入密钥名称（可选）",
+    "generateError": "密钥生成失败",
+    "importError": "密钥导入失败",
+    "deleteSuccess": "密钥已删除"
   },
   "vault": {
     "title": "密码库",

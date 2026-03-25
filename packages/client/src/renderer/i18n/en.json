@@ -166,6 +166,9 @@
     "replayLoading": "Loading recording...",
     "replayError": "Failed to load recording",
     "replayEmpty": "Recording is empty",
+    "replayPlay": "Play",
+    "replayPause": "Pause",
+    "replaySpeed": "Speed",
     "terminalTheme": "Terminal Theme",
     "terminalThemeDesc": "Choose a terminal color theme, applied immediately"
   },
@@ -653,7 +656,19 @@
     "copyDeployCmd": "Copy Deploy Command",
     "copiedDeployCmd": "Deploy command copied — paste in remote host terminal to install",
     "ed25519Recommended": "Ed25519 (Recommended)",
-    "createdAt": "Created"
+    "createdAt": "Created",
+    "created": "Created",
+    "type": "Type",
+    "copiedPublicKey": "Public key copied",
+    "copyError": "Copy failed",
+    "nameRequired": "Key name is required",
+    "privateKey": "Private Key",
+    "privateKeyPlaceholder": "Paste OpenSSH or PEM format private key",
+    "privateKeyRequired": "Private key content is required",
+    "importNamePlaceholder": "Key name (optional)",
+    "generateError": "Key generation failed",
+    "importError": "Key import failed",
+    "deleteSuccess": "Key deleted"
   },
   "vault": {
     "title": "Vault",

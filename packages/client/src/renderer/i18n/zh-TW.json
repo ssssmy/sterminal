@@ -166,6 +166,9 @@
     "replayLoading": "載入錄製資料...",
     "replayError": "無法載入錄製資料",
     "replayEmpty": "錄製資料為空",
+    "replayPlay": "播放",
+    "replayPause": "暫停",
+    "replaySpeed": "播放速度",
     "terminalTheme": "終端主題",
     "terminalThemeDesc": "選擇終端顏色主題，立即生效"
   },
@@ -653,7 +656,19 @@
     "copyDeployCmd": "複製部署命令",
     "copiedDeployCmd": "部署命令已複製，可在遠端主機終端中貼上執行",
     "ed25519Recommended": "Ed25519（推薦）",
-    "createdAt": "建立時間"
+    "createdAt": "建立時間",
+    "created": "建立時間",
+    "type": "類型",
+    "copiedPublicKey": "公鑰已複製",
+    "copyError": "複製失敗",
+    "nameRequired": "請輸入金鑰名稱",
+    "privateKey": "私鑰內容",
+    "privateKeyPlaceholder": "貼上 OpenSSH 或 PEM 格式的私鑰",
+    "privateKeyRequired": "請輸入私鑰內容",
+    "importNamePlaceholder": "輸入金鑰名稱（選填）",
+    "generateError": "金鑰產生失敗",
+    "importError": "金鑰匯入失敗",
+    "deleteSuccess": "金鑰已刪除"
   },
   "vault": {
     "title": "密碼庫",

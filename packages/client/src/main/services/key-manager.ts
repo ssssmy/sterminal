@@ -459,8 +459,8 @@ export const keyManager = {
         password: connectionConfig.password || undefined,
         privateKey: connectionConfig.privateKey || undefined,
         readyTimeout: 15000,
-        // 部署时跳过主机密钥验证
-        hostVerifier: () => true,
+        // 部署时跳过主机密钥验证（ssh2 回调签名）
+        hostVerifier: (_key: Buffer, verify: (accept: boolean) => void) => { verify(true) },
       } as Parameters<Client['connect']>[0])
     })
   },

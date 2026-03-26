@@ -20,7 +20,7 @@ Monorepo 结构：
 | **P0+** | 广播模式、会话录制、终端内搜索、侧边栏折叠持久化、远端OS检测 | ✅ 已完成 |
 | **P1 核心增强** | SFTP文件管理、命令片段、端口转发、设置完善、云同步对接 | 🔧 大部分完成（SFTP+片段+端口转发+设置+i18n+已知主机+云同步E2EE+同步引擎，剩OAuth客户端流程） |
 | **P2 进阶功能** | SSH密钥管理、Vault密钥库、录制回放器、日志审计 | 🔧 部分完成（密钥管理+Vault+回放器已实现，剩日志审计） |
-| **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | ⏳ 待开发 |
+| **P3 体验优化** | 自动补全、命令面板完善、主题自定义、快捷键自定义、数据导入导出、自动更新 | 🔧 部分完成（数据管理+命令面板+主题选择器已实现，剩自动补全+快捷键自定义+自动更新） |
 
 详细进展和待办项见 `docs/PROGRESS.md`。PRD 见 `docs/PRD.md`。技术架构见 `docs/ARCHITECTURE.md`。
 
@@ -39,6 +39,7 @@ packages/client/src/
     services/sync-engine.ts  云同步引擎（push/pull/WebSocket 实时通知/自动周期同步）
     services/server-api.ts   主进程 HTTP 客户端（对接后端 REST API）
     services/server-url-service.ts  可配置服务器 URL 服务（SaaS/自托管双模式，读写 SQLite）
+    services/ssh-config-parser.ts  解析 ~/.ssh/config，将 Host 块转换为 STerminal 主机记录
   preload/index.ts         # contextBridge，暴露 ipc + platform
   renderer/                # Vue 渲染进程
     components/
@@ -84,6 +85,7 @@ packages/client/src/
       settings/AccountSettings.vue   账户设置（骨架，等云同步）
       settings/KeysSettings.vue      SSH 密钥管理（列表/生成/导入/部署）
       settings/VaultSettings.vue     Vault 密钥库（条目CRUD/密码生成/复制自动清除）
+      settings/DataSettings.vue      数据管理（OpenSSH config 导入/JSON 备份导出导入/清除本地数据/清除全部数据）
     styles/global.scss             全局主题变量 + 紧凑模式 CSS
     i18n/                          国际化（zh-CN/en/zh-TW，约 400 key/语言）
   shared/types/            # 前后端共享类型定义
@@ -260,6 +262,13 @@ xterm 实例的生命周期独立于 Vue 组件树，通过**模块级** `<scrip
 - 复制保护：复制密码到剪贴板后 30 秒自动清除剪贴板内容
 - 主机配置集成：`HostConfigDialog.vue` 的密码字段可从 Vault 条目选择自动填充
 - 同步：`vault_entries` 表纳入云同步范围，密码字段（`password_enc`）在 E2EE 加密后传输
+
+### 数据管理（ssh-config-parser.ts + DataSettings.vue）
+- OpenSSH config 导入：`ssh-config-parser.ts` 解析 `~/.ssh/config` 的 Host 块，映射 HostName/User/Port/IdentityFile 等字段到 STerminal Host 类型；`DataSettings.vue` 提供文件选择、解析预览、确认批量导入流程
+- STerminal JSON 导出：将主机（含分组）、命令片段、设置序列化为带时间戳的 JSON 文件，通过 `system:save-file` IPC 触发系统另存对话框
+- STerminal JSON 导入：从 JSON 备份文件恢复数据，支持合并（保留现有）或覆盖两种模式
+- 清除本地数据：通过 `db:clear-local-data` IPC 清空本地 SQLite 中的业务数据（主机/片段/设置等），保留登录态
+- 清除全部数据：清除本地数据后通过 `sync:clear-cloud-data` IPC 通知服务端删除该设备的同步数据
 
 ### 可配置服务器 URL
 - SaaS 模式（默认）与自托管双模式

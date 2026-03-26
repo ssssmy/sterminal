@@ -69,6 +69,7 @@
           <KnownHostsSettings v-else-if="activeSection === 'known-hosts'" />
           <KeysSettings v-else-if="activeSection === 'keys'" />
           <VaultSettings v-else-if="activeSection === 'vault'" />
+          <DataSettings v-else-if="activeSection === 'data'" />
           <div v-else class="settings-layout__placeholder">
             <el-empty :description="t('settings.underDevelopment')" />
           </div>
@@ -92,6 +93,7 @@ import LogSettings from './LogSettings.vue'
 import KnownHostsSettings from './KnownHostsSettings.vue'
 import KeysSettings from './KeysSettings.vue'
 import VaultSettings from './VaultSettings.vue'
+import DataSettings from './DataSettings.vue'
 
 const router = useRouter()
 const { t } = useI18n()

@@ -1727,7 +1727,7 @@ onBeforeUnmount(() => {
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -1819,7 +1819,7 @@ onBeforeUnmount(() => {
     background: transparent;
     color: var(--text-tertiary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -1851,7 +1851,7 @@ onBeforeUnmount(() => {
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 500;
-    transition: background-color 0.15s, box-shadow 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), box-shadow var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -1866,7 +1866,7 @@ onBeforeUnmount(() => {
   &__arrow {
     color: var(--text-tertiary);
     flex-shrink: 0;
-    transition: transform 0.15s;
+    transition: transform var(--st-duration-fast) var(--st-easing-spring);
 
     &--expanded {
       transform: rotate(90deg);
@@ -1918,7 +1918,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
     position: relative;
 
     &--root {
@@ -1954,7 +1954,7 @@ onBeforeUnmount(() => {
     color: var(--text-tertiary);
     text-align: center;
     border: 1px dashed var(--divider);
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), border-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &--active {
       border-color: var(--accent);
@@ -1972,7 +1972,7 @@ onBeforeUnmount(() => {
     &--connected {
       background-color: var(--success);
       box-shadow: 0 0 4px var(--success);
-      animation: pulse-dot 2s ease-in-out infinite;
+      animation: st-pulse 2s ease-in-out infinite;
     }
 
     &--idle {
@@ -2019,7 +2019,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
     position: relative;
 
     &--root {
@@ -2076,7 +2076,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
     position: relative;
 
     &--root {
@@ -2143,7 +2143,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -2168,7 +2168,7 @@ onBeforeUnmount(() => {
 
     &--starting {
       background-color: #eab308;
-      animation: pulse-dot 1s ease-in-out infinite;
+      animation: st-pulse 1s ease-in-out infinite;
     }
   }
 
@@ -2218,7 +2218,7 @@ onBeforeUnmount(() => {
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth), opacity var(--st-duration-fast) var(--st-easing-smooth);
 
     .app-sidebar__pf-item:hover & {
       opacity: 1;
@@ -2252,7 +2252,7 @@ onBeforeUnmount(() => {
     cursor: pointer;
     color: var(--text-secondary);
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -2275,7 +2275,7 @@ onBeforeUnmount(() => {
   &__collapse-arrow {
     color: var(--text-tertiary);
     flex-shrink: 0;
-    transition: transform 0.15s;
+    transition: transform var(--st-duration-fast) var(--st-easing-spring);
 
     &--open {
       transform: rotate(90deg);
@@ -2290,11 +2290,6 @@ onBeforeUnmount(() => {
     text-align: center;
   }
 
-  // ===== 脉冲动画 =====
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
 
   // ===== 宽度拖拽手柄 =====
   &__resize-handle {

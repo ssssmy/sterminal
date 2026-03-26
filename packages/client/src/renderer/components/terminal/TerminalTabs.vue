@@ -204,7 +204,7 @@ onMounted(() => {
     cursor: pointer;
     flex-shrink: 0;
     z-index: 1;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -246,7 +246,7 @@ onMounted(() => {
     border-right: 1px solid var(--divider);
     color: var(--text-secondary);
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
     flex-shrink: 0;
     position: relative;
     user-select: none;
@@ -305,12 +305,7 @@ onMounted(() => {
     border-radius: 50%;
     background-color: var(--error, #ef4444);
     flex-shrink: 0;
-    animation: rec-blink 1.2s ease-in-out infinite;
-
-    @keyframes rec-blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
+    animation: st-blink 1.2s ease-in-out infinite;
   }
 
   &__pin {
@@ -331,7 +326,7 @@ onMounted(() => {
     cursor: pointer;
     opacity: 0;
     flex-shrink: 0;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -352,7 +347,7 @@ onMounted(() => {
     color: var(--text-secondary);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);

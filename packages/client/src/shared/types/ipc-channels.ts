@@ -12,6 +12,7 @@ export const IPC_SSH = {
   ERROR: 'ssh:error',
   HOST_VERIFY: 'ssh:host-verify',
   OS_DETECTED: 'ssh:os-detected',
+  HEALTH: 'ssh:health',
 } as const
 
 // ===== PTY 本地终端 =====

@@ -144,6 +144,11 @@ html.dark {
 
 // ===== 组件级微调 =====
 
+// 对话框遮罩层淡入淡出
+.el-overlay {
+  transition: opacity var(--st-duration-normal) var(--st-easing-smooth);
+}
+
 // 对话框 → 更精致的圆角和分割线
 .el-dialog {
   --el-dialog-border-radius: 12px;

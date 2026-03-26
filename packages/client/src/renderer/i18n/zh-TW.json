@@ -746,7 +746,21 @@
     "clearDataConfirmTitle": "清除所有資料",
     "clearDataConfirmMsg": "此操作將永久刪除所有資料（設定保留），無法撤銷。確定繼續？",
     "clearDataSuccess": "資料已清除",
-    "sshConfigNotFound": "未找到 ~/.ssh/config 檔案"
+    "clearDataFailed": "清除失敗",
+    "clearDataConfirmBtn": "確認清除",
+    "sshConfigNotFound": "未找到 ~/.ssh/config 檔案",
+    "importSshLabel": "OpenSSH Config",
+    "importSshDesc": "自動讀取 ~/.ssh/config 檔案中的主機設定",
+    "importSshBtn": "匯入",
+    "importJsonLabel": "STerminal 備份檔案",
+    "importJsonDesc": "從 .json 備份檔案還原資料",
+    "importJsonBtn": "選擇檔案",
+    "exportLabel": "匯出所有資料",
+    "exportDesc": "匯出主機、金鑰、指令片段、密碼庫等所有資料為 JSON 檔案",
+    "exportIncludeSensitive": "包含敏感資料（密碼、私鑰）",
+    "exportBtn": "匯出",
+    "clearDataLabel": "清除所有資料",
+    "clearDataBtn": "清除"
   },
   "sftp": {
     "local": "本地",

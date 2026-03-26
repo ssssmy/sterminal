@@ -82,9 +82,34 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useIpc } from '../../composables/useIpc'
 import { IPC_SYSTEM } from '../../../shared/types/ipc-channels'
+import { useHostsStore } from '../../stores/hosts.store'
+import { useTerminalsStore } from '../../stores/terminals.store'
+import { useSnippetsStore } from '../../stores/snippets.store'
+import { usePortForwardsStore } from '../../stores/port-forwards.store'
+import { useKeysStore } from '../../stores/keys.store'
+import { useVaultStore } from '../../stores/vault.store'
 
 const { t } = useI18n()
 const { invoke } = useIpc()
+const hostsStore = useHostsStore()
+const terminalsStore = useTerminalsStore()
+const snippetsStore = useSnippetsStore()
+const portForwardsStore = usePortForwardsStore()
+const keysStore = useKeysStore()
+const vaultStore = useVaultStore()
+
+function reloadAllStores(): void {
+  hostsStore.fetchHosts()
+  hostsStore.fetchGroups()
+  hostsStore.fetchTags()
+  terminalsStore.fetchTerminals()
+  terminalsStore.fetchGroups()
+  snippetsStore.fetchSnippets()
+  snippetsStore.fetchGroups()
+  portForwardsStore.fetchRules()
+  keysStore.fetchKeys()
+  vaultStore.fetchEntries()
+}
 
 // ===== 导入 SSH Config =====
 
@@ -97,6 +122,7 @@ async function handleImportSshConfig(): Promise<void> {
       IPC_SYSTEM.IMPORT_HOSTS,
       { type: 'ssh_config' }
     )
+    reloadAllStores()
     ElMessage.success(
       t('dataSettings.importSshSuccess', { imported: result.imported, skipped: result.skipped })
     )
@@ -130,6 +156,7 @@ async function onFileSelected(event: Event): Promise<void> {
       IPC_SYSTEM.IMPORT_HOSTS,
       { type: 'sterminal_json', content }
     )
+    reloadAllStores()
     ElMessage.success(
       t('dataSettings.importJsonSuccess', { imported: result.imported })
     )
@@ -190,6 +217,7 @@ async function handleClearData(): Promise<void> {
   clearingData.value = true
   try {
     await invoke(IPC_SYSTEM.BACKUP, { keepSettings: true })
+    reloadAllStores()
     ElMessage.success(t('dataSettings.clearDataSuccess'))
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : t('dataSettings.clearDataFailed'))

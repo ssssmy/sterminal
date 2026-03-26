@@ -65,11 +65,20 @@
 
       <div class="settings-row">
         <div class="settings-row__info">
-          <label class="settings-row__label">{{ t('dataSettings.clearDataLabel') }}</label>
-          <span class="settings-row__desc">{{ t('dataSettings.clearDataDesc') }}</span>
+          <label class="settings-row__label">{{ t('dataSettings.clearLocalLabel') }}</label>
+          <span class="settings-row__desc">{{ t('dataSettings.clearLocalDesc') }}</span>
         </div>
-        <el-button type="danger" :loading="clearingData" @click="handleClearData">
+        <el-button type="danger" :loading="clearingData" @click="handleClearData('local')">
           {{ t('dataSettings.clearDataBtn') }}
+        </el-button>
+      </div>
+      <div v-if="authStore.isLoggedIn" class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('dataSettings.clearAllLabel') }}</label>
+          <span class="settings-row__desc">{{ t('dataSettings.clearAllDesc') }}</span>
+        </div>
+        <el-button type="danger" :loading="clearingAll" @click="handleClearData('all')">
+          {{ t('dataSettings.clearAllBtn') }}
         </el-button>
       </div>
     </div>
@@ -88,6 +97,8 @@ import { useSnippetsStore } from '../../stores/snippets.store'
 import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import { useKeysStore } from '../../stores/keys.store'
 import { useVaultStore } from '../../stores/vault.store'
+import { useAuthStore } from '../../stores/auth.store'
+import { useSyncStore } from '../../stores/sync.store'
 
 const { t } = useI18n()
 const { invoke } = useIpc()
@@ -97,6 +108,8 @@ const snippetsStore = useSnippetsStore()
 const portForwardsStore = usePortForwardsStore()
 const keysStore = useKeysStore()
 const vaultStore = useVaultStore()
+const authStore = useAuthStore()
+const syncStore = useSyncStore()
 
 function reloadAllStores(): void {
   hostsStore.fetchHosts()
@@ -197,32 +210,43 @@ async function handleExport(): Promise<void> {
 // ===== 清除所有数据 =====
 
 const clearingData = ref(false)
+const clearingAll = ref(false)
 
-async function handleClearData(): Promise<void> {
-  try {
-    await ElMessageBox.confirm(
-      t('dataSettings.clearDataConfirmMsg'),
-      t('dataSettings.clearDataConfirmTitle'),
-      {
-        confirmButtonText: t('dataSettings.clearDataConfirmBtn'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-        confirmButtonClass: 'el-button--danger',
-      }
-    )
-  } catch {
-    return
-  }
+async function handleClearData(scope: 'local' | 'all'): Promise<void> {
+  const isAll = scope === 'all'
+  const msg = isAll ? t('dataSettings.clearAllConfirmMsg') : t('dataSettings.clearLocalConfirmMsg')
+  const title = isAll ? t('dataSettings.clearAllConfirmTitle') : t('dataSettings.clearLocalConfirmTitle')
 
-  clearingData.value = true
   try {
-    await invoke(IPC_SYSTEM.BACKUP, { keepSettings: true })
+    await ElMessageBox.confirm(msg, title, {
+      confirmButtonText: t('dataSettings.clearDataConfirmBtn'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger',
+    })
+  } catch { return }
+
+  if (isAll) clearingAll.value = true
+  else clearingData.value = true
+
+  try {
+    // 清除数据（syncDelete=true 时先记录到 sync_deletes 再清空）
+    await invoke(IPC_SYSTEM.BACKUP, { keepSettings: true, syncDelete: isAll })
+
+    // 推送删除到服务端
+    if (isAll && authStore.isLoggedIn) {
+      try {
+        await syncStore.syncNow()
+      } catch { /* 同步失败不阻塞 */ }
+    }
+
     reloadAllStores()
     ElMessage.success(t('dataSettings.clearDataSuccess'))
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : t('dataSettings.clearDataFailed'))
   } finally {
     clearingData.value = false
+    clearingAll.value = false
   }
 }
 </script>

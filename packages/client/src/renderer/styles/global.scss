@@ -1,8 +1,11 @@
 // 全局样式入口
 // 导入主题变量，并定义全局 reset 和基础样式
 
-// 导入 CSS 变量定义（主题 token）
+// 导入 CSS 变量定义（主题 token + 动效 token）
 @use './variables.scss';
+
+// 导入 transition 类约定 + 动画关键帧
+@use './transitions.scss';
 
 // xterm.js 样式
 @import '@xterm/xterm/css/xterm.css';

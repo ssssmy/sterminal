@@ -48,6 +48,8 @@ export function registerDbHandlers(): void {
   registerSftpBookmarksHandlers()
   registerKeysHandlers()
   registerVaultHandlers()
+  registerThemesHandlers()
+  registerKeybindingsHandlers()
 }
 
 // ===== 设置 =====
@@ -894,6 +896,82 @@ function registerVaultHandlers(): void {
   ipcMain.handle(IPC_DB.VAULT_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM vault_entries WHERE id = ?', [id])
     trackDelete('vault_entry', id)
+    return true
+  })
+}
+
+// ===== 自定义主题 =====
+
+function registerThemesHandlers(): void {
+  ipcMain.handle(IPC_DB.THEMES_LIST, () => {
+    return dbAll('SELECT * FROM custom_themes ORDER BY name ASC')
+  })
+
+  ipcMain.handle(IPC_DB.THEMES_CREATE, (_event, data: Record<string, unknown>) => {
+    const id = uuidv4()
+    dbRun(
+      `INSERT INTO custom_themes (id, name, type, foreground, background, cursor, selection, ansi_colors, sync_version, sync_updated_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`,
+      [
+        id,
+        data.name,
+        data.type,
+        data.foreground ?? null,
+        data.background ?? null,
+        data.cursor ?? null,
+        data.selection ?? null,
+        data.ansiColors != null ? JSON.stringify(data.ansiColors) : null,
+      ]
+    )
+    scheduleSyncAfterChange()
+    return dbGet('SELECT * FROM custom_themes WHERE id = ?', [id])
+  })
+
+  ipcMain.handle(IPC_DB.THEMES_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
+    const sets: string[] = []
+    const params: unknown[] = []
+    const fields: [string, string][] = [
+      ['name', 'name'],
+      ['type', 'type'],
+      ['foreground', 'foreground'],
+      ['background', 'background'],
+      ['cursor', 'cursor'],
+      ['selection', 'selection'],
+    ]
+    for (const [col, key] of fields) {
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+    }
+    if ('ansiColors' in data) {
+      sets.push('ansi_colors = ?')
+      params.push(data.ansiColors != null ? JSON.stringify(data.ansiColors) : null)
+    }
+    if (sets.length === 0) return true
+    sets.push("sync_version = sync_version + 1, sync_updated_at = datetime('now')")
+    params.push(id)
+    dbRun(`UPDATE custom_themes SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSyncAfterChange()
+    return true
+  })
+
+  ipcMain.handle(IPC_DB.THEMES_DELETE, (_event, id: string) => {
+    dbRun('DELETE FROM custom_themes WHERE id = ?', [id])
+    trackDelete('custom_themes', id)
+    return true
+  })
+}
+
+// ===== 快捷键绑定 =====
+
+function registerKeybindingsHandlers(): void {
+  ipcMain.handle(IPC_DB.KEYBINDINGS_LIST, () => {
+    return dbAll('SELECT * FROM keybindings ORDER BY action ASC')
+  })
+
+  ipcMain.handle(IPC_DB.KEYBINDINGS_SET, (_event, action: string, shortcut: string) => {
+    dbRun(
+      `INSERT OR REPLACE INTO keybindings (action, shortcut) VALUES (?, ?)`,
+      [action, shortcut]
+    )
     return true
   })
 }

@@ -1,0 +1,144 @@
+// STerminal Transition System
+// Vue <Transition> 类约定 + 通用动效工具类
+// 所有时长/缓动引用 CSS 自定义属性 token，prefers-reduced-motion 自动降级
+
+// ===== Fade =====
+.st-fade-enter-active,
+.st-fade-leave-active {
+  transition: opacity var(--st-duration-fast) var(--st-easing-smooth);
+}
+
+.st-fade-enter-from,
+.st-fade-leave-to {
+  opacity: 0;
+}
+
+// ===== Fade Slow（用于对话框背景遮罩等） =====
+.st-fade-slow-enter-active,
+.st-fade-slow-leave-active {
+  transition: opacity var(--st-duration-normal) var(--st-easing-smooth);
+}
+
+.st-fade-slow-enter-from,
+.st-fade-slow-leave-to {
+  opacity: 0;
+}
+
+// ===== Slide Down（用于侧边栏折叠区域） =====
+.st-slide-enter-active {
+  transition: max-height var(--st-duration-normal) var(--st-easing-smooth),
+              opacity var(--st-duration-normal) var(--st-easing-smooth);
+  overflow: hidden;
+}
+
+.st-slide-leave-active {
+  transition: max-height var(--st-duration-fast) var(--st-easing-smooth),
+              opacity var(--st-duration-fast) var(--st-easing-smooth);
+  overflow: hidden;
+}
+
+.st-slide-enter-from {
+  max-height: 0;
+  opacity: 0;
+}
+
+.st-slide-enter-to {
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.st-slide-leave-from {
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.st-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+// ===== Scale（用于对话框、弹窗） =====
+.st-scale-enter-active,
+.st-scale-leave-active {
+  transition: transform var(--st-duration-normal) var(--st-easing-spring),
+              opacity var(--st-duration-normal) var(--st-easing-smooth);
+}
+
+.st-scale-enter-from {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.st-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+// ===== Slide Right（用于面板滑入） =====
+.st-slide-right-enter-active,
+.st-slide-right-leave-active {
+  transition: transform var(--st-duration-normal) var(--st-easing-smooth),
+              opacity var(--st-duration-normal) var(--st-easing-smooth);
+}
+
+.st-slide-right-enter-from {
+  transform: translateX(-12px);
+  opacity: 0;
+}
+
+.st-slide-right-leave-to {
+  transform: translateX(-12px);
+  opacity: 0;
+}
+
+// ===== 通用动画关键帧 =====
+
+// 脉冲（连接状态指示器）
+@keyframes st-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+// 旋转（加载指示器）
+@keyframes st-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// 抖动（错误反馈）
+@keyframes st-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+// 闪烁（录制指示器，覆盖现有 blink/rec-blink）
+@keyframes st-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+// 成功勾选 morph
+@keyframes st-check {
+  0% { stroke-dashoffset: 24; opacity: 0; }
+  50% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+// ===== 工具类 =====
+
+.st-animate-pulse {
+  animation: st-pulse 2s ease-in-out infinite;
+}
+
+.st-animate-spin {
+  animation: st-spin 1s linear infinite;
+}
+
+.st-animate-shake {
+  animation: st-shake 0.4s ease-in-out;
+}
+
+.st-animate-blink {
+  animation: st-blink 1.2s ease-in-out infinite;
+}

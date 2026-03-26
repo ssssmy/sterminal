@@ -161,10 +161,13 @@ export function registerSystemHandlers(): void {
 
   // ===== 清除数据 =====
   ipcMain.handle(IPC_SYSTEM.BACKUP, (_event, options?: { keepSettings?: boolean }) => {
+    // 先关闭外键约束，避免删除顺序问题
+    dbRun('PRAGMA foreign_keys = OFF')
     const tables = [
-      'hosts', 'host_groups', 'host_tags', 'tags',
+      'host_tags', 'snippet_tags',
+      'hosts', 'host_groups', 'tags',
       'local_terminals', 'local_terminal_groups',
-      'snippets', 'snippet_groups', 'snippet_tags',
+      'snippets', 'snippet_groups',
       'port_forwards', 'keys', 'vault_entries', 'vault_config',
       'known_hosts', 'custom_themes', 'keybindings', 'sftp_bookmarks',
       'quick_connect_history', 'command_history', 'session_logs',
@@ -174,6 +177,7 @@ export function registerSystemHandlers(): void {
     for (const table of tables) {
       try { dbRun(`DELETE FROM ${table}`) } catch { /* table may not exist */ }
     }
+    dbRun('PRAGMA foreign_keys = ON')
     return true
   })
 }

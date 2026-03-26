@@ -160,8 +160,39 @@ export function registerSystemHandlers(): void {
   })
 
   // ===== 清除数据 =====
-  ipcMain.handle(IPC_SYSTEM.BACKUP, (_event, options?: { keepSettings?: boolean }) => {
-    // 先关闭外键约束，避免删除顺序问题
+  ipcMain.handle(IPC_SYSTEM.BACKUP, (_event, options?: { keepSettings?: boolean; syncDelete?: boolean }) => {
+    // 需要同步删除的表（记录到 sync_deletes 让服务端也删除）
+    const syncableTables: Array<{ table: string; entityType: string }> = [
+      { table: 'hosts', entityType: 'host' },
+      { table: 'host_groups', entityType: 'host_group' },
+      { table: 'local_terminals', entityType: 'local_terminal' },
+      { table: 'local_terminal_groups', entityType: 'local_terminal_group' },
+      { table: 'snippets', entityType: 'snippet' },
+      { table: 'snippet_groups', entityType: 'snippet_group' },
+      { table: 'port_forwards', entityType: 'port_forward' },
+      { table: 'tags', entityType: 'tag' },
+      { table: 'keys', entityType: 'key' },
+      { table: 'vault_entries', entityType: 'vault_entry' },
+      { table: 'custom_themes', entityType: 'custom_theme' },
+      { table: 'sftp_bookmarks', entityType: 'sftp_bookmark' },
+    ]
+
+    // 记录删除到 sync_deletes（让服务端同步删除）
+    if (options?.syncDelete) {
+      for (const { table, entityType } of syncableTables) {
+        try {
+          const rows = dbAll<{ id: string }>(`SELECT id FROM ${table}`)
+          for (const row of rows) {
+            dbRun(
+              `INSERT OR REPLACE INTO sync_deletes (entity_type, entity_id, deleted_at, synced) VALUES (?, ?, datetime('now'), 0)`,
+              [entityType, row.id]
+            )
+          }
+        } catch { /* table may not exist */ }
+      }
+    }
+
+    // 关闭外键约束，清空表
     dbRun('PRAGMA foreign_keys = OFF')
     const tables = [
       'host_tags', 'snippet_tags',
@@ -171,7 +202,6 @@ export function registerSystemHandlers(): void {
       'port_forwards', 'keys', 'vault_entries', 'vault_config',
       'known_hosts', 'custom_themes', 'keybindings', 'sftp_bookmarks',
       'quick_connect_history', 'command_history', 'session_logs',
-      'sync_deletes', 'sync_meta',
     ]
     if (!options?.keepSettings) tables.push('settings')
     for (const table of tables) {

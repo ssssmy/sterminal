@@ -746,7 +746,21 @@
     "clearDataConfirmTitle": "Clear All Data",
     "clearDataConfirmMsg": "This will permanently delete all data (settings preserved). This cannot be undone. Continue?",
     "clearDataSuccess": "Data cleared",
-    "sshConfigNotFound": "~/.ssh/config file not found"
+    "clearDataFailed": "Clear failed",
+    "clearDataConfirmBtn": "Confirm Clear",
+    "sshConfigNotFound": "~/.ssh/config file not found",
+    "importSshLabel": "OpenSSH Config",
+    "importSshDesc": "Automatically read host configurations from ~/.ssh/config",
+    "importSshBtn": "Import",
+    "importJsonLabel": "STerminal Backup File",
+    "importJsonDesc": "Restore data from a .json backup file",
+    "importJsonBtn": "Choose File",
+    "exportLabel": "Export All Data",
+    "exportDesc": "Export hosts, keys, snippets, vault entries and all data as JSON",
+    "exportIncludeSensitive": "Include sensitive data (passwords, private keys)",
+    "exportBtn": "Export",
+    "clearDataLabel": "Clear All Data",
+    "clearDataBtn": "Clear"
   },
   "sftp": {
     "local": "Local",

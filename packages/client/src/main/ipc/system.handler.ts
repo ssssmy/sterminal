@@ -45,10 +45,12 @@ export function registerSystemHandlers(): void {
       // 自动读取或使用传入内容
       let content = params.content
       if (!content) {
-        const homeDir = app.getPath('home')
-        const configPath = path.join(homeDir, '.ssh', 'config')
-        if (!fs.existsSync(configPath)) throw new Error('~/.ssh/config not found')
-        content = fs.readFileSync(configPath, 'utf-8')
+        const configPath = path.join(app.getPath('home'), '.ssh', 'config')
+        try {
+          content = fs.readFileSync(configPath, 'utf-8')
+        } catch {
+          throw new Error('~/.ssh/config not found')
+        }
       }
       const parsed = parseSshConfig(content)
       let imported = 0

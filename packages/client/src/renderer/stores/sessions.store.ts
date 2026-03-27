@@ -186,11 +186,47 @@ export const useSessionsStore = defineStore('sessions', () => {
   }
 
   /**
-   * 固定/取消固定标签页
+   * 固定/取消固定标签页（固定后自动移到最前面，取消固定移到固定区域后面）
    */
   function togglePinTab(tabId: string): void {
     const tab = tabs.value.find(t => t.id === tabId)
-    if (tab) tab.pinned = !tab.pinned
+    if (!tab) return
+    const idx = tabs.value.indexOf(tab)
+    tab.pinned = !tab.pinned
+    // 重新排位：固定的放最前
+    tabs.value.splice(idx, 1)
+    if (tab.pinned) {
+      // 插到最后一个固定标签后面
+      const lastPinIdx = tabs.value.reduce((acc, t, i) => t.pinned ? i : acc, -1)
+      tabs.value.splice(lastPinIdx + 1, 0, tab)
+    } else {
+      // 取消固定：放到第一个非固定标签前面
+      const firstUnpinnedIdx = tabs.value.findIndex(t => !t.pinned)
+      tabs.value.splice(firstUnpinnedIdx === -1 ? tabs.value.length : firstUnpinnedIdx, 0, tab)
+    }
+  }
+
+  /**
+   * 移动标签页到新位置（拖拽排序用）
+   * 约束：固定标签只能在固定区域内移动，非固定标签只能在非固定区域内移动
+   */
+  function moveTab(fromIndex: number, toIndex: number): void {
+    if (fromIndex === toIndex) return
+    if (fromIndex < 0 || fromIndex >= tabs.value.length) return
+    if (toIndex < 0 || toIndex >= tabs.value.length) return
+    const tab = tabs.value[fromIndex]
+    // 计算固定/非固定边界
+    const pinnedCount = tabs.value.filter(t => t.pinned).length
+    if (tab.pinned) {
+      // 固定标签只能在 [0, pinnedCount-1] 范围内移动
+      toIndex = Math.min(toIndex, pinnedCount - 1)
+    } else {
+      // 非固定标签只能在 [pinnedCount, length-1] 范围内移动
+      toIndex = Math.max(toIndex, pinnedCount)
+    }
+    if (fromIndex === toIndex) return
+    tabs.value.splice(fromIndex, 1)
+    tabs.value.splice(toIndex, 0, tab)
   }
 
   /**
@@ -376,6 +412,7 @@ export const useSessionsStore = defineStore('sessions', () => {
     renameTab,
     splitPane,
     togglePinTab,
+    moveTab,
     duplicateTab,
     restartTab,
     getActiveTabTerminalIds,

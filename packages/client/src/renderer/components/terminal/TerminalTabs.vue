@@ -18,14 +18,24 @@
       @wheel.prevent="handleWheel"
     >
       <div
-        v-for="tab in sessionsStore.tabs"
+        v-for="(tab, tabIndex) in sessionsStore.tabs"
         :key="tab.id"
         class="terminal-tabs__tab"
-        :class="{ 'terminal-tabs__tab--active': sessionsStore.activeTabId === tab.id }"
+        :class="{
+          'terminal-tabs__tab--active': sessionsStore.activeTabId === tab.id,
+          'terminal-tabs__tab--drag-over': dragOverTabId === tab.id,
+          'terminal-tabs__tab--dragging': draggingTabId === tab.id,
+        }"
         :title="tab.label"
+        :draggable="renamingTabId !== tab.id"
         @click="sessionsStore.switchTab(tab.id)"
         @dblclick="startRename(tab.id, tab.label)"
         @contextmenu.prevent="openContextMenu($event, tab)"
+        @dragstart="onDragStart($event, tab.id, tabIndex)"
+        @dragover.prevent="onDragOver(tab.id)"
+        @dragleave="onDragLeave(tab.id)"
+        @drop.prevent="onDrop(tabIndex)"
+        @dragend="onDragEnd"
       >
         <!-- 类型图标：SSH 用连接图标，本地用终端图标 -->
         <el-icon :size="13" class="terminal-tabs__type-icon">
@@ -218,6 +228,47 @@ onMounted(() => {
   nextTick(checkScrollState)
 })
 
+// ===== 拖拽排序 =====
+const draggingTabId = ref<string | null>(null)
+const dragFromIndex = ref(-1)
+const dragOverTabId = ref<string | null>(null)
+
+function onDragStart(e: DragEvent, tabId: string, index: number): void {
+  draggingTabId.value = tabId
+  dragFromIndex.value = index
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', tabId)
+  }
+}
+
+function onDragOver(tabId: string): void {
+  if (tabId !== draggingTabId.value) {
+    dragOverTabId.value = tabId
+  }
+}
+
+function onDragLeave(tabId: string): void {
+  if (dragOverTabId.value === tabId) {
+    dragOverTabId.value = null
+  }
+}
+
+function onDrop(toIndex: number): void {
+  if (dragFromIndex.value >= 0 && dragFromIndex.value !== toIndex) {
+    sessionsStore.moveTab(dragFromIndex.value, toIndex)
+  }
+  dragOverTabId.value = null
+  draggingTabId.value = null
+  dragFromIndex.value = -1
+}
+
+function onDragEnd(): void {
+  dragOverTabId.value = null
+  draggingTabId.value = null
+  dragFromIndex.value = -1
+}
+
 // ===== 右键上下文菜单 =====
 const ctxMenu = reactive({
   visible: false,
@@ -351,6 +402,14 @@ function handleCtx(action: 'restart' | 'duplicate' | 'pin' | 'close' | 'closeRig
       .terminal-tabs__close {
         opacity: 1;
       }
+    }
+
+    &--dragging {
+      opacity: 0.4;
+    }
+
+    &--drag-over {
+      border-left: 2px solid var(--accent);
     }
   }
 

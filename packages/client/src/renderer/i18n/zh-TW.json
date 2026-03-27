@@ -405,7 +405,13 @@
     "emptyHint2": "或從左側選擇主機連線"
   },
   "terminalTabs": {
-    "recording": "錄製中"
+    "recording": "錄製中",
+    "ctxRestart": "重啟",
+    "ctxDuplicate": "複製",
+    "ctxPin": "釘選",
+    "ctxUnpin": "取消釘選",
+    "ctxClose": "關閉",
+    "ctxCloseRight": "關閉右側所有"
   },
   "searchBar": {
     "placeholder": "搜尋...",

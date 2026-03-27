@@ -309,6 +309,56 @@ export const useSessionsStore = defineStore('sessions', () => {
     return collectTerminalIds(tab.root)
   }
 
+  /**
+   * 关闭目标标签右侧所有（非固定）标签
+   */
+  function closeTabsToRight(tabId: string): void {
+    const idx = tabs.value.findIndex(t => t.id === tabId)
+    if (idx === -1) return
+    const toClose = tabs.value.slice(idx + 1).filter(t => !t.pinned).map(t => t.id)
+    toClose.forEach(id => closeTab(id))
+  }
+
+  /**
+   * 复制标签页（创建同类型同配置的新标签）
+   */
+  function duplicateTab(tabId: string): TabSession | null {
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (!tab) return null
+    // 获取根终端的配置信息
+    const rootTerminalId = tab.root.type === 'terminal' ? tab.root.terminalId : null
+    if (!rootTerminalId) return null
+    const inst = terminalInstances.value.get(rootTerminalId)
+    if (!inst) return null
+    return createTab(tab.label + ' (copy)', inst.type, inst.type === 'local' ? inst.localConfigId : inst.hostId)
+  }
+
+  /**
+   * 重启标签页（关闭当前 → 创建同配置新标签 → 保持位置）
+   */
+  function restartTab(tabId: string): void {
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (!tab) return
+    const idx = tabs.value.indexOf(tab)
+    const rootTerminalId = tab.root.type === 'terminal' ? tab.root.terminalId : null
+    if (!rootTerminalId) return
+    const inst = terminalInstances.value.get(rootTerminalId)
+    if (!inst) return
+    const { type, localConfigId, hostId } = inst
+    const label = tab.label
+    // 关闭旧标签
+    closeTab(tabId)
+    // 创建新标签（会追加到末尾）
+    const newTab = createTab(label, type, type === 'local' ? localConfigId : hostId)
+    // 移动到原来的位置
+    const newIdx = tabs.value.indexOf(newTab)
+    if (newIdx !== -1 && newIdx !== idx) {
+      tabs.value.splice(newIdx, 1)
+      tabs.value.splice(Math.min(idx, tabs.value.length), 0, newTab)
+    }
+    activeTabId.value = newTab.id
+  }
+
   return {
     tabs,
     activeTabId,
@@ -320,11 +370,14 @@ export const useSessionsStore = defineStore('sessions', () => {
     createSftpTab,
     closeTab,
     closeTabsByHostId,
+    closeTabsToRight,
     closeSplitPane,
     switchTab,
     renameTab,
     splitPane,
     togglePinTab,
+    duplicateTab,
+    restartTab,
     getActiveTabTerminalIds,
   }
 })

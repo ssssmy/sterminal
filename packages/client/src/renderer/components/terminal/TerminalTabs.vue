@@ -25,6 +25,7 @@
         :title="tab.label"
         @click="sessionsStore.switchTab(tab.id)"
         @dblclick="startRename(tab.id, tab.label)"
+        @contextmenu.prevent="openContextMenu($event, tab)"
       >
         <!-- 类型图标：SSH 用连接图标，本地用终端图标 -->
         <el-icon :size="13" class="terminal-tabs__type-icon">
@@ -77,12 +78,50 @@
     <button class="terminal-tabs__new-btn" @click="sessionsStore.createTab()">
       <el-icon :size="14"><Plus /></el-icon>
     </button>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="ctxMenu.visible"
+        class="terminal-tabs__ctx-backdrop"
+        @click="closeContextMenu"
+        @contextmenu.prevent="closeContextMenu"
+      />
+      <div
+        v-if="ctxMenu.visible"
+        class="terminal-tabs__ctx-menu"
+        :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
+      >
+        <div class="terminal-tabs__ctx-item" @click="handleCtx('restart')">
+          <el-icon :size="14"><RefreshRight /></el-icon>
+          {{ t('terminalTabs.ctxRestart') }}
+        </div>
+        <div class="terminal-tabs__ctx-item" @click="handleCtx('duplicate')">
+          <el-icon :size="14"><CopyDocument /></el-icon>
+          {{ t('terminalTabs.ctxDuplicate') }}
+        </div>
+        <div class="terminal-tabs__ctx-divider" />
+        <div class="terminal-tabs__ctx-item" @click="handleCtx('pin')">
+          <el-icon :size="14"><Star /></el-icon>
+          {{ ctxMenu.tab?.pinned ? t('terminalTabs.ctxUnpin') : t('terminalTabs.ctxPin') }}
+        </div>
+        <div class="terminal-tabs__ctx-divider" />
+        <div class="terminal-tabs__ctx-item" @click="handleCtx('close')">
+          <el-icon :size="14"><Close /></el-icon>
+          {{ t('terminalTabs.ctxClose') }}
+        </div>
+        <div class="terminal-tabs__ctx-item" @click="handleCtx('closeRight')">
+          <el-icon :size="14"><Right /></el-icon>
+          {{ t('terminalTabs.ctxCloseRight') }}
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, watch, type Component } from 'vue'
-import { Star, Close, Plus, ArrowLeft, ArrowRight, Monitor, Connection, FolderOpened } from '@element-plus/icons-vue'
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, watch, type Component } from 'vue'
+import { Star, Close, Plus, ArrowLeft, ArrowRight, Monitor, Connection, FolderOpened, RefreshRight, CopyDocument, Right } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import type { TabSession } from '@shared/types/terminal'
@@ -178,6 +217,49 @@ watch(
 onMounted(() => {
   nextTick(checkScrollState)
 })
+
+// ===== 右键上下文菜单 =====
+const ctxMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  tab: null as TabSession | null,
+})
+
+function openContextMenu(e: MouseEvent, tab: TabSession): void {
+  ctxMenu.visible = true
+  ctxMenu.x = e.clientX
+  ctxMenu.y = e.clientY
+  ctxMenu.tab = tab
+}
+
+function closeContextMenu(): void {
+  ctxMenu.visible = false
+  ctxMenu.tab = null
+}
+
+function handleCtx(action: 'restart' | 'duplicate' | 'pin' | 'close' | 'closeRight'): void {
+  const tab = ctxMenu.tab
+  if (!tab) return
+  closeContextMenu()
+  switch (action) {
+    case 'restart':
+      sessionsStore.restartTab(tab.id)
+      break
+    case 'duplicate':
+      sessionsStore.duplicateTab(tab.id)
+      break
+    case 'pin':
+      sessionsStore.togglePinTab(tab.id)
+      break
+    case 'close':
+      sessionsStore.closeTab(tab.id)
+      break
+    case 'closeRight':
+      sessionsStore.closeTabsToRight(tab.id)
+      break
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -354,5 +436,51 @@ onMounted(() => {
       color: var(--text-primary);
     }
   }
+}
+
+// ===== 右键菜单（Teleport to body，不用 scoped） =====
+</style>
+
+<style lang="scss">
+.terminal-tabs__ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.terminal-tabs__ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  background: var(--bg-surface, #232438);
+  border: 1px solid var(--border, #2e3048);
+  border-radius: 6px;
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+}
+
+.terminal-tabs__ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  color: var(--text-primary, #e4e4e8);
+  cursor: pointer;
+  transition: background-color 0.1s;
+
+  &:hover {
+    background-color: var(--bg-hover, #2a2b40);
+  }
+
+  .el-icon {
+    color: var(--text-secondary, #8b8d9e);
+  }
+}
+
+.terminal-tabs__ctx-divider {
+  height: 1px;
+  background: var(--divider, #262840);
+  margin: 4px 8px;
 }
 </style>

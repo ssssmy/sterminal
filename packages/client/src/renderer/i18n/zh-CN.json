@@ -405,7 +405,13 @@
     "emptyHint2": "或从左侧选择主机连接"
   },
   "terminalTabs": {
-    "recording": "录制中"
+    "recording": "录制中",
+    "ctxRestart": "重启",
+    "ctxDuplicate": "复制",
+    "ctxPin": "固定",
+    "ctxUnpin": "取消固定",
+    "ctxClose": "关闭",
+    "ctxCloseRight": "关闭右侧所有"
   },
   "searchBar": {
     "placeholder": "搜索...",

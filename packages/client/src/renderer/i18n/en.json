@@ -405,7 +405,13 @@
     "emptyHint2": "Or select a host from the sidebar"
   },
   "terminalTabs": {
-    "recording": "Recording"
+    "recording": "Recording",
+    "ctxRestart": "Restart",
+    "ctxDuplicate": "Duplicate",
+    "ctxPin": "Pin",
+    "ctxUnpin": "Unpin",
+    "ctxClose": "Close",
+    "ctxCloseRight": "Close tabs to the right"
   },
   "searchBar": {
     "placeholder": "Search...",

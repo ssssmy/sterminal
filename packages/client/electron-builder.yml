@@ -63,12 +63,9 @@ win:
     - target: nsis
       arch:
         - x64
-    - target: portable
+    - target: zip
       arch:
         - x64
-
-portable:
-  artifactName: ${productName}-${version}-portable.${ext}
 
 nsis:
   oneClick: false

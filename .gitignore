@@ -49,3 +49,8 @@ tmp/
 
 # ReCode local database
 .recode
+.gstack/
+
+# E2E test artifacts
+packages/client/e2e-report/
+packages/client/test-results/

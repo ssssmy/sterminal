@@ -189,6 +189,10 @@
       "command-palette-alt": "命令面板 (備用)",
       "terminal-search": "終端搜尋"
     },
+    "terminalTheme": "終端主題",
+    "terminalThemeDesc": "選擇終端顏色配色方案",
+    "accentColor": "強調色",
+    "accentColorDesc": "自訂介面強調色",
     "exportTerminalTheme": "匯出終端主題",
     "exportTerminalThemeDesc": "將目前終端主題匯出為 JSON 檔案",
     "exportTerminalThemeBtn": "匯出目前終端主題",
@@ -392,7 +396,8 @@
     "stopRecording": "停止錄製",
     "openLogDir": "開啟錄製資料夾",
     "terminalSearch": "終端內搜尋 (Ctrl+F)",
-    "fullscreen": "全螢幕"
+    "fullscreen": "全螢幕",
+    "commandPalette": "命令面板 (Ctrl+P)"
   },
   "workspace": {
     "emptyHint1": "按 Ctrl+T 新建本機終端",

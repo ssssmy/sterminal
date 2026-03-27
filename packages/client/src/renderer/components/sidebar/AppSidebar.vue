@@ -70,6 +70,7 @@
         </div>
 
         <!-- 主机分组树 -->
+        <Transition name="st-slide">
         <div
           v-show="!collapsedSections.has('hosts')"
           class="app-sidebar__host-tree"
@@ -247,6 +248,7 @@
             <span>{{ t('sidebar.emptyHosts') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- ===== 本地终端区域 ===== -->
@@ -271,6 +273,7 @@
         </div>
 
         <!-- 终端分组树 -->
+        <Transition name="st-slide">
         <div
           v-show="!collapsedSections.has('terminals')"
           class="app-sidebar__terminal-list"
@@ -404,6 +407,7 @@
             <span>{{ t('sidebar.emptyTerminals') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- ===== 功能折叠区 ===== -->
@@ -432,6 +436,7 @@
         </div>
 
         <!-- 片段列表 -->
+        <Transition name="st-slide">
         <div
           v-show="!collapsedSections.has('snippets')"
           class="app-sidebar__snippet-list"
@@ -569,6 +574,7 @@
             <span>{{ t('sidebar.emptySnippets') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- 端口转发 -->
@@ -590,6 +596,7 @@
         </div>
 
         <!-- 端口转发列表 -->
+        <Transition name="st-slide">
         <div
           v-show="!collapsedSections.has('portForwards')"
           class="app-sidebar__pf-list"
@@ -645,6 +652,7 @@
             <span>{{ t('sidebar.emptyPortForwards') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- 密钥库 -->

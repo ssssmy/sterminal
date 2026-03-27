@@ -189,6 +189,10 @@
       "command-palette-alt": "Command Palette (Alt)",
       "terminal-search": "Terminal Search"
     },
+    "terminalTheme": "Terminal Theme",
+    "terminalThemeDesc": "Select the terminal color scheme",
+    "accentColor": "Accent Color",
+    "accentColorDesc": "Customize the UI accent color",
     "exportTerminalTheme": "Export Terminal Theme",
     "exportTerminalThemeDesc": "Export the current terminal theme as a JSON file",
     "exportTerminalThemeBtn": "Export Current Terminal Theme",
@@ -392,7 +396,8 @@
     "stopRecording": "Stop Recording",
     "openLogDir": "Open Recording Folder",
     "terminalSearch": "Search in Terminal (Ctrl+F)",
-    "fullscreen": "Fullscreen"
+    "fullscreen": "Fullscreen",
+    "commandPalette": "Command Palette (Ctrl+P)"
   },
   "workspace": {
     "emptyHint1": "Press Ctrl+T to open a local terminal",

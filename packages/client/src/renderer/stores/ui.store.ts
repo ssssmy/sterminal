@@ -3,6 +3,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { useSettingsStore } from './settings.store'
+import { useThemesStore } from './themes.store'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
 import type { Snippet } from '@shared/types/snippet'
 
@@ -48,6 +49,13 @@ export const useUiStore = defineStore('ui', () => {
         : { color: '#f0f1f3', symbolColor: '#374151' }
       window.electronAPI.ipc.invoke(IPC_WINDOW.SET_TITLE_BAR_OVERLAY, overlay)
     }
+
+    // 应用自定义 CSS 覆盖（强调色等），与主题同步注入，避免 FOUC
+    const themesStore = useThemesStore()
+    const settingsStore = useSettingsStore()
+    themesStore.applyCustomCssOverrides({
+      '--accent': settingsStore.settings.get('app.accentColor') as string || '#6366f1',
+    })
   }
 
   /**

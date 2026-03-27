@@ -17,7 +17,8 @@ import { useUiStore } from '@/stores/ui.store'
 import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { findThemePreset } from '@shared/constants/terminal-themes'
-import { nextTick } from 'vue'
+import { nextTick, watch } from 'vue'
+import { keybindingService } from '@/services/keybinding.service'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
 const _ipc = window.electronAPI?.ipc
@@ -242,6 +243,47 @@ function registerSystemThemeListener(): void {
   })
 }
 
+// 监听 app 主题 & 终端主题设置变化（模块级，只注册一次）
+let _themeWatcherRegistered = false
+const _terminalThemeSettingKeys = [
+  'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
+  'terminal.fontLigatures', 'terminal.cursorStyle', 'terminal.cursorBlink',
+  'terminal.scrollback', 'terminal.scrollSensitivity',
+  'terminal.theme',
+]
+function registerThemeWatcher(): void {
+  if (_themeWatcherRegistered) return
+  _themeWatcherRegistered = true
+  const uiStore = useUiStore()
+  const settingsStore = useSettingsStoreModule()
+  // 监听 app 主题变化（light/dark/system 切换）
+  watch(
+    () => uiStore.theme,
+    () => {
+      nextTick(() => {
+        const theme = getXtermTheme()
+        for (const pooled of terminalPool.values()) {
+          pooled.terminal.options.theme = theme
+        }
+      })
+    },
+  )
+  // 监听终端设置变化（字体、光标、主题等），实时更新所有终端
+  watch(
+    () => _terminalThemeSettingKeys.map(k => settingsStore.settings.get(k)),
+    () => {
+      const opts = buildXtermOptionsFromSettings()
+      const theme = getXtermTheme()
+      for (const pooled of terminalPool.values()) {
+        Object.assign(pooled.terminal.options, opts)
+        pooled.terminal.options.theme = theme
+        pooled.fitAddon.fit()
+      }
+    },
+    { deep: true },
+  )
+}
+
 // 监听 SSH 健康探针数据（模块级，只注册一次）
 let _healthListenerRegistered = false
 function registerHealthListener(): void {
@@ -261,7 +303,7 @@ function registerHealthListener(): void {
 </script>
 
 <script setup lang="ts">
-import { defineComponent, h, ref, toRaw, watch, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, h, ref, toRaw, onMounted, onBeforeUnmount } from 'vue'
 import type { TabSession, SplitNode } from '@shared/types/terminal'
 import { useHostsStore } from '@/stores/hosts.store'
 import { useTerminalsStore } from '@/stores/terminals.store'
@@ -270,47 +312,12 @@ const props = defineProps<{
   tab: TabSession
 }>()
 
-// 监听主题变化，更新所有池中终端
-const uiStore = useUiStore()
 const sessionsStore = useSessionsStore()
-watch(
-  () => uiStore.theme,
-  () => {
-    nextTick(() => {
-      const theme = getXtermTheme()
-      for (const pooled of terminalPool.values()) {
-        pooled.terminal.options.theme = theme
-      }
-    })
-  },
-)
 
-// 注册系统主题监听（模块级，仅首次生效）
+// 注册模块级监听（每个 guard flag 保证只执行一次）
+registerThemeWatcher()
 registerSystemThemeListener()
-// 注册 SSH 健康探针监听（模块级，仅首次生效）
 registerHealthListener()
-
-// 监听终端设置变化，实时更新所有终端
-const settingsStore = useSettingsStoreModule()
-const terminalSettingKeys = [
-  'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
-  'terminal.fontLigatures', 'terminal.cursorStyle', 'terminal.cursorBlink',
-  'terminal.scrollback', 'terminal.scrollSensitivity',
-  'terminal.theme',
-]
-watch(
-  () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
-  () => {
-    const opts = buildXtermOptionsFromSettings()
-    const theme = getXtermTheme()
-    for (const pooled of terminalPool.values()) {
-      Object.assign(pooled.terminal.options, opts)
-      pooled.terminal.options.theme = theme
-      pooled.fitAddon.fit()
-    }
-  },
-  { deep: true },
-)
 
 // ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
@@ -393,6 +400,10 @@ const TerminalXterm = defineComponent({
 
       // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
       terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        // 优先检查 app 级快捷键绑定
+        if (e.type === 'keydown' && keybindingService.handleKeyEvent(e)) {
+          return false // 已被快捷键服务消费
+        }
         if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
           const s = useSettingsStoreModule().settings
           const trimNewlines = s.get('terminal.trimPasteNewlines') ?? DEFAULT_SETTINGS['terminal.trimPasteNewlines']

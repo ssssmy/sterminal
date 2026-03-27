@@ -189,6 +189,10 @@
       "command-palette-alt": "命令面板 (备用)",
       "terminal-search": "终端搜索"
     },
+    "terminalTheme": "终端主题",
+    "terminalThemeDesc": "选择终端颜色配色方案",
+    "accentColor": "强调色",
+    "accentColorDesc": "自定义界面强调色",
     "exportTerminalTheme": "导出终端主题",
     "exportTerminalThemeDesc": "将当前终端主题导出为 JSON 文件",
     "exportTerminalThemeBtn": "导出当前终端主题",
@@ -392,7 +396,8 @@
     "stopRecording": "停止录制",
     "openLogDir": "打开录制文件夹",
     "terminalSearch": "终端内搜索 (Ctrl+F)",
-    "fullscreen": "全屏"
+    "fullscreen": "全屏",
+    "commandPalette": "命令面板 (Ctrl+P)"
   },
   "workspace": {
     "emptyHint1": "按 Ctrl+T 新建本地终端",

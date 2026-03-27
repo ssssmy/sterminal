@@ -149,10 +149,18 @@ html.dark {
   transition: opacity var(--st-duration-normal) var(--st-easing-smooth);
 }
 
-// 对话框 → 更精致的圆角和分割线
+// 渐进增强：仅在独立显卡上启用背景模糊
+html.gpu-blur-capable .el-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+// 对话框 → 更精致的圆角和分割线，带入场动效
 .el-dialog {
   --el-dialog-border-radius: 12px;
   --el-dialog-title-font-size: 15px;
+  transition: transform var(--st-duration-normal) var(--st-easing-spring),
+              opacity var(--st-duration-normal) var(--st-easing-smooth);
 
   .el-dialog__header {
     border-bottom: 1px solid var(--el-border-color-lighter);

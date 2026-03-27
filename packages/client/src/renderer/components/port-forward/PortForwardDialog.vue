@@ -351,7 +351,7 @@ async function handleSave(): Promise<void> {
   background: transparent;
   color: var(--el-text-color-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color var(--st-duration-fast) var(--st-easing-smooth), border-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
   &:hover {
     border-color: var(--el-color-primary);

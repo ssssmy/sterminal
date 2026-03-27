@@ -213,8 +213,12 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="!draggedHostId && filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noHosts') }}
+          <div v-if="!draggedHostId && filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
+            </svg>
+            <span>{{ t('sidebar.emptyHosts') }}</span>
           </div>
         </div>
       </div>
@@ -366,8 +370,12 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="!draggedTerminalId && filteredTerminalGroups.length === 0 && filteredUngroupedTerminals.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noTerminals') }}
+          <div v-if="!draggedTerminalId && filteredTerminalGroups.length === 0 && filteredUngroupedTerminals.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="M7 9l3 3-3 3M13 15h4"/>
+            </svg>
+            <span>{{ t('sidebar.emptyTerminals') }}</span>
           </div>
         </div>
       </div>
@@ -527,8 +535,12 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noSnippets') }}
+          <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span>{{ t('sidebar.emptySnippets') }}</span>
           </div>
         </div>
       </div>
@@ -599,8 +611,12 @@
             </template>
           </el-dropdown>
 
-          <div v-if="portForwardRules.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noPortForwards') }}
+          <div v-if="portForwardRules.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span>{{ t('sidebar.emptyPortForwards') }}</span>
           </div>
         </div>
       </div>
@@ -2290,6 +2306,22 @@ onBeforeUnmount(() => {
     text-align: center;
   }
 
+  &__empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 12px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+
+    svg {
+      width: 24px;
+      height: 24px;
+      opacity: 0.5;
+    }
+  }
+
 
   // ===== 宽度拖拽手柄 =====
   &__resize-handle {
@@ -2334,7 +2366,7 @@ onBeforeUnmount(() => {
     border-radius: 6px;
     line-height: 1.5;
     margin: 1px 0;
-    transition: all 0.12s ease;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
   }
 }
 

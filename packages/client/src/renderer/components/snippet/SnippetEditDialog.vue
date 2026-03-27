@@ -358,7 +358,7 @@ async function handleSave(): Promise<void> {
     cursor: pointer;
     font-size: 11px;
     color: var(--el-text-color-regular);
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), border-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     code {
       font-family: 'JetBrains Mono', monospace;

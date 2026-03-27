@@ -606,7 +606,7 @@ onUnmounted(() => {
     height: 28px;
     cursor: pointer;
     border-bottom: 1px solid transparent;
-    transition: background-color 0.1s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -697,7 +697,7 @@ onUnmounted(() => {
     font-size: 12px;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.12s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
     margin: 1px 0;
 
     &--danger {

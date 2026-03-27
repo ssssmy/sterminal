@@ -113,7 +113,7 @@ const { t } = useI18n()
     color: var(--text-secondary);
     cursor: pointer;
     font-size: 12px;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth), opacity var(--st-duration-fast) var(--st-easing-smooth);
     white-space: nowrap;
 
     &:hover:not(:disabled) {

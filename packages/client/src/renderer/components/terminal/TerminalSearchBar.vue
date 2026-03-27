@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
     font-size: 13px;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:focus {
       border-color: var(--accent);
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth), border-color var(--st-duration-fast) var(--st-easing-smooth), opacity var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
     color: var(--text-tertiary);
     cursor: pointer;
     margin-left: 2px;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);

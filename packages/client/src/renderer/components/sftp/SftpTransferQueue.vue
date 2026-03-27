@@ -142,7 +142,7 @@ function formatSize(bytes: number): string {
   border-top: 1px solid var(--border);
   background-color: var(--bg-secondary);
   max-height: 200px;
-  transition: max-height 0.2s ease;
+  transition: max-height var(--st-duration-normal) var(--st-easing-smooth);
 
   &--collapsed {
     max-height: 34px;
@@ -199,7 +199,7 @@ function formatSize(bytes: number): string {
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 3px;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -238,7 +238,7 @@ function formatSize(bytes: number): string {
     align-items: center;
     gap: 8px;
     padding: 5px 12px;
-    transition: background-color 0.1s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -318,7 +318,7 @@ function formatSize(bytes: number): string {
     color: var(--text-tertiary);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);

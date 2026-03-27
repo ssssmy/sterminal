@@ -278,7 +278,7 @@ function openDefaultTerminal(): void {
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
     -webkit-app-region: no-drag;
 
     &:hover {

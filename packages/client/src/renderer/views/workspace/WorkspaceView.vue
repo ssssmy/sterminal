@@ -195,7 +195,7 @@ function handleKeydown(e: KeyboardEvent): void {
   keybindingService.handleKeyEvent(e)
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 加载主机列表和本地终端配置（不阻塞 UI 渲染）
   Promise.all([
     hostsStore.fetchHosts(),
@@ -207,7 +207,7 @@ onMounted(() => {
   ])
 
   // 加载自定义快捷键并注册默认动作
-  keybindingService.loadFromDb()
+  await keybindingService.loadFromDb()
   keybindingService.register('new-tab', 'CmdOrCtrl+T', () => {
     sessionsStore.createTab()
   })

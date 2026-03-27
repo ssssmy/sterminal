@@ -983,9 +983,12 @@ function registerKeybindingsHandlers(): void {
 
   ipcMain.handle(IPC_DB.KEYBINDINGS_SET, (_event, action: string, shortcut: string) => {
     dbRun(
-      `INSERT OR REPLACE INTO keybindings (action, shortcut) VALUES (?, ?)`,
+      `INSERT INTO keybindings (action, shortcut, sync_updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(action) DO UPDATE SET shortcut = excluded.shortcut, sync_updated_at = excluded.sync_updated_at`,
       [action, shortcut]
     )
+    scheduleSyncAfterChange()
     return true
   })
 }

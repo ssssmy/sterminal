@@ -169,8 +169,6 @@
     "replayPlay": "Play",
     "replayPause": "Pause",
     "replaySpeed": "Speed",
-    "terminalTheme": "Terminal Theme",
-    "terminalThemeDesc": "Choose a terminal color theme, applied immediately",
     "keybindings": "Keybindings",
     "keybindings_section": "Keybindings",
     "keybindings_desc": "Customize application shortcuts. Click a shortcut then press a new key combination to change it.",

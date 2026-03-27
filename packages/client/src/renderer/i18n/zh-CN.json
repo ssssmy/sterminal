@@ -169,8 +169,6 @@
     "replayPause": "暂停",
     "replaySpeed": "倍速",
     "replayEmpty": "录制数据为空",
-    "terminalTheme": "终端主题",
-    "terminalThemeDesc": "选择终端颜色主题，立即生效",
     "keybindings": "快捷键",
     "keybindings_section": "快捷键",
     "keybindings_desc": "自定义应用快捷键。点击快捷键区域后按下新组合键即可修改。",

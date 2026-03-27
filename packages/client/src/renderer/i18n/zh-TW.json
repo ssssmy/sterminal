@@ -169,8 +169,6 @@
     "replayPlay": "播放",
     "replayPause": "暫停",
     "replaySpeed": "播放速度",
-    "terminalTheme": "終端主題",
-    "terminalThemeDesc": "選擇終端顏色主題，立即生效",
     "keybindings": "快捷鍵",
     "keybindings_section": "快捷鍵",
     "keybindings_desc": "自訂應用快捷鍵。點擊快捷鍵區域後按下新組合鍵即可修改。",

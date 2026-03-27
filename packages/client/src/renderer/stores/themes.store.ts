@@ -212,13 +212,12 @@ export const useThemesStore = defineStore('themes', () => {
       styleEl.id = 'st-custom-theme'
       document.head.appendChild(styleEl)
     }
-    const cssText =
-      ':root {\n' +
-      Object.entries(overrides)
-        .map(([k, v]) => `  ${k}: ${v};`)
-        .join('\n') +
-      '\n}'
-    styleEl.textContent = cssText
+    const props = Object.entries(overrides)
+      .map(([k, v]) => `  ${k}: ${v} !important;`)
+      .join('\n')
+    // 同时覆盖 :root 和 html.dark，确保暗色主题下也生效
+    // html.dark 在 global.scss 中硬编码了 --el-color-primary，优先级高于 :root
+    styleEl.textContent = `:root {\n${props}\n}\nhtml.dark {\n${props}\n}`
   }
 
   /**

@@ -125,7 +125,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { useUiStore } from '../../stores/ui.store'
+import { useUiStore, buildAccentOverrides } from '../../stores/ui.store'
 import type { AppTheme } from '../../stores/ui.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useThemesStore } from '../../stores/themes.store'
@@ -202,7 +202,10 @@ const presetColors = [
 function handleAccentColorChange(val: unknown): void {
   const color = String(val ?? '#6366f1')
   set('app.accentColor', color)
-  themesStore.applyCustomCssOverrides({ '--accent': color })
+  const resolvedTheme = uiStore.theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : (uiStore.theme as 'dark' | 'light')
+  themesStore.applyCustomCssOverrides(buildAccentOverrides(color, resolvedTheme))
 }
 
 onMounted(async () => {

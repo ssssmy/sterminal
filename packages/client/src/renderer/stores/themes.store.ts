@@ -68,47 +68,8 @@ const ANSI_COLOR_KEYS = [
   'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite',
 ] as const
 
-// ===== WCAG 对比度工具函数 =====
-
-/**
- * 将 hex 颜色字符串解析为 [r, g, b]（0-255）。
- * 仅支持 3/6 位 hex，不支持 rgb() / rgba()。
- */
-function hexToRgb(hex: string): [number, number, number] | null {
-  const clean = hex.trim().replace(/^#/, '')
-  if (clean.length === 3) {
-    const r = parseInt(clean[0] + clean[0], 16)
-    const g = parseInt(clean[1] + clean[1], 16)
-    const b = parseInt(clean[2] + clean[2], 16)
-    return [r, g, b]
-  }
-  if (clean.length === 6) {
-    const r = parseInt(clean.slice(0, 2), 16)
-    const g = parseInt(clean.slice(2, 4), 16)
-    const b = parseInt(clean.slice(4, 6), 16)
-    return [r, g, b]
-  }
-  return null
-}
-
-/**
- * 计算单通道的相对亮度分量（WCAG 2.0 公式）。
- */
-function linearizeChannel(c8bit: number): number {
-  const c = c8bit / 255
-  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
-}
-
-/**
- * 计算 hex 颜色的相对亮度（0–1）。
- * 解析失败时返回 0。
- */
-function relativeLuminance(hex: string): number {
-  const rgb = hexToRgb(hex)
-  if (!rgb) return 0
-  const [r, g, b] = rgb
-  return 0.2126 * linearizeChannel(r) + 0.7152 * linearizeChannel(g) + 0.0722 * linearizeChannel(b)
-}
+// WCAG 对比度工具函数（提取到 shared/utils/wcag-contrast.ts 以便单元测试）
+import { validateContrast as _validateContrast } from '@shared/utils/wcag-contrast'
 
 // ===== Store =====
 
@@ -233,12 +194,7 @@ export const useThemesStore = defineStore('themes', () => {
    * @returns ratio（对比度，保留两位小数）和 passes（是否通过 WCAG AA）
    */
   function validateContrast(fg: string, bg: string): { ratio: number; passes: boolean } {
-    const l1 = relativeLuminance(fg)
-    const l2 = relativeLuminance(bg)
-    const lighter = Math.max(l1, l2)
-    const darker = Math.min(l1, l2)
-    const ratio = Math.round(((lighter + 0.05) / (darker + 0.05)) * 100) / 100
-    return { ratio, passes: ratio >= 4.5 }
+    return _validateContrast(fg, bg)
   }
 
   // ===== CSS 自定义属性注入 =====

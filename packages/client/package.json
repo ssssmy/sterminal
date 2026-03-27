@@ -15,7 +15,10 @@
     "pack:linux": "vue-tsc --noEmit && vite build && electron-builder --linux",
     "pack:all": "vue-tsc --noEmit && vite build && electron-builder --mac --win --linux",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -47,8 +50,10 @@
     "@types/ssh2": "^1.15.1",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.6",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8",
+    "happy-dom": "^20.8.9",
     "sass": "^1.82.0",
     "typescript": "^5.7.0",
     "unplugin-auto-import": "^0.18.6",
@@ -56,6 +61,7 @@
     "vite": "^6.0.0",
     "vite-plugin-electron": "^0.29.1",
     "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^4.1.2",
     "vue-tsc": "^2.1.0"
   }
 }

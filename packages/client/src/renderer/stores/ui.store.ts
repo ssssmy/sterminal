@@ -10,6 +10,24 @@ import type { Snippet } from '@shared/types/snippet'
 export type AppTheme = 'light' | 'dark' | 'system'
 export type SidebarPanel = 'hosts' | 'terminals' | 'snippets' | 'portForwards' | 'vault'
 
+/**
+ * 根据强调色生成 CSS 覆盖变量（自定义 --accent + Element Plus --el-color-primary 全套）
+ * 使用 color-mix 生成 light/dark 变体，避免手动计算 HSL
+ */
+export function buildAccentOverrides(accent: string, resolvedTheme: 'light' | 'dark'): Record<string, string> {
+  const mixBase = resolvedTheme === 'dark' ? '#1a1b2e' : '#ffffff'
+  return {
+    '--accent': accent,
+    '--el-color-primary': accent,
+    '--el-color-primary-light-3': `color-mix(in srgb, ${accent} 70%, ${mixBase})`,
+    '--el-color-primary-light-5': `color-mix(in srgb, ${accent} 50%, ${mixBase})`,
+    '--el-color-primary-light-7': `color-mix(in srgb, ${accent} 30%, ${mixBase})`,
+    '--el-color-primary-light-8': `color-mix(in srgb, ${accent} 20%, ${mixBase})`,
+    '--el-color-primary-light-9': `color-mix(in srgb, ${accent} 10%, ${mixBase})`,
+    '--el-color-primary-dark-2': `color-mix(in srgb, ${accent} 80%, white)`,
+  }
+}
+
 export const useUiStore = defineStore('ui', () => {
   // ===== 状态 =====
   const sidebarWidth = ref(260)
@@ -53,9 +71,8 @@ export const useUiStore = defineStore('ui', () => {
     // 应用自定义 CSS 覆盖（强调色等），与主题同步注入，避免 FOUC
     const themesStore = useThemesStore()
     const settingsStore = useSettingsStore()
-    themesStore.applyCustomCssOverrides({
-      '--accent': settingsStore.settings.get('app.accentColor') as string || '#6366f1',
-    })
+    const accent = settingsStore.settings.get('app.accentColor') as string || '#6366f1'
+    themesStore.applyCustomCssOverrides(buildAccentOverrides(accent, resolvedTheme))
   }
 
   /**

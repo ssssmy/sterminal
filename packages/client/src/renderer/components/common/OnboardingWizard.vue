@@ -99,6 +99,8 @@
                   v-model="selectedTerminalTheme"
                   size="small"
                   class="onboarding-terminal-theme__select"
+                  :teleported="true"
+                  popper-class="onboarding-select-popper"
                   @change="applyTerminalTheme"
                 >
                   <el-option
@@ -654,5 +656,12 @@ async function handleComplete(): Promise<void> {
   &:hover:not(.is-active) {
     background: rgba(255, 255, 255, 0.4);
   }
+}
+</style>
+
+<style lang="scss">
+// el-select popper 需要高于 onboarding-overlay (z-index: 9999)
+.onboarding-select-popper {
+  z-index: 10001 !important;
 }
 </style>

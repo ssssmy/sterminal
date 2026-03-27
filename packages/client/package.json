@@ -16,7 +16,8 @@
     "pack:all": "vue-tsc --noEmit && vite build && electron-builder --mac --win --linux",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run",
+    "test": "npm rebuild better-sqlite3 && vitest run && npx node-gyp rebuild --directory=node_modules/better-sqlite3 --runtime=electron --target=33.4.11 --dist-url=https://electronjs.org/headers",
+    "test:unit": "vitest run --exclude='src/main/__tests__/**'",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

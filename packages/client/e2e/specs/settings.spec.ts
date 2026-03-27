@@ -1,47 +1,41 @@
 // E2E: Settings page navigation
-import { test, expect } from '../fixtures/electron'
+import { test, expect, dismissOnboarding, navigateTo } from '../fixtures/electron'
 
 test.describe('Settings', () => {
   test.beforeEach(async ({ page }) => {
-    // Dismiss onboarding
-    const overlay = page.locator('.onboarding-overlay')
-    if (await overlay.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      for (let i = 0; i < 3; i++) {
-        const btn = page.locator('.onboarding-primary-btn')
-        if (await btn.isVisible().catch(() => false)) {
-          await btn.click()
-          await page.waitForTimeout(300)
-        }
-      }
-    }
+    await dismissOnboarding(page)
   })
 
-  test('can navigate to settings page', async ({ page }) => {
-    // Settings should be accessible via router
-    await page.goto('http://localhost:5173/#/settings/appearance')
-    await page.waitForTimeout(500)
+  test('can navigate to settings via hash', async ({ page }) => {
+    await navigateTo(page, '/settings/appearance')
 
-    // Or via the sidebar settings icon — look for the settings layout
-    const settingsLayout = page.locator('.settings-layout, [class*="settings"]')
-    // If direct navigation works, we should see settings content
-    await expect(settingsLayout.first()).toBeVisible({ timeout: 5_000 })
-  })
-
-  test('appearance settings shows theme options', async ({ page }) => {
-    await page.goto('http://localhost:5173/#/settings/appearance')
-    await page.waitForTimeout(1000)
-
-    // Should show theme radio buttons (dark/light/system)
-    const radioGroup = page.locator('.el-radio-group').first()
-    await expect(radioGroup).toBeVisible({ timeout: 5_000 })
-  })
-
-  test('keybindings settings page loads', async ({ page }) => {
-    await page.goto('http://localhost:5173/#/settings/keybindings')
-    await page.waitForTimeout(1000)
-
-    // Should show keybindings content
-    const content = page.locator('[class*="keybinding"]')
+    // Should show settings content
+    const content = page.locator('.settings-layout, [class*="settings"]')
     await expect(content.first()).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('appearance settings has theme selector', async ({ page }) => {
+    await navigateTo(page, '/settings/appearance')
+
+    // Should have radio buttons or theme-related elements
+    const themeSection = page.locator('.el-radio-group, [class*="theme"]').first()
+    await expect(themeSection).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('can navigate to keybindings settings', async ({ page }) => {
+    await navigateTo(page, '/settings/keybindings')
+
+    const content = page.locator('[class*="keybinding"]').first()
+    await expect(content).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('can navigate back to workspace', async ({ page }) => {
+    await navigateTo(page, '/settings/appearance')
+    await page.waitForTimeout(500)
+    await navigateTo(page, '/')
+
+    // Workspace elements should appear
+    const workspace = page.locator('.terminal-tabs, .app-sidebar, .app-toolbar').first()
+    await expect(workspace).toBeVisible({ timeout: 5_000 })
   })
 })

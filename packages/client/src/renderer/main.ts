@@ -29,3 +29,8 @@ app.use(i18n)
 
 // 挂载到 DOM
 app.mount('#app')
+
+// 暴露 router 给 E2E 测试（仅开发/测试环境）
+if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
+  ;(window as any).__vue_router__ = router
+}

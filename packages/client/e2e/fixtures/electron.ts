@@ -1,18 +1,14 @@
-// Electron test fixture — launches and cleans up the app for each test file
+// Electron test fixture — launches the compiled app for E2E testing
 //
-// Usage in spec files:
-//   import { test, expect } from '../fixtures/electron'
-//   test('my test', async ({ app, page }) => { ... })
+// PREREQUISITE: Run `npm run build` before running E2E tests.
+// The fixture launches Electron from dist-electron/main/index.js.
 
 import { test as base, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { _electron as electron } from '@playwright/test'
 import path from 'path'
 
-// Build the app before tests (vite build + electron main/preload)
-// This assumes `npm run build` has been run, or we run it in CI.
-// For dev, we point to dist-electron which vite dev builds on the fly.
-
 const CLIENT_ROOT = path.resolve(__dirname, '../..')
+const MAIN_ENTRY = path.join(CLIENT_ROOT, 'dist-electron/main/index.js')
 
 type TestFixtures = {
   app: ElectronApplication
@@ -22,29 +18,52 @@ type TestFixtures = {
 export const test = base.extend<TestFixtures>({
   app: async ({}, use) => {
     const app = await electron.launch({
-      args: [CLIENT_ROOT],
+      args: [MAIN_ENTRY],
       cwd: CLIENT_ROOT,
       env: {
         ...process.env,
-        NODE_ENV: 'development',
-        // Use a separate test database to avoid polluting real data
-        STERMINAL_TEST_MODE: '1',
+        NODE_ENV: 'test',
       },
     })
 
     await use(app)
-
-    // Cleanup
     await app.close()
   },
 
   page: async ({ app }, use) => {
-    // Wait for the main window to appear
     const window = await app.firstWindow()
-    // Wait for the app to finish loading
+    // Wait for Vue app to mount
     await window.waitForLoadState('domcontentloaded')
+    await window.waitForTimeout(2000) // give Vue + stores time to initialize
     await use(window)
   },
 })
+
+// Helper: navigate via Vue Router (can't use page.goto in Electron)
+export async function navigateTo(page: Page, routePath: string): Promise<void> {
+  await page.evaluate((path) => {
+    const router = (window as any).__vue_router__
+    if (router) {
+      router.push(path)
+    } else {
+      // Fallback: manipulate hash directly
+      window.location.hash = '#' + path
+    }
+  }, routePath)
+  await page.waitForTimeout(500)
+}
+
+// Helper: dismiss onboarding wizard if visible
+export async function dismissOnboarding(page: Page): Promise<void> {
+  for (let i = 0; i < 4; i++) {
+    const btn = page.locator('.onboarding-primary-btn')
+    if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await btn.click()
+      await page.waitForTimeout(400)
+    } else {
+      break
+    }
+  }
+}
 
 export { expect }

@@ -20,7 +20,7 @@
     "test:unit": "vitest run --exclude='src/main/__tests__/**'",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "npx playwright test --config=e2e/playwright.config.ts"
+    "test:e2e": "vite build && npx playwright test --config=e2e/playwright.config.ts"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

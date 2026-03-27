@@ -203,7 +203,7 @@ function getXtermTheme(): Record<string, string> {
   return findThemePreset(fallback).colors
 }
 
-function getXtermBaseOptions() {
+function buildXtermOptionsFromSettings() {
   const s = useSettingsStoreModule().settings
   return {
     fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
@@ -214,6 +214,12 @@ function getXtermBaseOptions() {
     cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
     scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
     scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
+  }
+}
+
+function getXtermBaseOptions() {
+  return {
+    ...buildXtermOptionsFromSettings(),
     allowProposedApi: true,
   }
 }
@@ -269,23 +275,14 @@ registerSystemThemeListener()
 const settingsStore = useSettingsStoreModule()
 const terminalSettingKeys = [
   'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
-  'terminal.cursorStyle', 'terminal.cursorBlink',
+  'terminal.fontLigatures', 'terminal.cursorStyle', 'terminal.cursorBlink',
   'terminal.scrollback', 'terminal.scrollSensitivity',
   'terminal.theme',
 ]
 watch(
   () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
   () => {
-    const s = settingsStore.settings
-    const opts = {
-      fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
-      fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
-      lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
-      cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
-      cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
-      scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
-      scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
-    }
+    const opts = buildXtermOptionsFromSettings()
     const theme = getXtermTheme()
     for (const pooled of terminalPool.values()) {
       Object.assign(pooled.terminal.options, opts)
@@ -824,7 +821,7 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   background: var(--border);
   flex-shrink: 0;
   z-index: 1;
-  transition: background 0.15s;
+  transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 }
 
 :deep(.split-resizer:hover) {
@@ -878,7 +875,7 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   align-items: center;
   justify-content: center;
   opacity: 0.8;
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity var(--st-duration-fast) var(--st-easing-smooth), background-color var(--st-duration-fast) var(--st-easing-smooth);
 
   &:hover {
     opacity: 1;

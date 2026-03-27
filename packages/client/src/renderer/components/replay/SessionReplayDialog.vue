@@ -279,7 +279,7 @@ onBeforeUnmount(() => destroyReplay())
     flex: 1;
     overflow: auto;
     border-radius: 6px;
-    background: #1a1b2e;
+    background: var(--terminal-bg, var(--bg-primary));
 
     :deep(.xterm) {
       padding: 8px;

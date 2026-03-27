@@ -5,10 +5,12 @@
       <component :is="Component" :key="route.name" />
     </KeepAlive>
   </RouterView>
+  <OnboardingWizard v-if="showOnboarding" @complete="handleOnboardingComplete" />
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import OnboardingWizard from './components/common/OnboardingWizard.vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
 import { useUiStore } from './stores/ui.store'
@@ -31,6 +33,13 @@ const hostsStore = useHostsStore()
 const terminalsStore = useTerminalsStore()
 const snippetsStore = useSnippetsStore()
 const portForwardsStore = usePortForwardsStore()
+
+const showOnboarding = ref(false)
+
+function handleOnboardingComplete(): void {
+  settingsStore.setSetting('app.onboardingCompleted', true)
+  showOnboarding.value = false
+}
 
 onMounted(async () => {
   // 从数据库恢复保存的主题设置
@@ -64,6 +73,12 @@ onMounted(async () => {
   const compact = await settingsStore.getSetting<boolean>('app.compactMode')
   if (compact) {
     document.documentElement.classList.add('compact')
+  }
+
+  // 首次启动引导向导：未完成时显示
+  const onboardingCompleted = await settingsStore.getSetting('app.onboardingCompleted')
+  if (!onboardingCompleted) {
+    showOnboarding.value = true
   }
 
   // 监听主机密钥验证请求

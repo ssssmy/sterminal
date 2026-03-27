@@ -613,10 +613,10 @@ onUnmounted(() => {
     }
 
     &--selected {
-      background-color: var(--accent-light, rgba(99, 102, 241, 0.12));
+      background-color: var(--accent-light, color-mix(in srgb, var(--accent) 12%, transparent));
 
       &:hover {
-        background-color: var(--accent-light, rgba(99, 102, 241, 0.18));
+        background-color: var(--accent-light, color-mix(in srgb, var(--accent) 18%, transparent));
       }
     }
 
@@ -701,7 +701,7 @@ onUnmounted(() => {
     margin: 1px 0;
 
     &--danger {
-      color: #f87171;
+      color: var(--error);
     }
   }
 
@@ -712,25 +712,25 @@ onUnmounted(() => {
 }
 
 html[data-theme="dark"] .sftp-context-menu {
-  background: #1c1d32;
+  background: var(--bg-surface);
   border: 1px solid rgba(255, 255, 255, 0.06);
 
   .sftp-context-menu__item {
-    color: #c8c9d6;
-    &:hover { background: rgba(99, 102, 241, 0.12); color: #fff; }
-    &--danger { color: #f87171; &:hover { background: rgba(239, 68, 68, 0.12); color: #ef4444; } }
+    color: var(--text-primary);
+    &:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: #fff; }
+    &--danger { color: var(--error); &:hover { background: color-mix(in srgb, var(--error) 12%, transparent); color: var(--error); } }
   }
   .sftp-context-menu__divider { background: rgba(255, 255, 255, 0.06); }
 }
 
 html[data-theme="light"] .sftp-context-menu {
-  background: #ffffff;
+  background: var(--el-bg-color);
   border: 1px solid rgba(0, 0, 0, 0.08);
 
   .sftp-context-menu__item {
-    color: #374151;
-    &:hover { background: rgba(99, 102, 241, 0.08); color: #1a1b2e; }
-    &--danger { color: #ef4444; &:hover { background: rgba(239, 68, 68, 0.08); color: #dc2626; } }
+    color: var(--text-primary);
+    &:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--text-primary); }
+    &--danger { color: var(--error); &:hover { background: color-mix(in srgb, var(--error) 8%, transparent); color: var(--error); } }
   }
   .sftp-context-menu__divider { background: rgba(0, 0, 0, 0.06); }
 }

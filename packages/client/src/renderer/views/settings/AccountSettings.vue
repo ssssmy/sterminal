@@ -828,7 +828,7 @@ if (authStore.isLoggedIn) {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  background: linear-gradient(135deg, var(--accent), var(--el-color-primary-dark-2, #8b5cf6));
   display: flex;
   align-items: center;
   justify-content: center;

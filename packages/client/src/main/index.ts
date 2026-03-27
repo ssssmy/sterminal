@@ -53,6 +53,13 @@ function saveWindowBounds(): void {
 }
 
 /**
+ * 判断是否为集成显卡（保守策略：仅识别 Intel 集成显卡 vendorId 0x8086）
+ */
+function isIntegratedGpu(vendorId: number): boolean {
+  return vendorId === 0x8086
+}
+
+/**
  * 创建主窗口
  */
 function createWindow(): void {
@@ -100,6 +107,17 @@ function createWindow(): void {
     // 确保初始缩放为 1.0，防止旧值导致界面异常
     mainWindow?.webContents.setZoomFactor(1.0)
     mainWindow?.show()
+
+    // 渐进增强：检测 GPU 类型，仅在独立显卡上启用背景模糊
+    app.getGPUInfo('basic').then((info: any) => {
+      const gpuDevices = info?.gpuDevice || []
+      const hasDiscreteGpu = gpuDevices.some((d: any) => d.active && !isIntegratedGpu(d.vendorId))
+      mainWindow?.webContents.executeJavaScript(
+        `document.documentElement.classList.toggle('gpu-blur-capable', ${hasDiscreteGpu})`
+      )
+    }).catch(() => {
+      // 检测失败时不启用模糊，保守降级
+    })
   })
 
   // 记录窗口尺寸变化（节流，避免 resize 时频繁写库）

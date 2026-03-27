@@ -166,11 +166,40 @@
     "replayLoading": "載入錄製資料...",
     "replayError": "無法載入錄製資料",
     "replayEmpty": "錄製資料為空",
+    "exportGif": "匯出 GIF",
+    "exportGifSuccess": "GIF 匯出成功",
+    "exportGifError": "GIF 匯出失敗",
     "replayPlay": "播放",
     "replayPause": "暫停",
     "replaySpeed": "播放速度",
+    "keybindings": "快捷鍵",
+    "keybindings_section": "快捷鍵",
+    "keybindings_desc": "自訂應用快捷鍵。點擊快捷鍵區域後按下新組合鍵即可修改。",
+    "keybindingsResetAll": "重置全部",
+    "keybindingsResetAllConfirm": "確定要將所有快捷鍵重置為預設值嗎？",
+    "keybindingsAction": "操作",
+    "keybindingsShortcut": "快捷鍵",
+    "keybindingsRecording": "按下快捷鍵...",
+    "keybindingsConflict": "與「{action}」衝突",
+    "keybindingsReset": "重置",
+    "keybindingsSaved": "已儲存",
+    "keybindingsActions": {
+      "new-tab": "新增標籤頁",
+      "close-tab": "關閉標籤頁",
+      "command-palette": "命令面板",
+      "command-palette-alt": "命令面板 (備用)",
+      "terminal-search": "終端搜尋"
+    },
     "terminalTheme": "終端主題",
-    "terminalThemeDesc": "選擇終端顏色主題，立即生效"
+    "terminalThemeDesc": "選擇終端顏色配色方案",
+    "accentColor": "強調色",
+    "accentColorDesc": "自訂介面強調色",
+    "exportTerminalTheme": "匯出終端主題",
+    "exportTerminalThemeDesc": "將目前終端主題匯出為 JSON 檔案",
+    "exportTerminalThemeBtn": "匯出目前終端主題",
+    "exportTerminalThemeSection": "匯出",
+    "exportTerminalThemeSuccess": "主題已匯出",
+    "exportTerminalThemeFailed": "匯出失敗"
   },
   "commandPalette": {
     "placeholder": "搜尋命令、主機、片段...",
@@ -361,21 +390,28 @@
   "toolbar": {
     "newTerminal": "新建終端",
     "sftp": "SFTP 檔案傳輸",
-    "splitHorizontal": "水平分割",
-    "splitVertical": "垂直分割",
-    "broadcast": "廣播模式（同步輸入到所有終端）",
+    "splitHorizontal": "水平分割 (Ctrl+Shift+D)",
+    "splitVertical": "垂直分割 (Ctrl+Shift+E)",
+    "broadcast": "廣播模式 — 同時輸入到所有終端",
     "startRecording": "錄製工作階段",
     "stopRecording": "停止錄製",
     "openLogDir": "開啟錄製資料夾",
-    "terminalSearch": "終端內搜尋",
-    "fullscreen": "全螢幕"
+    "terminalSearch": "終端內搜尋 (Ctrl+F)",
+    "fullscreen": "全螢幕",
+    "commandPalette": "命令面板 (Ctrl+P)"
   },
   "workspace": {
     "emptyHint1": "按 Ctrl+T 新建本機終端",
     "emptyHint2": "或從左側選擇主機連線"
   },
   "terminalTabs": {
-    "recording": "錄製中"
+    "recording": "錄製中",
+    "ctxRestart": "重啟",
+    "ctxDuplicate": "複製",
+    "ctxPin": "釘選",
+    "ctxUnpin": "取消釘選",
+    "ctxClose": "關閉",
+    "ctxCloseRight": "關閉右側所有"
   },
   "searchBar": {
     "placeholder": "搜尋...",
@@ -433,17 +469,21 @@
     "addGroup": "新建群組",
     "addHost": "新增主機",
     "noHosts": "尚無主機",
+    "emptyHosts": "暫無主機，點擊 + 添加",
     "terminals": "本機終端",
     "addTerminalGroup": "新建群組",
     "addTerminal": "新建終端設定",
     "noTerminals": "尚無終端設定",
+    "emptyTerminals": "暫無終端配置",
     "snippets": "命令片段",
     "addSnippetGroup": "新建群組",
     "addSnippet": "新建片段",
     "noSnippets": "尚無命令片段",
+    "emptySnippets": "暫無命令片段",
     "portForwards": "連接埠轉發",
     "addPortForward": "新建轉發",
     "noPortForwards": "尚無連接埠轉發",
+    "emptyPortForwards": "暫無端口轉發規則",
     "vault": "密碼庫",
     "dragToUngrouped": "拖放到此處移為未分組",
     "groupRename": "重新命名",
@@ -806,5 +846,46 @@
     "transferCancelled": "已取消",
     "localDeleteNotSupported": "本地檔案刪除暫不支援",
     "localRenameNotSupported": "本地檔案重新命名暫不支援"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": "歡迎",
+      "theme": "主題",
+      "getStarted": "開始"
+    },
+    "welcome": {
+      "title": "歡迎使用 STerminal",
+      "subtitle": "跨平台終端管理工具，讓伺服器管理更簡單"
+    },
+    "import": {
+      "title": "匯入 OpenSSH 設定",
+      "desc": "從 ~/.ssh/config 自動匯入主機設定",
+      "button": "匯入",
+      "successHint": "已找到 {count} 台主機，將在完成精靈後匯入",
+      "noConfig": "未找到 SSH 設定，或設定檔為空",
+      "notSupported": "SSH 設定匯入將在後續版本支援"
+    },
+    "theme": {
+      "title": "選擇介面風格",
+      "subtitle": "選擇你喜歡的外觀主題",
+      "terminalThemeLabel": "終端配色",
+      "dark": "深色",
+      "light": "淺色",
+      "system": "跟隨系統"
+    },
+    "getStarted": {
+      "title": "一切就緒！",
+      "subtitle": "開始使用 STerminal，高效管理你的伺服器",
+      "sshButton": "建立 SSH 連線",
+      "sshHint": "新增遠端伺服器主機設定",
+      "localButton": "開啟本機終端",
+      "localHint": "在本機執行指令和腳本"
+    },
+    "nav": {
+      "next": "下一步",
+      "prev": "上一步",
+      "skip": "略過",
+      "finish": "開始使用"
+    }
   }
 }

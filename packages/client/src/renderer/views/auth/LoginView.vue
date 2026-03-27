@@ -18,7 +18,7 @@
       <div class="login-brand__features">
         <div class="login-brand__feature">
           <div class="login-brand__feature-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
             </svg>
           </div>
@@ -29,7 +29,7 @@
         </div>
         <div class="login-brand__feature">
           <div class="login-brand__feature-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
             </svg>
           </div>
@@ -40,7 +40,7 @@
         </div>
         <div class="login-brand__feature">
           <div class="login-brand__feature-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
             </svg>
           </div>
@@ -306,7 +306,8 @@ async function handleTestServer(): Promise<void> {
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background-color: rgba(99, 102, 241, 0.1);
+    background-color: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;

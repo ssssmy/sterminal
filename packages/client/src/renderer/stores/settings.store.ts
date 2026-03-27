@@ -54,6 +54,24 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   /**
+   * 批量加载所有设置（单次 IPC，替代 loadCommonSettings 的逐 key 查询）
+   */
+  async function loadAllSettings(): Promise<void> {
+    if (loaded.value) return
+    const dbValues = await invoke<Record<string, unknown>>(IPC_DB.SETTINGS_GET_ALL)
+    const merged = new Map<string, unknown>(
+      Object.entries(DEFAULT_SETTINGS) as [string, unknown][]
+    )
+    if (dbValues) {
+      for (const [key, value] of Object.entries(dbValues)) {
+        merged.set(key, value)
+      }
+    }
+    settings.value = merged
+    loaded.value = true
+  }
+
+  /**
    * 重置所有设置为默认值
    */
   async function resetAllSettings(): Promise<void> {
@@ -68,6 +86,7 @@ export const useSettingsStore = defineStore('settings', () => {
     getSetting,
     setSetting,
     loadCommonSettings,
+    loadAllSettings,
     resetAllSettings,
   }
 })

@@ -1,5 +1,6 @@
-// CSS 变量定义 - 暗色/亮色主题 token
+// CSS 变量定义 - 暗色/亮色主题 token + 动效 token
 // 通过切换 :root[data-theme] 属性实现主题切换
+// 动效 token 通过 prefers-reduced-motion 自动降级
 
 :root[data-theme="dark"] {
   --bg-primary:     #1a1b2e;
@@ -91,4 +92,22 @@
   --terminal-bg:    #0f1023;
   --scrollbar-thumb: #2e3048;
   --scrollbar-track: transparent;
+
+  // ===== 动效 Token =====
+  --st-duration-fast:   0.15s;
+  --st-duration-normal: 0.25s;
+  --st-duration-slow:   0.4s;
+  --st-easing-default:  ease;
+  --st-easing-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --st-easing-smooth:   cubic-bezier(0.4, 0, 0.2, 1);
+  --st-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+}
+
+// ===== 无障碍：减弱动效 =====
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --st-duration-fast:   0.01s;
+    --st-duration-normal: 0.01s;
+    --st-duration-slow:   0.01s;
+  }
 }

@@ -70,6 +70,7 @@
         </div>
 
         <!-- 主机分组树 -->
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('hosts')"
           class="app-sidebar__host-tree"
@@ -141,6 +142,19 @@
                   />
                   <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
                   <span v-if="host.notes" class="app-sidebar__host-notes-indicator">📝</span>
+                  <span
+                    v-if="getHostLatency(host.id)?.status === 'ok'"
+                    class="app-sidebar__host-latency"
+                    :class="{
+                      'app-sidebar__host-latency--good': (getHostLatency(host.id)?.rtt ?? 0) < 100,
+                      'app-sidebar__host-latency--warn': (getHostLatency(host.id)?.rtt ?? 0) >= 100 && (getHostLatency(host.id)?.rtt ?? 0) < 500,
+                      'app-sidebar__host-latency--bad': (getHostLatency(host.id)?.rtt ?? 0) >= 500,
+                    }"
+                  >{{ getHostLatency(host.id)?.rtt }}ms</span>
+                  <span
+                    v-else-if="getHostLatency(host.id)?.status === 'timeout'"
+                    class="app-sidebar__host-latency app-sidebar__host-latency--bad"
+                  >timeout</span>
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -188,6 +202,19 @@
               />
               <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
               <span v-if="host.notes" class="app-sidebar__host-notes-indicator">📝</span>
+              <span
+                v-if="getHostLatency(host.id)?.status === 'ok'"
+                class="app-sidebar__host-latency"
+                :class="{
+                  'app-sidebar__host-latency--good': (getHostLatency(host.id)?.rtt ?? 0) < 100,
+                  'app-sidebar__host-latency--warn': (getHostLatency(host.id)?.rtt ?? 0) >= 100 && (getHostLatency(host.id)?.rtt ?? 0) < 500,
+                  'app-sidebar__host-latency--bad': (getHostLatency(host.id)?.rtt ?? 0) >= 500,
+                }"
+              >{{ getHostLatency(host.id)?.rtt }}ms</span>
+              <span
+                v-else-if="getHostLatency(host.id)?.status === 'timeout'"
+                class="app-sidebar__host-latency app-sidebar__host-latency--bad"
+              >timeout</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -213,10 +240,15 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="!draggedHostId && filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noHosts') }}
+          <div v-if="!draggedHostId && filteredGroups.length === 0 && filteredUngroupedHosts.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
+            </svg>
+            <span>{{ t('sidebar.emptyHosts') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- ===== 本地终端区域 ===== -->
@@ -241,6 +273,7 @@
         </div>
 
         <!-- 终端分组树 -->
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('terminals')"
           class="app-sidebar__terminal-list"
@@ -366,10 +399,15 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="!draggedTerminalId && filteredTerminalGroups.length === 0 && filteredUngroupedTerminals.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noTerminals') }}
+          <div v-if="!draggedTerminalId && filteredTerminalGroups.length === 0 && filteredUngroupedTerminals.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="M7 9l3 3-3 3M13 15h4"/>
+            </svg>
+            <span>{{ t('sidebar.emptyTerminals') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- ===== 功能折叠区 ===== -->
@@ -398,6 +436,7 @@
         </div>
 
         <!-- 片段列表 -->
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('snippets')"
           class="app-sidebar__snippet-list"
@@ -527,10 +566,15 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noSnippets') }}
+          <div v-if="!draggedSnippetId && filteredSnippetGroups.length === 0 && filteredUngroupedSnippets.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span>{{ t('sidebar.emptySnippets') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- 端口转发 -->
@@ -552,6 +596,7 @@
         </div>
 
         <!-- 端口转发列表 -->
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('portForwards')"
           class="app-sidebar__pf-list"
@@ -599,10 +644,15 @@
             </template>
           </el-dropdown>
 
-          <div v-if="portForwardRules.length === 0" class="app-sidebar__empty">
-            {{ t('sidebar.noPortForwards') }}
+          <div v-if="portForwardRules.length === 0" class="app-sidebar__empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span>{{ t('sidebar.emptyPortForwards') }}</span>
           </div>
         </div>
+        </Transition>
       </div>
 
       <!-- 密钥库 -->
@@ -652,8 +702,12 @@ import type { Snippet, SnippetGroup } from '@shared/types/snippet'
 import type { PortForward } from '@shared/types/port-forward'
 import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
 import { hasVariables, replaceVariables } from '@shared/utils/snippet-variables'
+import { useSlideTransition } from '../../composables/useSlideTransition'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const { t } = useI18n()
+const slideHooks = useSlideTransition()
+const { copyWithFeedback: copySnippetText } = useCopyFeedback()
 
 // ===== 平台检测 =====
 const isMacOS = window.electronAPI?.platform === 'darwin'
@@ -1194,6 +1248,16 @@ function isHostConnected(hostId: string): boolean {
   return sessionsStore.connectedHostIds.has(hostId)
 }
 
+/** 获取已连接主机的延迟（毫秒），无数据返回 null */
+function getHostLatency(hostId: string): { rtt: number; status: string } | null {
+  for (const instance of sessionsStore.terminalInstances.values()) {
+    if (instance.type === 'ssh' && instance.hostId === hostId && instance.healthStatus) {
+      return { rtt: instance.healthRtt ?? -1, status: instance.healthStatus }
+    }
+  }
+  return null
+}
+
 function hostTitle(host: Host): string {
   const lines: string[] = []
   if (host.label) lines.push(host.label)
@@ -1458,9 +1522,7 @@ async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {
   if (cmd === 'execute') {
     executeSnippet(snippet)
   } else if (cmd === 'copy') {
-    if (window.electronAPI?.ipc) {
-      await navigator.clipboard.writeText(snippet.content)
-    }
+    await copySnippetText(snippet.content)
   } else if (cmd === 'edit') {
     uiStore.openSnippetEditDialog(snippet.id)
   } else if (cmd === 'duplicate') {
@@ -1727,7 +1789,7 @@ onBeforeUnmount(() => {
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -1819,7 +1881,7 @@ onBeforeUnmount(() => {
     background: transparent;
     color: var(--text-tertiary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -1851,7 +1913,7 @@ onBeforeUnmount(() => {
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 500;
-    transition: background-color 0.15s, box-shadow 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), box-shadow var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -1866,7 +1928,7 @@ onBeforeUnmount(() => {
   &__arrow {
     color: var(--text-tertiary);
     flex-shrink: 0;
-    transition: transform 0.15s;
+    transition: transform var(--st-duration-fast) var(--st-easing-spring);
 
     &--expanded {
       transform: rotate(90deg);
@@ -1918,7 +1980,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
     position: relative;
 
     &--root {
@@ -1954,7 +2016,7 @@ onBeforeUnmount(() => {
     color: var(--text-tertiary);
     text-align: center;
     border: 1px dashed var(--divider);
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), border-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
 
     &--active {
       border-color: var(--accent);
@@ -1972,7 +2034,7 @@ onBeforeUnmount(() => {
     &--connected {
       background-color: var(--success);
       box-shadow: 0 0 4px var(--success);
-      animation: pulse-dot 2s ease-in-out infinite;
+      animation: st-pulse 2s ease-in-out infinite;
     }
 
     &--idle {
@@ -1998,6 +2060,31 @@ onBeforeUnmount(() => {
     line-height: 1;
   }
 
+  &__host-latency {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1.2;
+
+    &--good {
+      color: var(--success);
+      background: color-mix(in srgb, var(--success) 12%, transparent);
+    }
+
+    &--warn {
+      color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 12%, transparent);
+    }
+
+    &--bad {
+      color: var(--error);
+      background: color-mix(in srgb, var(--error) 12%, transparent);
+    }
+  }
+
   // ===== 本地终端列表 =====
   &__terminal-list {
     padding: 0 4px;
@@ -2019,7 +2106,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
     position: relative;
 
     &--root {
@@ -2076,7 +2163,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
     position: relative;
 
     &--root {
@@ -2143,7 +2230,7 @@ onBeforeUnmount(() => {
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -2168,7 +2255,7 @@ onBeforeUnmount(() => {
 
     &--starting {
       background-color: #eab308;
-      animation: pulse-dot 1s ease-in-out infinite;
+      animation: st-pulse 1s ease-in-out infinite;
     }
   }
 
@@ -2218,7 +2305,7 @@ onBeforeUnmount(() => {
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth), opacity var(--st-duration-fast) var(--st-easing-smooth);
 
     .app-sidebar__pf-item:hover & {
       opacity: 1;
@@ -2252,7 +2339,7 @@ onBeforeUnmount(() => {
     cursor: pointer;
     color: var(--text-secondary);
     font-size: 12px;
-    transition: background-color 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 
     &:hover {
       background-color: var(--bg-hover);
@@ -2275,7 +2362,7 @@ onBeforeUnmount(() => {
   &__collapse-arrow {
     color: var(--text-tertiary);
     flex-shrink: 0;
-    transition: transform 0.15s;
+    transition: transform var(--st-duration-fast) var(--st-easing-spring);
 
     &--open {
       transform: rotate(90deg);
@@ -2290,11 +2377,22 @@ onBeforeUnmount(() => {
     text-align: center;
   }
 
-  // ===== 脉冲动画 =====
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  &__empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 12px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+
+    svg {
+      width: 24px;
+      height: 24px;
+      opacity: 0.5;
+    }
   }
+
 
   // ===== 宽度拖拽手柄 =====
   &__resize-handle {
@@ -2339,7 +2437,7 @@ onBeforeUnmount(() => {
     border-radius: 6px;
     line-height: 1.5;
     margin: 1px 0;
-    transition: all 0.12s ease;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
   }
 }
 

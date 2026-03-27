@@ -169,8 +169,37 @@
     "replayPause": "暂停",
     "replaySpeed": "倍速",
     "replayEmpty": "录制数据为空",
+    "exportGif": "导出 GIF",
+    "exportGifSuccess": "GIF 导出成功",
+    "exportGifError": "GIF 导出失败",
+    "keybindings": "快捷键",
+    "keybindings_section": "快捷键",
+    "keybindings_desc": "自定义应用快捷键。点击快捷键区域后按下新组合键即可修改。",
+    "keybindingsResetAll": "重置全部",
+    "keybindingsResetAllConfirm": "确定要将所有快捷键重置为默认值吗？",
+    "keybindingsAction": "操作",
+    "keybindingsShortcut": "快捷键",
+    "keybindingsRecording": "按下快捷键...",
+    "keybindingsConflict": "与「{action}」冲突",
+    "keybindingsReset": "重置",
+    "keybindingsSaved": "已保存",
+    "keybindingsActions": {
+      "new-tab": "新建标签页",
+      "close-tab": "关闭标签页",
+      "command-palette": "命令面板",
+      "command-palette-alt": "命令面板 (备用)",
+      "terminal-search": "终端搜索"
+    },
     "terminalTheme": "终端主题",
-    "terminalThemeDesc": "选择终端颜色主题，立即生效"
+    "terminalThemeDesc": "选择终端颜色配色方案",
+    "accentColor": "强调色",
+    "accentColorDesc": "自定义界面强调色",
+    "exportTerminalTheme": "导出终端主题",
+    "exportTerminalThemeDesc": "将当前终端主题导出为 JSON 文件",
+    "exportTerminalThemeBtn": "导出当前终端主题",
+    "exportTerminalThemeSection": "导出",
+    "exportTerminalThemeSuccess": "主题已导出",
+    "exportTerminalThemeFailed": "导出失败"
   },
   "commandPalette": {
     "placeholder": "搜索命令、主机、片段...",
@@ -361,21 +390,28 @@
   "toolbar": {
     "newTerminal": "新建终端",
     "sftp": "SFTP 文件传输",
-    "splitHorizontal": "水平分屏",
-    "splitVertical": "垂直分屏",
-    "broadcast": "广播模式（同步输入到所有终端）",
+    "splitHorizontal": "水平分屏 (Ctrl+Shift+D)",
+    "splitVertical": "垂直分屏 (Ctrl+Shift+E)",
+    "broadcast": "广播模式 — 同时输入到所有终端",
     "startRecording": "录制会话",
     "stopRecording": "停止录制",
     "openLogDir": "打开录制文件夹",
-    "terminalSearch": "终端内搜索",
-    "fullscreen": "全屏"
+    "terminalSearch": "终端内搜索 (Ctrl+F)",
+    "fullscreen": "全屏",
+    "commandPalette": "命令面板 (Ctrl+P)"
   },
   "workspace": {
     "emptyHint1": "按 Ctrl+T 新建本地终端",
     "emptyHint2": "或从左侧选择主机连接"
   },
   "terminalTabs": {
-    "recording": "录制中"
+    "recording": "录制中",
+    "ctxRestart": "重启",
+    "ctxDuplicate": "复制",
+    "ctxPin": "固定",
+    "ctxUnpin": "取消固定",
+    "ctxClose": "关闭",
+    "ctxCloseRight": "关闭右侧所有"
   },
   "searchBar": {
     "placeholder": "搜索...",
@@ -433,17 +469,21 @@
     "addGroup": "新建分组",
     "addHost": "新增主机",
     "noHosts": "暂无主机",
+    "emptyHosts": "暂无主机，点击 + 添加",
     "terminals": "本地终端",
     "addTerminalGroup": "新建分组",
     "addTerminal": "新建终端配置",
     "noTerminals": "暂无终端配置",
+    "emptyTerminals": "暂无终端配置",
     "snippets": "命令片段",
     "addSnippetGroup": "新建分组",
     "addSnippet": "新建片段",
     "noSnippets": "暂无命令片段",
+    "emptySnippets": "暂无命令片段",
     "portForwards": "端口转发",
     "addPortForward": "新建转发",
     "noPortForwards": "暂无端口转发",
+    "emptyPortForwards": "暂无端口转发规则",
     "vault": "密码库",
     "dragToUngrouped": "拖放到此处移为未分组",
     "groupRename": "重命名",
@@ -806,5 +846,46 @@
     "transferCancelled": "已取消",
     "localDeleteNotSupported": "本地文件删除暂不支持",
     "localRenameNotSupported": "本地文件重命名暂不支持"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": "欢迎",
+      "theme": "主题",
+      "getStarted": "开始"
+    },
+    "welcome": {
+      "title": "欢迎使用 STerminal",
+      "subtitle": "跨平台终端管理工具，让服务器管理更简单"
+    },
+    "import": {
+      "title": "导入 OpenSSH 配置",
+      "desc": "从 ~/.ssh/config 自动导入主机配置",
+      "button": "导入",
+      "successHint": "已找到 {count} 台主机，将在完成向导后导入",
+      "noConfig": "未找到 SSH 配置，或配置文件为空",
+      "notSupported": "SSH 配置导入将在后续版本支持"
+    },
+    "theme": {
+      "title": "选择界面风格",
+      "subtitle": "选择你喜欢的外观主题",
+      "terminalThemeLabel": "终端配色",
+      "dark": "深色",
+      "light": "浅色",
+      "system": "跟随系统"
+    },
+    "getStarted": {
+      "title": "一切就绪！",
+      "subtitle": "开始使用 STerminal，高效管理你的服务器",
+      "sshButton": "创建 SSH 连接",
+      "sshHint": "添加远程服务器主机配置",
+      "localButton": "打开本地终端",
+      "localHint": "在本地运行命令和脚本"
+    },
+    "nav": {
+      "next": "下一步",
+      "prev": "上一步",
+      "skip": "跳过",
+      "finish": "开始使用"
+    }
   }
 }

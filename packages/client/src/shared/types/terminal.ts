@@ -67,6 +67,9 @@ export interface TerminalInstance {
   ptyId?: string
   // 远端操作系统（SSH 连接成功后检测）
   remoteOS?: 'darwin' | 'windows' | 'linux'
+  // SSH 健康探针数据
+  healthRtt?: number       // RTT 毫秒，-1 表示超时/不支持
+  healthStatus?: 'ok' | 'timeout' | 'unsupported'
   // 共享字段
   recording: boolean
 }

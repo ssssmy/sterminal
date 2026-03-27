@@ -1,8 +1,11 @@
 // 全局样式入口
 // 导入主题变量，并定义全局 reset 和基础样式
 
-// 导入 CSS 变量定义（主题 token）
+// 导入 CSS 变量定义（主题 token + 动效 token）
 @use './variables.scss';
+
+// 导入 transition 类约定 + 动画关键帧
+@use './transitions.scss';
 
 // xterm.js 样式
 @import '@xterm/xterm/css/xterm.css';
@@ -141,10 +144,23 @@ html.dark {
 
 // ===== 组件级微调 =====
 
-// 对话框 → 更精致的圆角和分割线
+// 对话框遮罩层淡入淡出
+.el-overlay {
+  transition: opacity var(--st-duration-normal) var(--st-easing-smooth);
+}
+
+// 渐进增强：仅在独立显卡上启用背景模糊
+html.gpu-blur-capable .el-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+// 对话框 → 更精致的圆角和分割线，带入场动效
 .el-dialog {
   --el-dialog-border-radius: 12px;
   --el-dialog-title-font-size: 15px;
+  transition: transform var(--st-duration-normal) var(--st-easing-spring),
+              opacity var(--st-duration-normal) var(--st-easing-smooth);
 
   .el-dialog__header {
     border-bottom: 1px solid var(--el-border-color-lighter);

@@ -15,7 +15,11 @@
     "pack:linux": "vue-tsc --noEmit && vite build && electron-builder --linux",
     "pack:all": "vue-tsc --noEmit && vite build && electron-builder --mac --win --linux",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "npm rebuild better-sqlite3 && vitest run && npx node-gyp rebuild --directory=node_modules/better-sqlite3 --runtime=electron --target=33.4.11 --dist-url=https://electronjs.org/headers",
+    "test:unit": "vitest run --exclude='src/main/__tests__/**'",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -25,7 +29,9 @@
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "better-sqlite3": "^11.0.0",
+    "canvas": "^3.2.2",
     "element-plus": "^2.9.0",
+    "gif-encoder-2": "^1.0.5",
     "libsodium-wrappers-sumo": "^0.7.16",
     "node-pty": "^1.1.0",
     "pinia": "^2.2.0",
@@ -45,8 +51,10 @@
     "@types/ssh2": "^1.15.1",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.6",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8",
+    "happy-dom": "^20.8.9",
     "sass": "^1.82.0",
     "typescript": "^5.7.0",
     "unplugin-auto-import": "^0.18.6",
@@ -54,6 +62,7 @@
     "vite": "^6.0.0",
     "vite-plugin-electron": "^0.29.1",
     "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^4.1.2",
     "vue-tsc": "^2.1.0"
   }
 }

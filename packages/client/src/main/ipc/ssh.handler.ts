@@ -19,9 +19,92 @@ export interface SshSession {
   stream: ClientChannel | null
   webContents: WebContents
   hostId: string
+  keepaliveInterval?: number
 }
 
 export const sshSessions = new Map<string, SshSession>()
+
+// Health probe state
+const healthProbes: Map<string, NodeJS.Timeout> = new Map()
+
+// Start health probe for a connection
+function startHealthProbe(connectionId: string): void {
+  // Don't start if already running
+  if (healthProbes.has(connectionId)) return
+
+  const session = sshSessions.get(connectionId)
+  if (!session?.client) return
+
+  // Get probe interval from host config (use keepaliveInterval, min 10s)
+  const interval = Math.max(10000, (session.keepaliveInterval || 60) * 1000)
+
+  const timer = setInterval(() => {
+    probeLatency(connectionId)
+  }, interval)
+
+  healthProbes.set(connectionId, timer)
+
+  // Run first probe immediately
+  probeLatency(connectionId)
+}
+
+// Stop health probe
+function stopHealthProbe(connectionId: string): void {
+  const timer = healthProbes.get(connectionId)
+  if (timer) {
+    clearInterval(timer)
+    healthProbes.delete(connectionId)
+  }
+}
+
+// Execute latency probe
+function probeLatency(connectionId: string): void {
+  const session = sshSessions.get(connectionId)
+  if (!session?.client) {
+    stopHealthProbe(connectionId)
+    return
+  }
+
+  const start = Date.now()
+  const timeout = setTimeout(() => {
+    // Probe timed out
+    emitHealth(connectionId, { rtt: -1, status: 'timeout' })
+  }, 5000)
+
+  session.client.exec('echo __STERMINAL_PING__', (err, stream) => {
+    clearTimeout(timeout)
+
+    if (err) {
+      // exec might be disabled on restricted shells
+      emitHealth(connectionId, { rtt: -1, status: 'unsupported' })
+      stopHealthProbe(connectionId) // Don't keep probing if exec is disabled
+      return
+    }
+
+    stream.on('data', () => {
+      const rtt = Date.now() - start
+      emitHealth(connectionId, { rtt, status: 'ok' })
+      stream.close()
+    })
+
+    stream.on('close', () => {
+      // stream closed without data = something went wrong
+    })
+
+    stream.stderr.on('data', () => {
+      // Ignore stderr
+    })
+  })
+}
+
+// Emit health data to renderer
+function emitHealth(connectionId: string, data: { rtt: number; status: string }): void {
+  const session = sshSessions.get(connectionId)
+  if (session?.webContents && !session.webContents.isDestroyed()) {
+    // preload.on() 只传递第一个参数，打包为单个对象
+    session.webContents.send(IPC_SSH.HEALTH, { connectionId, ...data })
+  }
+}
 
 /**
  * 注册所有 SSH 相关的 IPC handlers
@@ -76,6 +159,7 @@ export function registerSshHandlers(): void {
         stream: null,
         webContents,
         hostId: params.hostId,
+        keepaliveInterval: hostConfig.keepaliveInterval,
       }
       sshSessions.set(connectionId, session)
 
@@ -110,6 +194,7 @@ export function registerSshHandlers(): void {
           })
 
           stream.on('close', () => {
+            stopHealthProbe(connectionId)
             if (!webContents.isDestroyed()) {
               webContents.send(IPC_SSH.STATUS, { connectionId, status: 'disconnected' })
             }
@@ -118,6 +203,9 @@ export function registerSshHandlers(): void {
           })
 
           if (!settled) { settled = true; resolve({ connectionId }) }
+
+          // 启动 SSH 连接健康监测
+          startHealthProbe(connectionId)
 
           // 自动录制
           if (shouldAutoRecord()) {
@@ -160,6 +248,7 @@ export function registerSshHandlers(): void {
       })
 
       conn.on('close', () => {
+        stopHealthProbe(connectionId)
         if (!webContents.isDestroyed()) {
           webContents.send(IPC_SSH.STATUS, { connectionId, status: 'disconnected' })
         }
@@ -299,6 +388,7 @@ export function registerSshHandlers(): void {
   ipcMain.handle(IPC_SSH.DISCONNECT, async (_event, params: { connectionId: string }) => {
     const session = sshSessions.get(params.connectionId)
     if (!session) return
+    stopHealthProbe(params.connectionId)
     session.stream?.close()
     session.client.end()
     sshSessions.delete(params.connectionId)
@@ -340,6 +430,10 @@ export function registerSshHandlers(): void {
  * 断开所有 SSH 连接（应用退出时调用）
  */
 export function disconnectAllSsh(): void {
+  // 先停止所有健康探测计时器
+  for (const [id] of healthProbes) {
+    stopHealthProbe(id)
+  }
   for (const [id, session] of sshSessions) {
     try {
       session.stream?.close()

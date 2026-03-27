@@ -6,6 +6,18 @@
 
     <!-- 左侧按钮组 -->
     <div class="app-toolbar__btn-group">
+      <!-- 命令面板 -->
+      <el-tooltip :content="t('toolbar.commandPalette')" placement="bottom">
+        <el-badge :hidden="!showCmdPaletteHint" is-dot type="primary" class="app-toolbar__badge">
+          <button
+            class="app-toolbar__btn"
+            @click="handleOpenCommandPalette"
+          >
+            <el-icon :size="16"><Operation /></el-icon>
+          </button>
+        </el-badge>
+      </el-tooltip>
+
       <!-- 新建终端 -->
       <el-tooltip :content="t('toolbar.newTerminal')" placement="bottom">
         <button
@@ -125,11 +137,13 @@
 import { ref, computed } from 'vue'
 import {
   FolderOpened, Microphone, VideoCamera,
-  Search, FullScreen, Cpu, Folder,
+  Search, FullScreen, Cpu, Folder, Operation,
 } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionsStore } from '../../stores/sessions.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
+import { useUiStore } from '../../stores/ui.store'
+import { useFeatureHint } from '../../composables/useFeatureHint'
 import { IPC_LOG } from '@shared/types/ipc-channels'
 
 const { t } = useI18n()
@@ -138,7 +152,11 @@ const isMacOS = window.electronAPI?.platform === 'darwin'
 const isWindows = window.electronAPI?.platform === 'win32'
 const sessionsStore = useSessionsStore()
 const terminalsStore = useTerminalsStore()
+const uiStore = useUiStore()
 const ipc = window.electronAPI?.ipc
+
+// 命令面板功能发现提示（首次使用时显示圆点）
+const { showHint: showCmdPaletteHint, dismissHint: dismissCmdPaletteHint } = useFeatureHint('commandPalette')
 
 // 广播模式与 store 同步
 const broadcastMode = computed(() => sessionsStore.broadcastMode)
@@ -166,6 +184,11 @@ const emit = defineEmits<{
 
 // ===== 本地状态 =====
 const activeTool = ref<string | null>(null)
+
+function handleOpenCommandPalette(): void {
+  dismissCmdPaletteHint()
+  uiStore.openCommandPalette()
+}
 
 function toggleBroadcast(): void {
   sessionsStore.broadcastMode = !sessionsStore.broadcastMode
@@ -232,7 +255,12 @@ function openDefaultTerminal(): void {
   // 非拖拽区域
   button,
   svg,
-  .el-tooltip {
+  .el-tooltip,
+  .el-badge {
+    -webkit-app-region: no-drag;
+  }
+
+  &__badge {
     -webkit-app-region: no-drag;
   }
 
@@ -278,7 +306,7 @@ function openDefaultTerminal(): void {
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--st-duration-fast) var(--st-easing-smooth), color var(--st-duration-fast) var(--st-easing-smooth);
     -webkit-app-region: no-drag;
 
     &:hover {

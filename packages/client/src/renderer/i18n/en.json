@@ -166,11 +166,40 @@
     "replayLoading": "Loading recording...",
     "replayError": "Failed to load recording",
     "replayEmpty": "Recording is empty",
+    "exportGif": "Export GIF",
+    "exportGifSuccess": "GIF exported successfully",
+    "exportGifError": "GIF export failed",
     "replayPlay": "Play",
     "replayPause": "Pause",
     "replaySpeed": "Speed",
+    "keybindings": "Keybindings",
+    "keybindings_section": "Keybindings",
+    "keybindings_desc": "Customize application shortcuts. Click a shortcut then press a new key combination to change it.",
+    "keybindingsResetAll": "Reset All",
+    "keybindingsResetAllConfirm": "Reset all keybindings to their defaults?",
+    "keybindingsAction": "Action",
+    "keybindingsShortcut": "Shortcut",
+    "keybindingsRecording": "Press shortcut...",
+    "keybindingsConflict": "Conflicts with \"{action}\"",
+    "keybindingsReset": "Reset",
+    "keybindingsSaved": "Saved",
+    "keybindingsActions": {
+      "new-tab": "New Tab",
+      "close-tab": "Close Tab",
+      "command-palette": "Command Palette",
+      "command-palette-alt": "Command Palette (Alt)",
+      "terminal-search": "Terminal Search"
+    },
     "terminalTheme": "Terminal Theme",
-    "terminalThemeDesc": "Choose a terminal color theme, applied immediately"
+    "terminalThemeDesc": "Select the terminal color scheme",
+    "accentColor": "Accent Color",
+    "accentColorDesc": "Customize the UI accent color",
+    "exportTerminalTheme": "Export Terminal Theme",
+    "exportTerminalThemeDesc": "Export the current terminal theme as a JSON file",
+    "exportTerminalThemeBtn": "Export Current Terminal Theme",
+    "exportTerminalThemeSection": "Export",
+    "exportTerminalThemeSuccess": "Theme exported",
+    "exportTerminalThemeFailed": "Export failed"
   },
   "commandPalette": {
     "placeholder": "Search commands, hosts, snippets...",
@@ -361,21 +390,28 @@
   "toolbar": {
     "newTerminal": "New Terminal",
     "sftp": "SFTP File Transfer",
-    "splitHorizontal": "Split Horizontal",
-    "splitVertical": "Split Vertical",
-    "broadcast": "Broadcast (sync input to all terminals)",
+    "splitHorizontal": "Split Horizontal (Ctrl+Shift+D)",
+    "splitVertical": "Split Vertical (Ctrl+Shift+E)",
+    "broadcast": "Broadcast — type to all terminals simultaneously",
     "startRecording": "Record Session",
     "stopRecording": "Stop Recording",
     "openLogDir": "Open Recording Folder",
-    "terminalSearch": "Search in Terminal",
-    "fullscreen": "Fullscreen"
+    "terminalSearch": "Search in Terminal (Ctrl+F)",
+    "fullscreen": "Fullscreen",
+    "commandPalette": "Command Palette (Ctrl+P)"
   },
   "workspace": {
     "emptyHint1": "Press Ctrl+T to open a local terminal",
     "emptyHint2": "Or select a host from the sidebar"
   },
   "terminalTabs": {
-    "recording": "Recording"
+    "recording": "Recording",
+    "ctxRestart": "Restart",
+    "ctxDuplicate": "Duplicate",
+    "ctxPin": "Pin",
+    "ctxUnpin": "Unpin",
+    "ctxClose": "Close",
+    "ctxCloseRight": "Close tabs to the right"
   },
   "searchBar": {
     "placeholder": "Search...",
@@ -433,17 +469,21 @@
     "addGroup": "New Group",
     "addHost": "Add Host",
     "noHosts": "No hosts",
+    "emptyHosts": "No hosts, click + to add",
     "terminals": "Local Terminals",
     "addTerminalGroup": "New Group",
     "addTerminal": "New Terminal Config",
     "noTerminals": "No terminal configs",
+    "emptyTerminals": "No terminal configs",
     "snippets": "Snippets",
     "addSnippetGroup": "New Group",
     "addSnippet": "New Snippet",
     "noSnippets": "No snippets",
+    "emptySnippets": "No snippets",
     "portForwards": "Port Forwards",
     "addPortForward": "New Forward",
     "noPortForwards": "No port forwards",
+    "emptyPortForwards": "No port forward rules",
     "vault": "Vault",
     "dragToUngrouped": "Drop here to ungroup",
     "groupRename": "Rename",
@@ -806,5 +846,46 @@
     "transferCancelled": "Cancelled",
     "localDeleteNotSupported": "Local file deletion is not supported yet",
     "localRenameNotSupported": "Local file rename is not supported yet"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": "Welcome",
+      "theme": "Theme",
+      "getStarted": "Get Started"
+    },
+    "welcome": {
+      "title": "Welcome to STerminal",
+      "subtitle": "Cross-platform terminal manager — server management made simple"
+    },
+    "import": {
+      "title": "Import OpenSSH Config",
+      "desc": "Auto-import host configs from ~/.ssh/config",
+      "button": "Import",
+      "successHint": "Found {count} host(s) — will be imported when you finish the wizard",
+      "noConfig": "No SSH config found, or the config file is empty",
+      "notSupported": "SSH config import will be supported in a future release"
+    },
+    "theme": {
+      "title": "Choose Your Look",
+      "subtitle": "Pick the appearance theme you prefer",
+      "terminalThemeLabel": "Terminal Colors",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
+    },
+    "getStarted": {
+      "title": "All Set!",
+      "subtitle": "Start using STerminal to manage your servers efficiently",
+      "sshButton": "Create SSH Connection",
+      "sshHint": "Add a remote server host config",
+      "localButton": "Open Local Terminal",
+      "localHint": "Run commands and scripts locally"
+    },
+    "nav": {
+      "next": "Next",
+      "prev": "Previous",
+      "skip": "Skip",
+      "finish": "Get Started"
+    }
   }
 }

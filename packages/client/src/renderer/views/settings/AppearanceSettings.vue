@@ -18,6 +18,29 @@
           <el-radio-button value="system">{{ t('settings.themeSystem') }}</el-radio-button>
         </el-radio-group>
       </div>
+
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('settings.terminalTheme') }}</label>
+          <span class="settings-row__desc">{{ t('settings.terminalThemeDesc') }}</span>
+        </div>
+        <el-select v-model="terminalTheme" @change="handleTerminalThemeChange" style="width: 200px">
+          <el-option
+            v-for="theme in allTerminalThemes"
+            :key="theme.id"
+            :label="theme.name"
+            :value="theme.id"
+          />
+        </el-select>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('settings.accentColor') }}</label>
+          <span class="settings-row__desc">{{ t('settings.accentColorDesc') }}</span>
+        </div>
+        <el-color-picker v-model="accentColor" @change="handleAccentColorChange" :predefine="presetColors" />
+      </div>
     </div>
 
     <!-- ===== 界面 ===== -->
@@ -77,21 +100,44 @@
         />
       </div>
     </div>
+
+    <!-- ===== 导出 ===== -->
+    <div class="settings-block">
+      <h4 class="settings-block__title">{{ t('settings.exportTerminalThemeSection') }}</h4>
+
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('settings.exportTerminalTheme') }}</label>
+          <span class="settings-row__desc">{{ t('settings.exportTerminalThemeDesc') }}</span>
+        </div>
+        <el-button
+          :loading="exporting"
+          @click="handleExportTheme"
+        >
+          {{ t('settings.exportTerminalThemeBtn') }}
+        </el-button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import { useUiStore } from '../../stores/ui.store'
 import type { AppTheme } from '../../stores/ui.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useThemesStore } from '../../stores/themes.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
 
 const { t, locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
+const themesStore = useThemesStore()
+
+const allTerminalThemes = computed(() => themesStore.allTerminalThemes)
 
 function getStr(key: string): string {
   const v = settingsStore.settings.has(key) ? settingsStore.settings.get(key) : DEFAULT_SETTINGS[key]
@@ -137,15 +183,79 @@ function handleZoomChange(val: unknown): void {
   window.electronAPI?.ipc.invoke(IPC_WINDOW.SET_ZOOM, level)
 }
 
+// ===== 终端主题 =====
+
+const terminalTheme = ref('sterminal-dark')
+
+function handleTerminalThemeChange(val: unknown): void {
+  set('terminal.theme', String(val))
+}
+
+// ===== 强调色 =====
+
+const accentColor = ref('#6366f1')
+const presetColors = [
+  '#6366f1', '#3b82f6', '#06b6d4', '#10b981',
+  '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6',
+]
+
+function handleAccentColorChange(val: unknown): void {
+  const color = String(val ?? '#6366f1')
+  set('app.accentColor', color)
+  themesStore.applyCustomCssOverrides({ '--accent': color })
+}
+
 onMounted(async () => {
   await Promise.all([
     settingsStore.getSetting('app.language'),
     settingsStore.getSetting('app.zoomLevel'),
     settingsStore.getSetting('app.compactMode'),
+    settingsStore.getSetting('terminal.theme'),
+    settingsStore.getSetting('app.accentColor'),
+    themesStore.loadCustomThemes(),
   ])
   // 从 store 初始化本地 ref
   zoomLevel.value = getNum('app.zoomLevel') || 1.0
+  terminalTheme.value = getStr('terminal.theme') || 'sterminal-dark'
+  accentColor.value = getStr('app.accentColor') || '#6366f1'
 })
+
+// ===== 导出终端主题 =====
+
+const exporting = ref(false)
+
+async function handleExportTheme(): Promise<void> {
+  exporting.value = true
+  try {
+    const themeId = getStr('terminal.theme') || 'sterminal-dark'
+    const preset = themesStore.findTheme(themeId)
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      app: 'STerminal',
+      type: 'terminal-theme',
+      theme: {
+        id: preset.id,
+        name: preset.name,
+        type: preset.type,
+        colors: preset.colors,
+      },
+    }
+    const json = JSON.stringify(exportData, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sterminal-theme-${preset.id}-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('settings.exportTerminalThemeSuccess'))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('settings.exportTerminalThemeFailed'))
+  } finally {
+    exporting.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>

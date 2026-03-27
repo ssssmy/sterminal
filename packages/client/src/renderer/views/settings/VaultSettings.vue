@@ -36,8 +36,8 @@
             <span v-if="entry.username" class="vault-entry__username">{{ entry.username }}</span>
           </div>
           <div class="vault-entry__actions">
-            <el-button size="small" @click="handleCopy(entry.value)">
-              {{ t('vault.copy') }}
+            <el-button size="small" @click="handleCopy(entry.value, entry.id)">
+              {{ vaultCopied && copiedEntryId === entry.id ? '✓' : t('vault.copy') }}
             </el-button>
             <el-button size="small" @click="openEditDialog(entry)">
               {{ t('vault.edit') }}
@@ -126,6 +126,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useVaultStore } from '../../stores/vault.store'
 import type { VaultEntry, VaultEntryType } from '../../../shared/types/vault'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const { t } = useI18n()
 const vaultStore = useVaultStore()
@@ -207,6 +208,8 @@ async function handleDelete(entry: VaultEntry): Promise<void> {
 }
 
 // Clipboard
+const { copied: vaultCopied, copyWithFeedback: copyVaultText } = useCopyFeedback()
+const copiedEntryId = ref<string | null>(null)
 const clipboardTimers: ReturnType<typeof setTimeout>[] = []
 
 onUnmounted(() => {
@@ -214,20 +217,21 @@ onUnmounted(() => {
   clipboardTimers.length = 0
 })
 
-async function handleCopy(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text)
-    ElMessage.success(t('vault.copied'))
-    const timer = setTimeout(async () => {
-      try {
-        const current = await navigator.clipboard.readText()
-        if (current === text) await navigator.clipboard.writeText('')
-      } catch { /* ignore */ }
-    }, 30000)
-    clipboardTimers.push(timer)
-  } catch {
+async function handleCopy(text: string, entryId = ''): Promise<void> {
+  const ok = await copyVaultText(text)
+  if (!ok) {
     ElMessage.error(t('vault.copyFailed'))
+    return
   }
+  copiedEntryId.value = entryId
+  // 30-second auto-clear clipboard security feature
+  const timer = setTimeout(async () => {
+    try {
+      const current = await navigator.clipboard.readText()
+      if (current === text) await navigator.clipboard.writeText('')
+    } catch { /* ignore */ }
+  }, 30000)
+  clipboardTimers.push(timer)
 }
 
 // Password generator

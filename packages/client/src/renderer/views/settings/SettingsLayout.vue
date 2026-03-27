@@ -34,6 +34,15 @@
           <el-icon><Brush /></el-icon>
           <span>{{ t('settings.appearance') }}</span>
         </el-menu-item>
+        <el-menu-item index="keybindings">
+          <el-icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2"/>
+              <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M8 13h.01M12 13h.01M16 13h.01M7 17h10"/>
+            </svg>
+          </el-icon>
+          <span>{{ t('settings.keybindings') }}</span>
+        </el-menu-item>
         <el-menu-item index="keys">
           <el-icon><Key /></el-icon>
           <span>{{ t('settings.keys') }}</span>
@@ -65,6 +74,7 @@
           <AccountSettings v-if="activeSection === 'account'" />
           <TerminalSettings v-else-if="activeSection === 'terminal'" />
           <AppearanceSettings v-else-if="activeSection === 'appearance'" />
+          <KeybindingsSettings v-else-if="activeSection === 'keybindings'" />
           <LogSettings v-else-if="activeSection === 'logs'" />
           <KnownHostsSettings v-else-if="activeSection === 'known-hosts'" />
           <KeysSettings v-else-if="activeSection === 'keys'" />
@@ -94,6 +104,7 @@ import KnownHostsSettings from './KnownHostsSettings.vue'
 import KeysSettings from './KeysSettings.vue'
 import VaultSettings from './VaultSettings.vue'
 import DataSettings from './DataSettings.vue'
+import KeybindingsSettings from './KeybindingsSettings.vue'
 
 const router = useRouter()
 const { t } = useI18n()

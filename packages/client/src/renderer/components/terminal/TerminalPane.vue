@@ -17,7 +17,8 @@ import { useUiStore } from '@/stores/ui.store'
 import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { findThemePreset } from '@shared/constants/terminal-themes'
-import { nextTick } from 'vue'
+import { nextTick, watch } from 'vue'
+import { keybindingService } from '@/services/keybinding.service'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
 const _ipc = window.electronAPI?.ipc
@@ -47,6 +48,16 @@ interface PooledTerminal {
   ipcCallbacks: { channel: string; callback: (data: unknown) => void }[]
   /** 标记：终端在隐藏期间收到过数据，切换回来时需要刷新 viewport */
   dirtyWhileHidden: boolean
+  /** 检测到的主机环境（用于显示安全警示边框） */
+  environment: 'production' | 'staging' | null
+}
+
+// ===== 主机环境检测 =====
+function detectHostEnvironment(host: { address: string; label?: string }): 'production' | 'staging' | null {
+  const text = `${host.label || ''} ${host.address}`.toLowerCase()
+  if (/\bprod(uction)?\b/.test(text)) return 'production'
+  if (/\bstag(ing|e)?\b/.test(text)) return 'staging'
+  return null
 }
 
 const terminalPool = new Map<string, PooledTerminal>()
@@ -203,7 +214,7 @@ function getXtermTheme(): Record<string, string> {
   return findThemePreset(fallback).colors
 }
 
-function getXtermBaseOptions() {
+function buildXtermOptionsFromSettings() {
   const s = useSettingsStoreModule().settings
   return {
     fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
@@ -214,6 +225,12 @@ function getXtermBaseOptions() {
     cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
     scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
     scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
+  }
+}
+
+function getXtermBaseOptions() {
+  return {
+    ...buildXtermOptionsFromSettings(),
     allowProposedApi: true,
   }
 }
@@ -235,10 +252,68 @@ function registerSystemThemeListener(): void {
     }
   })
 }
+
+// 监听 app 主题 & 终端主题设置变化（模块级，只注册一次）
+let _themeWatcherRegistered = false
+const _terminalThemeSettingKeys = [
+  'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
+  'terminal.fontLigatures', 'terminal.cursorStyle', 'terminal.cursorBlink',
+  'terminal.scrollback', 'terminal.scrollSensitivity',
+  'terminal.theme',
+]
+function registerThemeWatcher(): void {
+  if (_themeWatcherRegistered) return
+  _themeWatcherRegistered = true
+  const uiStore = useUiStore()
+  const settingsStore = useSettingsStoreModule()
+  // 监听 app 主题变化（light/dark/system 切换）
+  watch(
+    () => uiStore.theme,
+    () => {
+      nextTick(() => {
+        const theme = getXtermTheme()
+        for (const pooled of terminalPool.values()) {
+          pooled.terminal.options.theme = theme
+        }
+      })
+    },
+  )
+  // 监听终端设置变化（字体、光标、主题等），实时更新所有终端
+  watch(
+    () => _terminalThemeSettingKeys.map(k => settingsStore.settings.get(k)),
+    () => {
+      const opts = buildXtermOptionsFromSettings()
+      const theme = getXtermTheme()
+      for (const pooled of terminalPool.values()) {
+        Object.assign(pooled.terminal.options, opts)
+        pooled.terminal.options.theme = theme
+        pooled.fitAddon.fit()
+      }
+    },
+    { deep: true },
+  )
+}
+
+// 监听 SSH 健康探针数据（模块级，只注册一次）
+let _healthListenerRegistered = false
+function registerHealthListener(): void {
+  if (_healthListenerRegistered) return
+  _healthListenerRegistered = true
+  ipcOn(IPC_SSH.HEALTH, (payload: unknown) => {
+    const { connectionId, rtt, status } = payload as { connectionId: string; rtt: number; status: string }
+    const sessionsStore = useSessionsStore()
+    for (const instance of sessionsStore.terminalInstances.values()) {
+      if (instance.type === 'ssh' && instance.sshConnectionId === connectionId) {
+        instance.healthRtt = rtt
+        instance.healthStatus = status as 'ok' | 'timeout' | 'unsupported'
+      }
+    }
+  })
+}
 </script>
 
 <script setup lang="ts">
-import { defineComponent, h, ref, toRaw, watch, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, h, ref, computed, Transition, toRaw, onMounted, onBeforeUnmount } from 'vue'
 import type { TabSession, SplitNode } from '@shared/types/terminal'
 import { useHostsStore } from '@/stores/hosts.store'
 import { useTerminalsStore } from '@/stores/terminals.store'
@@ -247,54 +322,12 @@ const props = defineProps<{
   tab: TabSession
 }>()
 
-// 监听主题变化，更新所有池中终端
-const uiStore = useUiStore()
 const sessionsStore = useSessionsStore()
-watch(
-  () => uiStore.theme,
-  () => {
-    nextTick(() => {
-      const theme = getXtermTheme()
-      for (const pooled of terminalPool.values()) {
-        pooled.terminal.options.theme = theme
-      }
-    })
-  },
-)
 
-// 注册系统主题监听（模块级，仅首次生效）
+// 注册模块级监听（每个 guard flag 保证只执行一次）
+registerThemeWatcher()
 registerSystemThemeListener()
-
-// 监听终端设置变化，实时更新所有终端
-const settingsStore = useSettingsStoreModule()
-const terminalSettingKeys = [
-  'terminal.fontFamily', 'terminal.fontSize', 'terminal.lineHeight',
-  'terminal.cursorStyle', 'terminal.cursorBlink',
-  'terminal.scrollback', 'terminal.scrollSensitivity',
-  'terminal.theme',
-]
-watch(
-  () => terminalSettingKeys.map(k => settingsStore.settings.get(k)),
-  () => {
-    const s = settingsStore.settings
-    const opts = {
-      fontFamily: (s.get('terminal.fontFamily') || DEFAULT_SETTINGS['terminal.fontFamily']) as string,
-      fontSize: (s.get('terminal.fontSize') || DEFAULT_SETTINGS['terminal.fontSize']) as number,
-      lineHeight: (s.get('terminal.lineHeight') || DEFAULT_SETTINGS['terminal.lineHeight']) as number,
-      cursorStyle: (s.get('terminal.cursorStyle') || DEFAULT_SETTINGS['terminal.cursorStyle']) as 'block' | 'underline' | 'bar',
-      cursorBlink: (s.get('terminal.cursorBlink') ?? DEFAULT_SETTINGS['terminal.cursorBlink']) as boolean,
-      scrollback: (s.get('terminal.scrollback') || DEFAULT_SETTINGS['terminal.scrollback']) as number,
-      scrollSensitivity: (s.get('terminal.scrollSensitivity') || DEFAULT_SETTINGS['terminal.scrollSensitivity']) as number,
-    }
-    const theme = getXtermTheme()
-    for (const pooled of terminalPool.values()) {
-      Object.assign(pooled.terminal.options, opts)
-      pooled.terminal.options.theme = theme
-      pooled.fitAddon.fit()
-    }
-  },
-  { deep: true },
-)
+registerHealthListener()
 
 // ===== 单个终端实例组件 =====
 const TerminalXterm = defineComponent({
@@ -372,11 +405,16 @@ const TerminalXterm = defineComponent({
         isSSH,
         ipcCallbacks: [],
         dirtyWhileHidden: false,
+        environment: null,
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
       // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
       terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        // 优先检查 app 级快捷键绑定
+        if (e.type === 'keydown' && keybindingService.handleKeyEvent(e)) {
+          return false // 已被快捷键服务消费
+        }
         if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
           const s = useSettingsStoreModule().settings
           const trimNewlines = s.get('terminal.trimPasteNewlines') ?? DEFAULT_SETTINGS['terminal.trimPasteNewlines']
@@ -455,6 +493,7 @@ const TerminalXterm = defineComponent({
 
         terminal.write(`正在连接 ${hostConfig.username || 'root'}@${hostConfig.address}:${hostConfig.port || 22} ...\r\n`)
         if (instance) instance.sshStatus = 'connecting'
+        pooled.environment = detectHostEnvironment({ address: hostConfig.address, label: hostConfig.label })
 
         let sshPendingStartupCmd: string | null = null
 
@@ -673,21 +712,39 @@ const TerminalWrapper = defineComponent({
     const sessionsStore = useSessionsStore()
     const hovered = ref(false)
 
+    const sshStatus = computed(() =>
+      sessionsStore.terminalInstances.get(wrapperProps.terminalId)?.sshStatus ?? null
+    )
+
     function handleClose() {
       sessionsStore.closeSplitPane(props.tab.id, wrapperProps.terminalId)
     }
 
-    return () =>
-      h(
+    const connectingOverlay = () =>
+      h('div', { class: 'ssh-connecting-overlay' },
+        h('div', { class: 'ssh-connecting-dots' }, [
+          h('span'),
+          h('span'),
+          h('span'),
+        ])
+      )
+
+    return () => {
+      const env = terminalPool.get(wrapperProps.terminalId)?.environment
+      const envClass = env ? `terminal-env-${env}` : null
+      return h(
         'div',
         {
-          class: 'terminal-wrapper',
+          class: ['terminal-wrapper', envClass],
           style: { position: 'relative', flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0, minHeight: 0 },
           onMouseenter: () => { hovered.value = true },
           onMouseleave: () => { hovered.value = false },
         },
         [
           h(TerminalXterm, { key: wrapperProps.terminalId, terminalId: wrapperProps.terminalId }),
+          h(Transition, { name: 'st-fade' }, {
+            default: () => sshStatus.value === 'connecting' ? connectingOverlay() : null,
+          }),
           wrapperProps.showClose && hovered.value
             ? h('button', {
                 class: 'split-close-btn',
@@ -697,6 +754,7 @@ const TerminalWrapper = defineComponent({
             : null,
         ]
       )
+    }
   },
 })
 
@@ -820,11 +878,19 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   min-height: 0;
 }
 
+:deep(.terminal-env-production) {
+  border-top: 2px solid #ef4444;
+}
+
+:deep(.terminal-env-staging) {
+  border-top: 2px solid #f59e0b;
+}
+
 :deep(.split-resizer) {
   background: var(--border);
   flex-shrink: 0;
   z-index: 1;
-  transition: background 0.15s;
+  transition: background-color var(--st-duration-fast) var(--st-easing-smooth);
 }
 
 :deep(.split-resizer:hover) {
@@ -878,12 +944,52 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   align-items: center;
   justify-content: center;
   opacity: 0.8;
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity var(--st-duration-fast) var(--st-easing-smooth), background-color var(--st-duration-fast) var(--st-easing-smooth);
 
   &:hover {
     opacity: 1;
     background: rgba(239, 68, 68, 1);
   }
+}
+
+:deep(.ssh-connecting-overlay) {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+:deep(.ssh-connecting-dots) {
+  display: flex;
+  gap: 6px;
+}
+
+:deep(.ssh-connecting-dots span) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--st-accent, #6366f1);
+  animation: ssh-dot-pulse 1.4s infinite ease-in-out both;
+}
+
+:deep(.ssh-connecting-dots span:nth-child(1)) { animation-delay: -0.32s; }
+:deep(.ssh-connecting-dots span:nth-child(2)) { animation-delay: -0.16s; }
+:deep(.ssh-connecting-dots span:nth-child(3)) { animation-delay: 0s; }
+
+@keyframes ssh-dot-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.st-fade-leave-active {
+  transition: opacity 0.25s var(--st-easing-smooth, ease);
+}
+
+.st-fade-leave-to {
+  opacity: 0;
 }
 </style>
 

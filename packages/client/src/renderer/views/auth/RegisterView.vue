@@ -17,7 +17,7 @@
       <div class="register-brand__features">
         <div class="register-brand__feature">
           <div class="register-brand__feature-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
           </div>
           <div class="register-brand__feature-text">
             <span class="register-brand__feature-title">SSH / SFTP {{ t('loginView.featConnTitle') }}</span>
@@ -26,7 +26,7 @@
         </div>
         <div class="register-brand__feature">
           <div class="register-brand__feature-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
           </div>
           <div class="register-brand__feature-text">
             <span class="register-brand__feature-title">{{ t('loginView.featSyncTitle') }}</span>
@@ -35,7 +35,7 @@
         </div>
         <div class="register-brand__feature">
           <div class="register-brand__feature-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <div class="register-brand__feature-text">
             <span class="register-brand__feature-title">{{ t('loginView.featCrossTitle') }}</span>
@@ -230,7 +230,7 @@ function handleOAuth(provider: 'github' | 'google'): void {
   &__feature { display: flex; gap: 12px; align-items: flex-start; }
   &__feature-icon {
     width: 32px; height: 32px; border-radius: 8px;
-    background-color: rgba(99, 102, 241, 0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    background-color: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   &__feature-text { display: flex; flex-direction: column; gap: 2px; }
   &__feature-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
@@ -302,12 +302,12 @@ function handleOAuth(provider: 'github' | 'google'): void {
 .strength-bars { display: flex; gap: 4px; }
 .strength-bar {
   width: 40px; height: 3px; border-radius: 2px; background-color: var(--border); transition: background-color 0.2s;
-  &--active.strength-1 { background-color: #ef4444; }
-  &--active.strength-2 { background-color: #eab308; }
-  &--active.strength-3 { background-color: #22c55e; }
+  &--active.strength-1 { background-color: var(--error); }
+  &--active.strength-2 { background-color: var(--warning); }
+  &--active.strength-3 { background-color: var(--success); }
 }
 .strength-label { font-size: 11px; }
-.strength-text-1 { color: #ef4444; }
-.strength-text-2 { color: #eab308; }
-.strength-text-3 { color: #22c55e; }
+.strength-text-1 { color: var(--error); }
+.strength-text-2 { color: var(--warning); }
+.strength-text-3 { color: var(--success); }
 </style>

@@ -94,6 +94,7 @@ import { useSnippetsStore } from '../../stores/snippets.store'
 import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import { parseVariables } from '@shared/utils/snippet-variables'
 import { sendCommandToTerminal } from '../../components/terminal/TerminalPane.vue'
+import { keybindingService } from '../../services/keybinding.service'
 import AppSidebar from '../../components/sidebar/AppSidebar.vue'
 import AppToolbar from '../../components/toolbar/AppToolbar.vue'
 import TerminalTabs from '../../components/terminal/TerminalTabs.vue'
@@ -191,29 +192,10 @@ function handleSnippetVarConfirm(command: string): void {
 
 // ===== 键盘快捷键处理 =====
 function handleKeydown(e: KeyboardEvent): void {
-  // Ctrl+T: 新建标签页
-  if (e.ctrlKey && e.key === 't') {
-    e.preventDefault()
-    sessionsStore.createTab()
-  }
-  // Ctrl+W: 关闭当前标签页
-  if (e.ctrlKey && e.key === 'w' && sessionsStore.activeTabId) {
-    e.preventDefault()
-    sessionsStore.closeTab(sessionsStore.activeTabId)
-  }
-  // Ctrl+P / Cmd+P: 打开命令面板
-  if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-    e.preventDefault()
-    uiStore.openCommandPalette()
-  }
-  // Ctrl+F / Cmd+F: 终端内搜索
-  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && sessionsStore.activeTabId) {
-    e.preventDefault()
-    uiStore.showTerminalSearch = true
-  }
+  keybindingService.handleKeyEvent(e)
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 加载主机列表和本地终端配置（不阻塞 UI 渲染）
   Promise.all([
     hostsStore.fetchHosts(),
@@ -224,11 +206,39 @@ onMounted(() => {
     portForwardsStore.init(),
   ])
 
+  // 加载自定义快捷键并注册默认动作
+  await keybindingService.loadFromDb()
+  keybindingService.register('new-tab', 'CmdOrCtrl+T', () => {
+    sessionsStore.createTab()
+  })
+  keybindingService.register('close-tab', 'CmdOrCtrl+W', () => {
+    if (sessionsStore.activeTabId) {
+      sessionsStore.closeTab(sessionsStore.activeTabId)
+    }
+  })
+  keybindingService.register('command-palette', 'CmdOrCtrl+P', () => {
+    uiStore.openCommandPalette()
+  })
+  // Ctrl+K alias for command palette
+  keybindingService.register('command-palette-alt', 'Ctrl+K', () => {
+    uiStore.openCommandPalette()
+  })
+  keybindingService.register('terminal-search', 'CmdOrCtrl+F', () => {
+    if (sessionsStore.activeTabId) {
+      uiStore.showTerminalSearch = true
+    }
+  })
+
   window.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+  keybindingService.unregister('new-tab')
+  keybindingService.unregister('close-tab')
+  keybindingService.unregister('command-palette')
+  keybindingService.unregister('command-palette-alt')
+  keybindingService.unregister('terminal-search')
 })
 </script>
 

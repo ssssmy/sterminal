@@ -241,6 +241,23 @@ function registerSystemThemeListener(): void {
     }
   })
 }
+
+// 监听 SSH 健康探针数据（模块级，只注册一次）
+let _healthListenerRegistered = false
+function registerHealthListener(): void {
+  if (_healthListenerRegistered) return
+  _healthListenerRegistered = true
+  ipcOn(IPC_SSH.HEALTH, (payload: unknown) => {
+    const [connectionId, data] = payload as [string, { rtt: number; status: string }]
+    const sessionsStore = useSessionsStore()
+    for (const instance of sessionsStore.terminalInstances.values()) {
+      if (instance.type === 'ssh' && instance.sshConnectionId === connectionId) {
+        instance.healthRtt = data.rtt
+        instance.healthStatus = data.status as 'ok' | 'timeout' | 'unsupported'
+      }
+    }
+  })
+}
 </script>
 
 <script setup lang="ts">
@@ -270,6 +287,8 @@ watch(
 
 // 注册系统主题监听（模块级，仅首次生效）
 registerSystemThemeListener()
+// 注册 SSH 健康探针监听（模块级，仅首次生效）
+registerHealthListener()
 
 // 监听终端设置变化，实时更新所有终端
 const settingsStore = useSettingsStoreModule()

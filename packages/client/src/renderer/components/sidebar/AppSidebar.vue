@@ -141,6 +141,15 @@
                   />
                   <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
                   <span v-if="host.notes" class="app-sidebar__host-notes-indicator">📝</span>
+                  <span
+                    v-if="getHostLatency(host.id)?.status === 'ok'"
+                    class="app-sidebar__host-latency"
+                    :class="{
+                      'app-sidebar__host-latency--good': (getHostLatency(host.id)?.rtt ?? 0) < 100,
+                      'app-sidebar__host-latency--warn': (getHostLatency(host.id)?.rtt ?? 0) >= 100 && (getHostLatency(host.id)?.rtt ?? 0) < 500,
+                      'app-sidebar__host-latency--bad': (getHostLatency(host.id)?.rtt ?? 0) >= 500,
+                    }"
+                  >{{ getHostLatency(host.id)?.rtt }}ms</span>
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -188,6 +197,15 @@
               />
               <span class="app-sidebar__host-name">{{ host.label || host.address }}</span>
               <span v-if="host.notes" class="app-sidebar__host-notes-indicator">📝</span>
+              <span
+                v-if="getHostLatency(host.id)?.status === 'ok'"
+                class="app-sidebar__host-latency"
+                :class="{
+                  'app-sidebar__host-latency--good': (getHostLatency(host.id)?.rtt ?? 0) < 100,
+                  'app-sidebar__host-latency--warn': (getHostLatency(host.id)?.rtt ?? 0) >= 100 && (getHostLatency(host.id)?.rtt ?? 0) < 500,
+                  'app-sidebar__host-latency--bad': (getHostLatency(host.id)?.rtt ?? 0) >= 500,
+                }"
+              >{{ getHostLatency(host.id)?.rtt }}ms</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -1210,6 +1228,16 @@ function isHostConnected(hostId: string): boolean {
   return sessionsStore.connectedHostIds.has(hostId)
 }
 
+/** 获取已连接主机的延迟（毫秒），无数据返回 null */
+function getHostLatency(hostId: string): { rtt: number; status: string } | null {
+  for (const instance of sessionsStore.terminalInstances.values()) {
+    if (instance.type === 'ssh' && instance.hostId === hostId && instance.healthStatus) {
+      return { rtt: instance.healthRtt ?? -1, status: instance.healthStatus }
+    }
+  }
+  return null
+}
+
 function hostTitle(host: Host): string {
   const lines: string[] = []
   if (host.label) lines.push(host.label)
@@ -2012,6 +2040,31 @@ onBeforeUnmount(() => {
     flex-shrink: 0;
     opacity: 0.5;
     line-height: 1;
+  }
+
+  &__host-latency {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1.2;
+
+    &--good {
+      color: var(--success);
+      background: color-mix(in srgb, var(--success) 12%, transparent);
+    }
+
+    &--warn {
+      color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 12%, transparent);
+    }
+
+    &--bad {
+      color: var(--error);
+      background: color-mix(in srgb, var(--error) 12%, transparent);
+    }
   }
 
   // ===== 本地终端列表 =====

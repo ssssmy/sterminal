@@ -121,11 +121,11 @@ jobs:
           path: packages/client/release/*Setup*.exe
           retention-days: 7
 
-      - name: Upload Portable
+      - name: Upload Portable (zip)
         uses: actions/upload-artifact@v4
         with:
           name: sterminal-windows-portable
-          path: packages/client/release/*portable*.exe
+          path: packages/client/release/*.zip
           retention-days: 7
 
   build-linux:

@@ -25,6 +25,7 @@
 }
 
 // ===== Slide Down（用于侧边栏折叠区域） =====
+// max-height 由 JS hooks 动态设置（useSlideTransition），CSS 只负责 transition 和 opacity
 .st-slide-enter-active {
   transition: max-height var(--st-duration-normal) var(--st-easing-smooth),
               opacity var(--st-duration-normal) var(--st-easing-smooth);
@@ -40,16 +41,6 @@
 .st-slide-enter-from {
   max-height: 0;
   opacity: 0;
-}
-
-.st-slide-enter-to {
-  max-height: 1000px;
-  opacity: 1;
-}
-
-.st-slide-leave-from {
-  max-height: 1000px;
-  opacity: 1;
 }
 
 .st-slide-leave-to {

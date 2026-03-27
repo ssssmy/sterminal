@@ -157,7 +157,7 @@
           </div>
           <div class="sftp-context-menu__divider" />
           <div class="sftp-context-menu__item" @click="handleMenuCopyPath">
-            <el-icon><CopyDocument /></el-icon>
+            <el-icon><Check v-if="pathCopied" /><CopyDocument v-else /></el-icon>
             {{ t('sftp.copyPath') }}
           </div>
         </template>
@@ -205,8 +205,10 @@ import {
   CopyDocument,
   FolderAdd,
   Refresh,
+  Check,
 } from '@element-plus/icons-vue'
 import type { SftpFileInfo } from '@shared/types/sftp'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const props = defineProps<{
   files: SftpFileInfo[]
@@ -230,6 +232,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { copied: pathCopied, copyWithFeedback: copyPathText } = useCopyFeedback()
 
 // ===== 选择状态 =====
 const selectedPaths = ref<Set<string>>(new Set())
@@ -468,7 +471,7 @@ function handleMenuDeleteSelected(): void {
 function handleMenuCopyPath(): void {
   const file = contextMenu.value.file
   if (file) {
-    navigator.clipboard.writeText(file.path).catch(() => {})
+    copyPathText(file.path)
   }
   hideContextMenu()
 }

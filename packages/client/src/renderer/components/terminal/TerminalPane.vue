@@ -48,6 +48,16 @@ interface PooledTerminal {
   ipcCallbacks: { channel: string; callback: (data: unknown) => void }[]
   /** 标记：终端在隐藏期间收到过数据，切换回来时需要刷新 viewport */
   dirtyWhileHidden: boolean
+  /** 检测到的主机环境（用于显示安全警示边框） */
+  environment: 'production' | 'staging' | null
+}
+
+// ===== 主机环境检测 =====
+function detectHostEnvironment(host: { address: string; label?: string }): 'production' | 'staging' | null {
+  const text = `${host.label || ''} ${host.address}`.toLowerCase()
+  if (/\bprod(uction)?\b/.test(text)) return 'production'
+  if (/\bstag(ing|e)?\b/.test(text)) return 'staging'
+  return null
 }
 
 const terminalPool = new Map<string, PooledTerminal>()
@@ -303,7 +313,7 @@ function registerHealthListener(): void {
 </script>
 
 <script setup lang="ts">
-import { defineComponent, h, ref, toRaw, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, h, ref, computed, Transition, toRaw, onMounted, onBeforeUnmount } from 'vue'
 import type { TabSession, SplitNode } from '@shared/types/terminal'
 import { useHostsStore } from '@/stores/hosts.store'
 import { useTerminalsStore } from '@/stores/terminals.store'
@@ -395,6 +405,7 @@ const TerminalXterm = defineComponent({
         isSSH,
         ipcCallbacks: [],
         dirtyWhileHidden: false,
+        environment: null,
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
@@ -482,6 +493,7 @@ const TerminalXterm = defineComponent({
 
         terminal.write(`正在连接 ${hostConfig.username || 'root'}@${hostConfig.address}:${hostConfig.port || 22} ...\r\n`)
         if (instance) instance.sshStatus = 'connecting'
+        pooled.environment = detectHostEnvironment({ address: hostConfig.address, label: hostConfig.label })
 
         let sshPendingStartupCmd: string | null = null
 
@@ -700,21 +712,39 @@ const TerminalWrapper = defineComponent({
     const sessionsStore = useSessionsStore()
     const hovered = ref(false)
 
+    const sshStatus = computed(() =>
+      sessionsStore.terminalInstances.get(wrapperProps.terminalId)?.sshStatus ?? null
+    )
+
     function handleClose() {
       sessionsStore.closeSplitPane(props.tab.id, wrapperProps.terminalId)
     }
 
-    return () =>
-      h(
+    const connectingOverlay = () =>
+      h('div', { class: 'ssh-connecting-overlay' },
+        h('div', { class: 'ssh-connecting-dots' }, [
+          h('span'),
+          h('span'),
+          h('span'),
+        ])
+      )
+
+    return () => {
+      const env = terminalPool.get(wrapperProps.terminalId)?.environment
+      const envClass = env ? `terminal-env-${env}` : null
+      return h(
         'div',
         {
-          class: 'terminal-wrapper',
+          class: ['terminal-wrapper', envClass],
           style: { position: 'relative', flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0, minHeight: 0 },
           onMouseenter: () => { hovered.value = true },
           onMouseleave: () => { hovered.value = false },
         },
         [
           h(TerminalXterm, { key: wrapperProps.terminalId, terminalId: wrapperProps.terminalId }),
+          h(Transition, { name: 'st-fade' }, {
+            default: () => sshStatus.value === 'connecting' ? connectingOverlay() : null,
+          }),
           wrapperProps.showClose && hovered.value
             ? h('button', {
                 class: 'split-close-btn',
@@ -724,6 +754,7 @@ const TerminalWrapper = defineComponent({
             : null,
         ]
       )
+    }
   },
 })
 
@@ -847,6 +878,14 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   min-height: 0;
 }
 
+:deep(.terminal-env-production) {
+  border-top: 2px solid #ef4444;
+}
+
+:deep(.terminal-env-staging) {
+  border-top: 2px solid #f59e0b;
+}
+
 :deep(.split-resizer) {
   background: var(--border);
   flex-shrink: 0;
@@ -911,6 +950,46 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
     opacity: 1;
     background: rgba(239, 68, 68, 1);
   }
+}
+
+:deep(.ssh-connecting-overlay) {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+:deep(.ssh-connecting-dots) {
+  display: flex;
+  gap: 6px;
+}
+
+:deep(.ssh-connecting-dots span) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--st-accent, #6366f1);
+  animation: ssh-dot-pulse 1.4s infinite ease-in-out both;
+}
+
+:deep(.ssh-connecting-dots span:nth-child(1)) { animation-delay: -0.32s; }
+:deep(.ssh-connecting-dots span:nth-child(2)) { animation-delay: -0.16s; }
+:deep(.ssh-connecting-dots span:nth-child(3)) { animation-delay: 0s; }
+
+@keyframes ssh-dot-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.st-fade-leave-active {
+  transition: opacity 0.25s var(--st-easing-smooth, ease);
+}
+
+.st-fade-leave-to {
+  opacity: 0;
 }
 </style>
 

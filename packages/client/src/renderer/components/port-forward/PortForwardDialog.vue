@@ -99,7 +99,7 @@
         <div class="pf-preview-wrap">
           <code class="pf-preview">{{ commandPreview }}</code>
           <button type="button" class="pf-copy-btn" :title="t('portForwardDialog.copyCommand')" @click="copyCommand">
-            <el-icon :size="14"><DocumentCopy /></el-icon>
+            <el-icon :size="14" class="pf-copy-icon"><Check v-if="cmdCopied" /><DocumentCopy v-else /></el-icon>
           </button>
         </div>
       </el-form-item>
@@ -123,13 +123,16 @@
 import { ref, computed, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { DocumentCopy } from '@element-plus/icons-vue'
+import { DocumentCopy, Check } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { usePortForwardsStore } from '../../stores/port-forwards.store'
 import { useHostsStore } from '../../stores/hosts.store'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const { t } = useI18n()
+
+const { copied: cmdCopied, copyWithFeedback: copyCommandText } = useCopyFeedback()
 
 const uiStore = useUiStore()
 const portForwardsStore = usePortForwardsStore()
@@ -200,8 +203,8 @@ const commandPreview = computed(() => {
 })
 
 async function copyCommand(): Promise<void> {
-  await navigator.clipboard.writeText(commandPreview.value)
-  ElMessage.success(t('portForwardDialog.copied'))
+  const ok = await copyCommandText(commandPreview.value)
+  if (!ok) ElMessage.error(t('portForwardDialog.copied'))
 }
 
 watch(
@@ -358,6 +361,10 @@ async function handleSave(): Promise<void> {
     color: var(--el-color-primary);
     background-color: var(--el-color-primary-light-9);
   }
+}
+
+.pf-copy-icon {
+  transition: opacity var(--st-duration-fast) var(--st-easing-smooth);
 }
 
 .pf-host-addr {

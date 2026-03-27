@@ -168,12 +168,31 @@ class KeybindingService {
       console.warn(`[keybinding] Invalid shortcut "${newShortcut}" for updateBinding`)
       return
     }
-    await (window as any).electronAPI.ipc.invoke(IPC_DB.KEYBINDINGS_SET, action, newShortcut)
-    this.customBindings.set(action, newShortcut)
+    // Save previous state for rollback on DB failure
+    const prevCustom = this.customBindings.get(action)
     const binding = this.bindings.get(action)
+    const prevShortcut = binding?.shortcut
+    const prevShortcutStr = binding?.shortcutStr
+    // Optimistic update
+    this.customBindings.set(action, newShortcut)
     if (binding) {
       binding.shortcut = parsed
       binding.shortcutStr = newShortcut
+    }
+    try {
+      await (window as any).electronAPI.ipc.invoke(IPC_DB.KEYBINDINGS_SET, action, newShortcut)
+    } catch (err) {
+      // Rollback on DB failure
+      console.warn(`[keybinding] Failed to persist "${action}" → "${newShortcut}", rolling back`, err)
+      if (prevCustom !== undefined) {
+        this.customBindings.set(action, prevCustom)
+      } else {
+        this.customBindings.delete(action)
+      }
+      if (binding && prevShortcut && prevShortcutStr) {
+        binding.shortcut = prevShortcut
+        binding.shortcutStr = prevShortcutStr
+      }
     }
   }
 

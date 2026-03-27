@@ -39,10 +39,10 @@
         </div>
         <div class="keys__actions">
           <el-button size="small" text @click="copyPublicKey(key)">
-            {{ t('keys.copyPublicKey') }}
+            {{ pubKeyCopied ? '✓' : t('keys.copyPublicKey') }}
           </el-button>
           <el-button size="small" text @click="copyDeployCommand(key)">
-            {{ t('keys.copyDeployCmd') }}
+            {{ deployCopied ? '✓' : t('keys.copyDeployCmd') }}
           </el-button>
           <el-button size="small" text type="danger" @click="deleteKey(key.id, key.name)">
             {{ t('common.delete') }}
@@ -151,9 +151,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useKeysStore } from '../../stores/keys.store'
 import type { SshKey } from '../../../shared/types/key'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const { t } = useI18n()
 const keysStore = useKeysStore()
+
+const { copied: pubKeyCopied, copyWithFeedback: copyPubKey } = useCopyFeedback()
+const { copied: deployCopied, copyWithFeedback: copyDeploy } = useCopyFeedback()
 
 // ===== 对话框状态 =====
 
@@ -256,24 +260,16 @@ async function doImport(): Promise<void> {
 // ===== 列表操作 =====
 
 async function copyPublicKey(key: SshKey): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(key.publicKey)
-    ElMessage.success(t('keys.copiedPublicKey'))
-  } catch {
-    ElMessage.error(t('keys.copyError'))
-  }
+  const ok = await copyPubKey(key.publicKey)
+  if (!ok) ElMessage.error(t('keys.copyError'))
 }
 
 async function copyDeployCommand(key: SshKey): Promise<void> {
   // 生成可在远程主机上粘贴执行的部署命令
   const pubKey = key.publicKey.trim()
   const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${pubKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
-  try {
-    await navigator.clipboard.writeText(cmd)
-    ElMessage.success(t('keys.copiedDeployCmd'))
-  } catch {
-    ElMessage.error(t('keys.copyError'))
-  }
+  const ok = await copyDeploy(cmd)
+  if (!ok) ElMessage.error(t('keys.copyError'))
 }
 
 async function deleteKey(id: string, name: string): Promise<void> {

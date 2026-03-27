@@ -70,7 +70,7 @@
         </div>
 
         <!-- 主机分组树 -->
-        <Transition name="st-slide">
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('hosts')"
           class="app-sidebar__host-tree"
@@ -273,7 +273,7 @@
         </div>
 
         <!-- 终端分组树 -->
-        <Transition name="st-slide">
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('terminals')"
           class="app-sidebar__terminal-list"
@@ -436,7 +436,7 @@
         </div>
 
         <!-- 片段列表 -->
-        <Transition name="st-slide">
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('snippets')"
           class="app-sidebar__snippet-list"
@@ -596,7 +596,7 @@
         </div>
 
         <!-- 端口转发列表 -->
-        <Transition name="st-slide">
+        <Transition name="st-slide" v-bind="slideHooks">
         <div
           v-show="!collapsedSections.has('portForwards')"
           class="app-sidebar__pf-list"
@@ -702,8 +702,12 @@ import type { Snippet, SnippetGroup } from '@shared/types/snippet'
 import type { PortForward } from '@shared/types/port-forward'
 import { sendCommandToTerminal } from '../terminal/TerminalPane.vue'
 import { hasVariables, replaceVariables } from '@shared/utils/snippet-variables'
+import { useSlideTransition } from '../../composables/useSlideTransition'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const { t } = useI18n()
+const slideHooks = useSlideTransition()
+const { copyWithFeedback: copySnippetText } = useCopyFeedback()
 
 // ===== 平台检测 =====
 const isMacOS = window.electronAPI?.platform === 'darwin'
@@ -1518,9 +1522,7 @@ async function handleSnippetCmd(cmd: string, snippet: Snippet): Promise<void> {
   if (cmd === 'execute') {
     executeSnippet(snippet)
   } else if (cmd === 'copy') {
-    if (window.electronAPI?.ipc) {
-      await navigator.clipboard.writeText(snippet.content)
-    }
+    await copySnippetText(snippet.content)
   } else if (cmd === 'edit') {
     uiStore.openSnippetEditDialog(snippet.id)
   } else if (cmd === 'duplicate') {

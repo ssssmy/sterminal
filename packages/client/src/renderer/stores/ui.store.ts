@@ -83,6 +83,15 @@ export const useUiStore = defineStore('ui', () => {
   // 监听 theme 变化自动应用
   watch(theme, applyTheme, { immediate: false })
 
+  // 监听系统主题切换，当 theme === 'system' 时自动跟随
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (theme.value === 'system') {
+        applyTheme('system')
+      }
+    })
+  }
+
   // ===== 侧边栏操作 =====
 
   function toggleSidebar(): void {

@@ -50,6 +50,16 @@
           <el-option label="5x" :value="5" />
           <el-option label="10x" :value="10" />
         </el-select>
+
+        <el-button
+          size="small"
+          :loading="exporting"
+          :disabled="events.length === 0"
+          @click="handleExportGif"
+        >
+          <el-icon v-if="!exporting"><PictureFilled /></el-icon>
+          {{ exporting ? `${exportProgress}%` : t('settings.exportGif') }}
+        </el-button>
       </div>
     </div>
   </el-dialog>
@@ -59,7 +69,8 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Terminal } from '@xterm/xterm'
-import { Loading, VideoPlay, VideoPause } from '@element-plus/icons-vue'
+import { Loading, VideoPlay, VideoPause, PictureFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useIpc } from '../../composables/useIpc'
 import { IPC_LOG } from '@shared/types/ipc-channels'
 
@@ -87,6 +98,8 @@ const playing = ref(false)
 const speed = ref(1)
 const currentTime = ref(0)
 const totalDuration = ref(0)
+const exporting = ref(false)
+const exportProgress = ref(0)
 
 interface ReplayEvent {
   time: number
@@ -255,6 +268,41 @@ watch(speed, () => {
 })
 
 onBeforeUnmount(() => destroyReplay())
+
+// ===== GIF 导出 =====
+
+async function handleExportGif(): Promise<void> {
+  exporting.value = true
+  exportProgress.value = 0
+  try {
+    // 请求保存路径
+    const outputPath = await invoke<string | null>('system:save-file', {
+      title: t('settings.exportGif'),
+      defaultPath: `recording-${props.logId.slice(0, 8)}.gif`,
+      filters: [{ name: 'GIF', extensions: ['gif'] }],
+    })
+    if (!outputPath) {
+      exporting.value = false
+      return
+    }
+
+    const result = await invoke<{ outputPath: string; frames: number; duration: number }>(IPC_LOG.EXPORT_GIF, {
+      logId: props.logId,
+      outputPath,
+      fps: 10,
+      watermark: 'STerminal',
+    })
+
+    if (result) {
+      ElMessage.success(t('settings.exportGifSuccess'))
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || t('settings.exportGifError'))
+  } finally {
+    exporting.value = false
+    exportProgress.value = 0
+  }
+}
 </script>
 
 <style lang="scss" scoped>

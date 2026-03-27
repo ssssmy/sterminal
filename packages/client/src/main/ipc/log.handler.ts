@@ -2,6 +2,7 @@
 
 import { ipcMain, shell } from 'electron'
 import * as fs from 'fs'
+import * as path from 'path'
 import { IPC_LOG } from '../../shared/types/ipc-channels'
 import {
   startRecording,
@@ -12,6 +13,7 @@ import {
   getReplayData,
   getLogDirectory,
 } from '../services/session-recorder'
+import { exportToGif } from '../services/gif-exporter'
 import { assertUnderHome } from '../utils/platform'
 
 export function registerLogHandlers(): void {
@@ -54,5 +56,36 @@ export function registerLogHandlers(): void {
       fs.mkdirSync(resolved, { recursive: true })
     }
     return shell.openPath(resolved)
+  })
+
+  // 导出录制为 GIF 动画
+  ipcMain.handle(IPC_LOG.EXPORT_GIF, async (_event, params: {
+    logId: string
+    outputPath: string
+    fps?: number
+    watermark?: string
+  }) => {
+    // 获取 asciicast 文件路径
+    const replayData = await getReplayData(params.logId)
+    if (!replayData) throw new Error('Recording not found')
+
+    // getReplayData 返回文件内容字符串，需要先写到临时文件
+    const tmpDir = path.join(getLogDirectory(), '.tmp')
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true })
+    const tmpFile = path.join(tmpDir, `${params.logId}.cast`)
+    fs.writeFileSync(tmpFile, replayData)
+
+    try {
+      const result = await exportToGif({
+        inputPath: tmpFile,
+        outputPath: params.outputPath,
+        fps: params.fps || 10,
+        watermark: params.watermark ?? 'STerminal',
+      })
+      return result
+    } finally {
+      // 清理临时文件
+      try { fs.rmSync(tmpFile, { force: true }) } catch { /* ignore */ }
+    }
   })
 }

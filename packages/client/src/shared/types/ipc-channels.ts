@@ -188,6 +188,7 @@ export const IPC_LOG = {
   DELETE: 'log:delete',
   REPLAY: 'log:replay',
   OPEN_DIRECTORY: 'log:open-directory',
+  EXPORT_GIF: 'log:export-gif',
 } as const
 
 // ===== 系统操作 =====

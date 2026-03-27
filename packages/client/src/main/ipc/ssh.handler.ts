@@ -1,7 +1,7 @@
 // SSH IPC Handler
 // 使用 ssh2 库管理 SSH 连接生命周期
 
-import { ipcMain, BrowserWindow, WebContents } from 'electron'
+import { ipcMain, WebContents } from 'electron'
 import crypto from 'crypto'
 import { Client, ClientChannel } from 'ssh2'
 import { IPC_SSH } from '../../shared/types/ipc-channels'
@@ -99,10 +99,10 @@ function probeLatency(connectionId: string): void {
 
 // Emit health data to renderer
 function emitHealth(connectionId: string, data: { rtt: number; status: string }): void {
-  const win = BrowserWindow.getAllWindows()[0]
-  if (win) {
+  const session = sshSessions.get(connectionId)
+  if (session?.webContents && !session.webContents.isDestroyed()) {
     // preload.on() 只传递第一个参数，打包为单个对象
-    win.webContents.send(IPC_SSH.HEALTH, { connectionId, ...data })
+    session.webContents.send(IPC_SSH.HEALTH, { connectionId, ...data })
   }
 }
 

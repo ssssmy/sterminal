@@ -834,5 +834,46 @@
     "transferCancelled": "Cancelled",
     "localDeleteNotSupported": "Local file deletion is not supported yet",
     "localRenameNotSupported": "Local file rename is not supported yet"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": "Welcome",
+      "theme": "Theme",
+      "getStarted": "Get Started"
+    },
+    "welcome": {
+      "title": "Welcome to STerminal",
+      "subtitle": "Cross-platform terminal manager — server management made simple"
+    },
+    "import": {
+      "title": "Import OpenSSH Config",
+      "desc": "Auto-import host configs from ~/.ssh/config",
+      "button": "Import",
+      "successHint": "Found {count} host(s) — will be imported when you finish the wizard",
+      "noConfig": "No SSH config found, or the config file is empty",
+      "notSupported": "SSH config import will be supported in a future release"
+    },
+    "theme": {
+      "title": "Choose Your Look",
+      "subtitle": "Pick the appearance theme you prefer",
+      "terminalThemeLabel": "Terminal Colors",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
+    },
+    "getStarted": {
+      "title": "All Set!",
+      "subtitle": "Start using STerminal to manage your servers efficiently",
+      "sshButton": "Create SSH Connection",
+      "sshHint": "Add a remote server host config",
+      "localButton": "Open Local Terminal",
+      "localHint": "Run commands and scripts locally"
+    },
+    "nav": {
+      "next": "Next",
+      "prev": "Previous",
+      "skip": "Skip",
+      "finish": "Get Started"
+    }
   }
 }

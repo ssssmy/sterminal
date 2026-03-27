@@ -40,6 +40,7 @@
             v-else
             class="keybinding-capture"
             :class="{ 'keybinding-capture--conflict': !!row.conflict }"
+            tabindex="0"
             @click="startRecording(row.action)"
           >
             <template v-if="row.shortcut">
@@ -154,6 +155,11 @@ function cancelRecording(): void {
 }
 
 function handleCapture(e: KeyboardEvent, action: string): void {
+  if (e.key === 'Escape') {
+    cancelRecording()
+    return
+  }
+
   // Ignore lone modifier presses
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return
 

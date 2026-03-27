@@ -834,5 +834,46 @@
     "transferCancelled": "已取消",
     "localDeleteNotSupported": "本地檔案刪除暫不支援",
     "localRenameNotSupported": "本地檔案重新命名暫不支援"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": "歡迎",
+      "theme": "主題",
+      "getStarted": "開始"
+    },
+    "welcome": {
+      "title": "歡迎使用 STerminal",
+      "subtitle": "跨平台終端管理工具，讓伺服器管理更簡單"
+    },
+    "import": {
+      "title": "匯入 OpenSSH 設定",
+      "desc": "從 ~/.ssh/config 自動匯入主機設定",
+      "button": "匯入",
+      "successHint": "已找到 {count} 台主機，將在完成精靈後匯入",
+      "noConfig": "未找到 SSH 設定，或設定檔為空",
+      "notSupported": "SSH 設定匯入將在後續版本支援"
+    },
+    "theme": {
+      "title": "選擇介面風格",
+      "subtitle": "選擇你喜歡的外觀主題",
+      "terminalThemeLabel": "終端配色",
+      "dark": "深色",
+      "light": "淺色",
+      "system": "跟隨系統"
+    },
+    "getStarted": {
+      "title": "一切就緒！",
+      "subtitle": "開始使用 STerminal，高效管理你的伺服器",
+      "sshButton": "建立 SSH 連線",
+      "sshHint": "新增遠端伺服器主機設定",
+      "localButton": "開啟本機終端",
+      "localHint": "在本機執行指令和腳本"
+    },
+    "nav": {
+      "next": "下一步",
+      "prev": "上一步",
+      "skip": "略過",
+      "finish": "開始使用"
+    }
   }
 }

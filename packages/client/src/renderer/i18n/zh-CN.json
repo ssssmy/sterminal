@@ -834,5 +834,46 @@
     "transferCancelled": "已取消",
     "localDeleteNotSupported": "本地文件删除暂不支持",
     "localRenameNotSupported": "本地文件重命名暂不支持"
+  },
+  "onboarding": {
+    "steps": {
+      "welcome": "欢迎",
+      "theme": "主题",
+      "getStarted": "开始"
+    },
+    "welcome": {
+      "title": "欢迎使用 STerminal",
+      "subtitle": "跨平台终端管理工具，让服务器管理更简单"
+    },
+    "import": {
+      "title": "导入 OpenSSH 配置",
+      "desc": "从 ~/.ssh/config 自动导入主机配置",
+      "button": "导入",
+      "successHint": "已找到 {count} 台主机，将在完成向导后导入",
+      "noConfig": "未找到 SSH 配置，或配置文件为空",
+      "notSupported": "SSH 配置导入将在后续版本支持"
+    },
+    "theme": {
+      "title": "选择界面风格",
+      "subtitle": "选择你喜欢的外观主题",
+      "terminalThemeLabel": "终端配色",
+      "dark": "深色",
+      "light": "浅色",
+      "system": "跟随系统"
+    },
+    "getStarted": {
+      "title": "一切就绪！",
+      "subtitle": "开始使用 STerminal，高效管理你的服务器",
+      "sshButton": "创建 SSH 连接",
+      "sshHint": "添加远程服务器主机配置",
+      "localButton": "打开本地终端",
+      "localHint": "在本地运行命令和脚本"
+    },
+    "nav": {
+      "next": "下一步",
+      "prev": "上一步",
+      "skip": "跳过",
+      "finish": "开始使用"
+    }
   }
 }

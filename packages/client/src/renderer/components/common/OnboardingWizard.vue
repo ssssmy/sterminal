@@ -13,8 +13,8 @@
                   <path d="M14 24h20M24 14l10 10-10 10" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </div>
-              <h1 class="onboarding-step__title">欢迎使用 STerminal</h1>
-              <p class="onboarding-step__desc">跨平台终端管理工具，让服务器管理更简单</p>
+              <h1 class="onboarding-step__title">{{ t('onboarding.welcome.title') }}</h1>
+              <p class="onboarding-step__desc">{{ t('onboarding.welcome.subtitle') }}</p>
 
               <div class="onboarding-step__action-group">
                 <div class="onboarding-import-card" :class="{ 'is-success': importResult !== null }">
@@ -25,10 +25,10 @@
                       </svg>
                     </div>
                     <div class="onboarding-import-card__text">
-                      <div class="onboarding-import-card__label">导入 OpenSSH 配置</div>
+                      <div class="onboarding-import-card__label">{{ t('onboarding.import.title') }}</div>
                       <div class="onboarding-import-card__hint">
-                        <template v-if="importResult === null && !importError">从 ~/.ssh/config 自动导入主机配置</template>
-                        <template v-else-if="importResult !== null">已找到 {{ importResult }} 台主机，将在完成向导后导入</template>
+                        <template v-if="importResult === null && !importError">{{ t('onboarding.import.desc') }}</template>
+                        <template v-else-if="importResult !== null">{{ t('onboarding.import.successHint', { count: importResult }) }}</template>
                         <template v-else>{{ importError }}</template>
                       </div>
                     </div>
@@ -40,7 +40,7 @@
                     size="small"
                     @click="handleImportSshConfig"
                   >
-                    导入
+                    {{ t('onboarding.import.button') }}
                   </el-button>
                   <div v-else class="onboarding-import-card__check">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -51,8 +51,8 @@
               </div>
 
               <div class="onboarding-step__footer">
-                <el-button text @click="nextStep">跳过</el-button>
-                <el-button type="primary" class="onboarding-primary-btn" @click="nextStep">下一步</el-button>
+                <el-button text @click="nextStep">{{ t('onboarding.nav.skip') }}</el-button>
+                <el-button type="primary" class="onboarding-primary-btn" @click="nextStep">{{ t('onboarding.nav.next') }}</el-button>
               </div>
             </div>
 
@@ -65,8 +65,8 @@
                   <circle cx="24" cy="24" r="4" fill="#6366f1" />
                 </svg>
               </div>
-              <h2 class="onboarding-step__title">选择界面风格</h2>
-              <p class="onboarding-step__desc">选择你喜欢的外观主题</p>
+              <h2 class="onboarding-step__title">{{ t('onboarding.theme.title') }}</h2>
+              <p class="onboarding-step__desc">{{ t('onboarding.theme.subtitle') }}</p>
 
               <div class="onboarding-theme-grid">
                 <div
@@ -94,7 +94,7 @@
               </div>
 
               <div class="onboarding-terminal-theme">
-                <label class="onboarding-terminal-theme__label">终端配色</label>
+                <label class="onboarding-terminal-theme__label">{{ t('onboarding.theme.terminalThemeLabel') }}</label>
                 <el-select
                   v-model="selectedTerminalTheme"
                   size="small"
@@ -102,17 +102,17 @@
                   @change="applyTerminalTheme"
                 >
                   <el-option
-                    v-for="t in terminalThemeOptions"
-                    :key="t.id"
-                    :label="t.name"
-                    :value="t.id"
+                    v-for="opt in terminalThemeOptions"
+                    :key="opt.id"
+                    :label="opt.name"
+                    :value="opt.id"
                   />
                 </el-select>
               </div>
 
               <div class="onboarding-step__footer">
-                <el-button text @click="prevStep">上一步</el-button>
-                <el-button type="primary" class="onboarding-primary-btn" @click="nextStep">下一步</el-button>
+                <el-button text @click="prevStep">{{ t('onboarding.nav.prev') }}</el-button>
+                <el-button type="primary" class="onboarding-primary-btn" @click="nextStep">{{ t('onboarding.nav.next') }}</el-button>
               </div>
             </div>
 
@@ -124,8 +124,8 @@
                   <path d="M14 24l6 6 14-14" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </div>
-              <h2 class="onboarding-step__title">一切就绪！</h2>
-              <p class="onboarding-step__desc">开始使用 STerminal，高效管理你的服务器</p>
+              <h2 class="onboarding-step__title">{{ t('onboarding.getStarted.title') }}</h2>
+              <p class="onboarding-step__desc">{{ t('onboarding.getStarted.subtitle') }}</p>
 
               <div class="onboarding-quick-actions">
                 <button class="onboarding-action-card" @click="handleCreateSshConnection">
@@ -135,8 +135,8 @@
                     </svg>
                   </div>
                   <div class="onboarding-action-card__text">
-                    <div class="onboarding-action-card__title">创建 SSH 连接</div>
-                    <div class="onboarding-action-card__hint">添加远程服务器主机配置</div>
+                    <div class="onboarding-action-card__title">{{ t('onboarding.getStarted.sshButton') }}</div>
+                    <div class="onboarding-action-card__hint">{{ t('onboarding.getStarted.sshHint') }}</div>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="onboarding-action-card__arrow">
                     <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -150,8 +150,8 @@
                     </svg>
                   </div>
                   <div class="onboarding-action-card__text">
-                    <div class="onboarding-action-card__title">打开本地终端</div>
-                    <div class="onboarding-action-card__hint">在本地运行命令和脚本</div>
+                    <div class="onboarding-action-card__title">{{ t('onboarding.getStarted.localButton') }}</div>
+                    <div class="onboarding-action-card__hint">{{ t('onboarding.getStarted.localHint') }}</div>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="onboarding-action-card__arrow">
                     <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -161,7 +161,7 @@
 
               <div class="onboarding-step__footer onboarding-step__footer--center">
                 <el-button type="primary" class="onboarding-primary-btn onboarding-primary-btn--wide" @click="handleComplete">
-                  开始使用
+                  {{ t('onboarding.nav.finish') }}
                 </el-button>
               </div>
             </div>
@@ -185,6 +185,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useSessionsStore } from '../../stores/sessions.store'
@@ -194,6 +195,8 @@ import type { AppTheme } from '../../stores/ui.store'
 const emit = defineEmits<{
   (e: 'complete'): void
 }>()
+
+const { t } = useI18n()
 
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
@@ -225,10 +228,10 @@ async function handleImportSshConfig(): Promise<void> {
       parsedHosts = hosts
       importResult.value = hosts.length
     } else {
-      importError.value = '未找到 SSH 配置，或配置文件为空'
+      importError.value = t('onboarding.import.noConfig')
     }
   } catch {
-    importError.value = 'SSH 配置导入将在后续版本支持'
+    importError.value = t('onboarding.import.notSupported')
   } finally {
     importing.value = false
   }
@@ -247,21 +250,21 @@ interface AppThemeOption {
 const appThemeOptions: AppThemeOption[] = [
   {
     id: 'dark',
-    label: '深色',
+    label: t('onboarding.theme.dark'),
     previewStyle: { background: '#1a1b2e', borderColor: 'rgba(99,102,241,0.3)' },
     barStyle: { background: '#16172a' },
     lineColor: '#e2e8f0',
   },
   {
     id: 'light',
-    label: '浅色',
+    label: t('onboarding.theme.light'),
     previewStyle: { background: '#f8f9fc', borderColor: 'rgba(99,102,241,0.3)' },
     barStyle: { background: '#eef0f5' },
     lineColor: '#1e293b',
   },
   {
     id: 'system',
-    label: '跟随系统',
+    label: t('onboarding.theme.system'),
     previewStyle: { background: 'linear-gradient(135deg, #1a1b2e 50%, #f8f9fc 50%)', borderColor: 'rgba(99,102,241,0.3)' },
     barStyle: { background: 'transparent' },
     lineColor: '#8b9abe',
@@ -326,17 +329,17 @@ async function handleComplete(): Promise<void> {
 .onboarding-card {
   width: 100%;
   max-width: 520px;
-  background: var(--bg-secondary, #16172a);
+  background: var(--bg-inset);
   border: 1px solid var(--border-primary, rgba(99, 102, 241, 0.2));
-  border-radius: 16px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(99, 102, 241, 0.1);
   padding: 40px;
   margin: 0 16px;
 
   :global(html[data-theme='light']) & {
     background: #ffffff;
     border-color: rgba(99, 102, 241, 0.15);
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(99, 102, 241, 0.1);
   }
 }
 
@@ -384,11 +387,11 @@ async function handleComplete(): Promise<void> {
 
 // ===== Primary button =====
 .onboarding-primary-btn {
-  --el-button-bg-color: #6366f1;
-  --el-button-border-color: #6366f1;
-  --el-button-hover-bg-color: #5254cc;
-  --el-button-hover-border-color: #5254cc;
-  --el-button-active-bg-color: #4749b5;
+  --el-button-bg-color: var(--accent);
+  --el-button-border-color: var(--accent);
+  --el-button-hover-bg-color: color-mix(in srgb, var(--accent) 85%, black);
+  --el-button-hover-border-color: color-mix(in srgb, var(--accent) 85%, black);
+  --el-button-active-bg-color: color-mix(in srgb, var(--accent) 70%, black);
   font-weight: 500;
 
   &--wide {
@@ -408,8 +411,8 @@ async function handleComplete(): Promise<void> {
   padding: 14px 16px;
   background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.08));
-  border-radius: 10px;
-  transition: border-color 0.2s;
+  border-radius: 12px;
+  transition: border-color var(--st-duration-fast) var(--st-easing-smooth);
 
   &.is-success {
     border-color: rgba(34, 197, 94, 0.3);
@@ -479,10 +482,10 @@ async function handleComplete(): Promise<void> {
 .onboarding-theme-card {
   position: relative;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 2px solid var(--border-primary, rgba(255, 255, 255, 0.08));
   overflow: hidden;
-  transition: border-color 0.2s, transform 0.15s;
+  transition: border-color var(--st-duration-fast) var(--st-easing-smooth), transform var(--st-duration-fast) var(--st-easing-smooth);
   user-select: none;
 
   &:hover {
@@ -491,7 +494,7 @@ async function handleComplete(): Promise<void> {
   }
 
   &.is-active {
-    border-color: #6366f1;
+    border-color: var(--accent);
   }
 }
 
@@ -536,7 +539,7 @@ async function handleComplete(): Promise<void> {
   right: 6px;
   width: 18px;
   height: 18px;
-  background: #6366f1;
+  background: var(--accent);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -576,9 +579,9 @@ async function handleComplete(): Promise<void> {
   padding: 14px 16px;
   background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.08));
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  transition: background var(--st-duration-fast) var(--st-easing-smooth), border-color var(--st-duration-fast) var(--st-easing-smooth), transform var(--st-duration-fast) var(--st-easing-smooth);
   text-align: left;
   width: 100%;
 
@@ -601,8 +604,8 @@ async function handleComplete(): Promise<void> {
   align-items: center;
   justify-content: center;
   background: rgba(99, 102, 241, 0.12);
-  border-radius: 10px;
-  color: #6366f1;
+  border-radius: 12px;
+  color: var(--accent);
 }
 
 .onboarding-action-card__text {
@@ -641,10 +644,10 @@ async function handleComplete(): Promise<void> {
   border: none;
   padding: 0;
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  transition: background var(--st-duration-fast) var(--st-easing-smooth), transform var(--st-duration-fast) var(--st-easing-smooth);
 
   &.is-active {
-    background: #6366f1;
+    background: var(--accent);
     transform: scale(1.25);
   }
 

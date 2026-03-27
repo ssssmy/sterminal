@@ -142,3 +142,12 @@
 .st-animate-blink {
   animation: st-blink 1.2s ease-in-out infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-animate-pulse,
+  .st-animate-spin,
+  .st-animate-shake,
+  .st-animate-blink {
+    animation: none;
+  }
+}

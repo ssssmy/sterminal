@@ -150,6 +150,10 @@
                       'app-sidebar__host-latency--bad': (getHostLatency(host.id)?.rtt ?? 0) >= 500,
                     }"
                   >{{ getHostLatency(host.id)?.rtt }}ms</span>
+                  <span
+                    v-else-if="getHostLatency(host.id)?.status === 'timeout'"
+                    class="app-sidebar__host-latency app-sidebar__host-latency--bad"
+                  >timeout</span>
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -206,6 +210,10 @@
                   'app-sidebar__host-latency--bad': (getHostLatency(host.id)?.rtt ?? 0) >= 500,
                 }"
               >{{ getHostLatency(host.id)?.rtt }}ms</span>
+              <span
+                v-else-if="getHostLatency(host.id)?.status === 'timeout'"
+                class="app-sidebar__host-latency app-sidebar__host-latency--bad"
+              >timeout</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>

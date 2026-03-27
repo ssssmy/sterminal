@@ -111,6 +111,7 @@ export const IPC_DB = {
   TAGS_DELETE: 'db:tags:delete',
   // 设置
   SETTINGS_GET: 'db:settings:get',
+  SETTINGS_GET_ALL: 'db:settings:get-all',
   SETTINGS_SET: 'db:settings:set',
   SETTINGS_RESET: 'db:settings:reset',
   // 自定义主题

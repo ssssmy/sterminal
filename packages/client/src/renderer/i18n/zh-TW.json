@@ -170,7 +170,31 @@
     "replayPause": "暫停",
     "replaySpeed": "播放速度",
     "terminalTheme": "終端主題",
-    "terminalThemeDesc": "選擇終端顏色主題，立即生效"
+    "terminalThemeDesc": "選擇終端顏色主題，立即生效",
+    "keybindings": "快捷鍵",
+    "keybindings_section": "快捷鍵",
+    "keybindings_desc": "自訂應用快捷鍵。點擊快捷鍵區域後按下新組合鍵即可修改。",
+    "keybindingsResetAll": "重置全部",
+    "keybindingsResetAllConfirm": "確定要將所有快捷鍵重置為預設值嗎？",
+    "keybindingsAction": "操作",
+    "keybindingsShortcut": "快捷鍵",
+    "keybindingsRecording": "按下快捷鍵...",
+    "keybindingsConflict": "與「{action}」衝突",
+    "keybindingsReset": "重置",
+    "keybindingsSaved": "已儲存",
+    "keybindingsActions": {
+      "new-tab": "新增標籤頁",
+      "close-tab": "關閉標籤頁",
+      "command-palette": "命令面板",
+      "command-palette-alt": "命令面板 (備用)",
+      "terminal-search": "終端搜尋"
+    },
+    "exportTerminalTheme": "匯出終端主題",
+    "exportTerminalThemeDesc": "將目前終端主題匯出為 JSON 檔案",
+    "exportTerminalThemeBtn": "匯出目前終端主題",
+    "exportTerminalThemeSection": "匯出",
+    "exportTerminalThemeSuccess": "主題已匯出",
+    "exportTerminalThemeFailed": "匯出失敗"
   },
   "commandPalette": {
     "placeholder": "搜尋命令、主機、片段...",

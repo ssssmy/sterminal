@@ -85,6 +85,20 @@ function registerSettingsHandlers(): void {
     return true
   })
 
+  // 批量获取所有设置（单次查询，避免 N+1 IPC 调用）
+  ipcMain.handle(IPC_DB.SETTINGS_GET_ALL, () => {
+    const rows = dbAll<{ key: string; value: string }>('SELECT key, value FROM settings')
+    const result: Record<string, unknown> = {}
+    for (const row of rows) {
+      try {
+        result[row.key] = JSON.parse(row.value)
+      } catch {
+        result[row.key] = row.value
+      }
+    }
+    return result
+  })
+
   // 重置所有设置
   ipcMain.handle(IPC_DB.SETTINGS_RESET, () => {
     dbRun('DELETE FROM settings')

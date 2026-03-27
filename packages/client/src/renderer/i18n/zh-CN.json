@@ -170,7 +170,31 @@
     "replaySpeed": "倍速",
     "replayEmpty": "录制数据为空",
     "terminalTheme": "终端主题",
-    "terminalThemeDesc": "选择终端颜色主题，立即生效"
+    "terminalThemeDesc": "选择终端颜色主题，立即生效",
+    "keybindings": "快捷键",
+    "keybindings_section": "快捷键",
+    "keybindings_desc": "自定义应用快捷键。点击快捷键区域后按下新组合键即可修改。",
+    "keybindingsResetAll": "重置全部",
+    "keybindingsResetAllConfirm": "确定要将所有快捷键重置为默认值吗？",
+    "keybindingsAction": "操作",
+    "keybindingsShortcut": "快捷键",
+    "keybindingsRecording": "按下快捷键...",
+    "keybindingsConflict": "与「{action}」冲突",
+    "keybindingsReset": "重置",
+    "keybindingsSaved": "已保存",
+    "keybindingsActions": {
+      "new-tab": "新建标签页",
+      "close-tab": "关闭标签页",
+      "command-palette": "命令面板",
+      "command-palette-alt": "命令面板 (备用)",
+      "terminal-search": "终端搜索"
+    },
+    "exportTerminalTheme": "导出终端主题",
+    "exportTerminalThemeDesc": "将当前终端主题导出为 JSON 文件",
+    "exportTerminalThemeBtn": "导出当前终端主题",
+    "exportTerminalThemeSection": "导出",
+    "exportTerminalThemeSuccess": "主题已导出",
+    "exportTerminalThemeFailed": "导出失败"
   },
   "commandPalette": {
     "placeholder": "搜索命令、主机、片段...",

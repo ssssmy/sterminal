@@ -77,21 +77,42 @@
         />
       </div>
     </div>
+
+    <!-- ===== 导出 ===== -->
+    <div class="settings-block">
+      <h4 class="settings-block__title">{{ t('settings.exportTerminalThemeSection') }}</h4>
+
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('settings.exportTerminalTheme') }}</label>
+          <span class="settings-row__desc">{{ t('settings.exportTerminalThemeDesc') }}</span>
+        </div>
+        <el-button
+          :loading="exporting"
+          @click="handleExportTheme"
+        >
+          {{ t('settings.exportTerminalThemeBtn') }}
+        </el-button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import { useUiStore } from '../../stores/ui.store'
 import type { AppTheme } from '../../stores/ui.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useThemesStore } from '../../stores/themes.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { IPC_WINDOW } from '@shared/types/ipc-channels'
 
 const { t, locale } = useI18n()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
+const themesStore = useThemesStore()
 
 function getStr(key: string): string {
   const v = settingsStore.settings.has(key) ? settingsStore.settings.get(key) : DEFAULT_SETTINGS[key]
@@ -142,10 +163,49 @@ onMounted(async () => {
     settingsStore.getSetting('app.language'),
     settingsStore.getSetting('app.zoomLevel'),
     settingsStore.getSetting('app.compactMode'),
+    settingsStore.getSetting('terminal.theme'),
+    themesStore.loadCustomThemes(),
   ])
   // 从 store 初始化本地 ref
   zoomLevel.value = getNum('app.zoomLevel') || 1.0
 })
+
+// ===== 导出终端主题 =====
+
+const exporting = ref(false)
+
+async function handleExportTheme(): Promise<void> {
+  exporting.value = true
+  try {
+    const themeId = getStr('terminal.theme') || 'sterminal-dark'
+    const preset = themesStore.findTheme(themeId)
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      app: 'STerminal',
+      type: 'terminal-theme',
+      theme: {
+        id: preset.id,
+        name: preset.name,
+        type: preset.type,
+        colors: preset.colors,
+      },
+    }
+    const json = JSON.stringify(exportData, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sterminal-theme-${preset.id}-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('settings.exportTerminalThemeSuccess'))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('settings.exportTerminalThemeFailed'))
+  } finally {
+    exporting.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>

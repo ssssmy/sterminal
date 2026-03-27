@@ -170,7 +170,31 @@
     "replayPause": "Pause",
     "replaySpeed": "Speed",
     "terminalTheme": "Terminal Theme",
-    "terminalThemeDesc": "Choose a terminal color theme, applied immediately"
+    "terminalThemeDesc": "Choose a terminal color theme, applied immediately",
+    "keybindings": "Keybindings",
+    "keybindings_section": "Keybindings",
+    "keybindings_desc": "Customize application shortcuts. Click a shortcut then press a new key combination to change it.",
+    "keybindingsResetAll": "Reset All",
+    "keybindingsResetAllConfirm": "Reset all keybindings to their defaults?",
+    "keybindingsAction": "Action",
+    "keybindingsShortcut": "Shortcut",
+    "keybindingsRecording": "Press shortcut...",
+    "keybindingsConflict": "Conflicts with \"{action}\"",
+    "keybindingsReset": "Reset",
+    "keybindingsSaved": "Saved",
+    "keybindingsActions": {
+      "new-tab": "New Tab",
+      "close-tab": "Close Tab",
+      "command-palette": "Command Palette",
+      "command-palette-alt": "Command Palette (Alt)",
+      "terminal-search": "Terminal Search"
+    },
+    "exportTerminalTheme": "Export Terminal Theme",
+    "exportTerminalThemeDesc": "Export the current terminal theme as a JSON file",
+    "exportTerminalThemeBtn": "Export Current Terminal Theme",
+    "exportTerminalThemeSection": "Export",
+    "exportTerminalThemeSuccess": "Theme exported",
+    "exportTerminalThemeFailed": "Export failed"
   },
   "commandPalette": {
     "placeholder": "Search commands, hosts, snippets...",

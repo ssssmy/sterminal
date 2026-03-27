@@ -248,12 +248,12 @@ function registerHealthListener(): void {
   if (_healthListenerRegistered) return
   _healthListenerRegistered = true
   ipcOn(IPC_SSH.HEALTH, (payload: unknown) => {
-    const [connectionId, data] = payload as [string, { rtt: number; status: string }]
+    const { connectionId, rtt, status } = payload as { connectionId: string; rtt: number; status: string }
     const sessionsStore = useSessionsStore()
     for (const instance of sessionsStore.terminalInstances.values()) {
       if (instance.type === 'ssh' && instance.sshConnectionId === connectionId) {
-        instance.healthRtt = data.rtt
-        instance.healthStatus = data.status as 'ok' | 'timeout' | 'unsupported'
+        instance.healthRtt = rtt
+        instance.healthStatus = status as 'ok' | 'timeout' | 'unsupported'
       }
     }
   })

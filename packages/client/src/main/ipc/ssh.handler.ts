@@ -101,7 +101,8 @@ function probeLatency(connectionId: string): void {
 function emitHealth(connectionId: string, data: { rtt: number; status: string }): void {
   const win = BrowserWindow.getAllWindows()[0]
   if (win) {
-    win.webContents.send(IPC_SSH.HEALTH, connectionId, data)
+    // preload.on() 只传递第一个参数，打包为单个对象
+    win.webContents.send(IPC_SSH.HEALTH, { connectionId, ...data })
   }
 }
 

@@ -27,9 +27,25 @@ jobs:
       - name: Vue typecheck
         run: cd packages/client && npm run typecheck
 
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+
+      - name: Run unit tests (skip integration — no Electron rebuild in CI)
+        run: cd packages/client && npx vitest run --exclude='src/main/__tests__/**'
+
   build-mac:
     name: Build macOS (${{ matrix.arch }})
-    needs: typecheck
+    needs: [typecheck, test]
     if: github.event_name == 'push'
     runs-on: macos-latest
     strategy:
@@ -71,7 +87,7 @@ jobs:
 
   build-windows:
     name: Build Windows
-    needs: typecheck
+    needs: [typecheck, test]
     if: github.event_name == 'push'
     runs-on: windows-latest
     steps:
@@ -95,19 +111,26 @@ jobs:
 
       - run: npm install
 
-      - name: Build & Package
+      - name: Build & Package (NSIS + Portable)
         run: npm run client:pack:win
 
-      - name: Upload artifacts
+      - name: Upload NSIS installer
         uses: actions/upload-artifact@v4
         with:
-          name: sterminal-windows
-          path: packages/client/release/*.exe
+          name: sterminal-windows-setup
+          path: packages/client/release/*Setup*.exe
+          retention-days: 7
+
+      - name: Upload Portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: sterminal-windows-portable
+          path: packages/client/release/*portable*.exe
           retention-days: 7
 
   build-linux:
     name: Build Linux
-    needs: typecheck
+    needs: [typecheck, test]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:

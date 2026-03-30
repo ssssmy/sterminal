@@ -97,5 +97,8 @@ deb:
     - libxtst6
     - libnss3
 
-# 发布配置（暂不自动发布）
-publish: null
+# 发布配置 — GitHub Releases（electron-updater 从此处下载更新）
+publish:
+  provider: github
+  owner: ssssmy
+  repo: sterminal

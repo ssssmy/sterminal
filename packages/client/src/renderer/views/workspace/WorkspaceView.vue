@@ -54,6 +54,9 @@
           </div>
         </template>
       </div>
+
+      <!-- 更新通知栏 -->
+      <UpdateNotification />
     </div>
 
     <!-- 命令面板 -->
@@ -108,6 +111,7 @@ const SnippetEditDialog = defineAsyncComponent(() => import('../../components/sn
 const PortForwardDialog = defineAsyncComponent(() => import('../../components/port-forward/PortForwardDialog.vue'))
 const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
 const SftpPanel = defineAsyncComponent(() => import('../../components/sftp/SftpPanel.vue'))
+const UpdateNotification = defineAsyncComponent(() => import('../../components/common/UpdateNotification.vue'))
 
 const { t } = useI18n()
 const sessionsStore = useSessionsStore()

@@ -887,5 +887,14 @@
       "skip": "略過",
       "finish": "開始使用"
     }
+  },
+  "update": {
+    "available": "新版本 v{version} 可用",
+    "download": "下載更新",
+    "downloading": "正在下載更新... {progress}%",
+    "ready": "v{version} 已下載完成",
+    "installRestart": "重啟並安裝",
+    "checkFailed": "檢查更新失敗",
+    "upToDate": "目前已是最新版本"
   }
 }

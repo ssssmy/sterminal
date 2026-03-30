@@ -887,5 +887,14 @@
       "skip": "Skip",
       "finish": "Get Started"
     }
+  },
+  "update": {
+    "available": "New version v{version} available",
+    "download": "Download",
+    "downloading": "Downloading update... {progress}%",
+    "ready": "v{version} ready to install",
+    "installRestart": "Restart & Install",
+    "checkFailed": "Update check failed",
+    "upToDate": "You're on the latest version"
   }
 }

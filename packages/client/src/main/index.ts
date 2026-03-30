@@ -12,6 +12,7 @@ import { stopAllTunnels } from './ipc/port-forward.handler'
 import { closeAllSftpSessions } from './ipc/sftp.handler'
 import { stopSync } from './ipc/sync.handler'
 import { vaultService } from './services/vault-service'
+import { initAutoUpdater, registerUpdateHandlers, scheduleUpdateCheck } from './services/auto-updater'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -160,6 +161,11 @@ app.whenReady().then(() => {
 
   // 2. 注册所有 IPC handlers
   registerAllHandlers()
+
+  // 3. 自动更新
+  initAutoUpdater()
+  registerUpdateHandlers()
+  if (!isDev) scheduleUpdateCheck() // 开发模式不检查更新
 
   // 启动时自动清理过期录制文件
   autoCleanRecordings()

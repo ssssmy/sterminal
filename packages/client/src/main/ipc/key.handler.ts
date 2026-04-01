@@ -117,6 +117,7 @@ export function registerKeyHandlers(): void {
 
     const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [id])
     if (!row) throw new Error('Failed to retrieve imported key')
+    logAuditEvent({ eventType: 'key.import', category: 'security', summary: 'Imported SSH key: ' + name })
     return mapRow(row)
   })
 
@@ -165,6 +166,7 @@ export function registerKeyHandlers(): void {
           if (code !== 0) {
             reject(new Error(`Exit ${code}: ${stderr.trim()}`))
           } else {
+            logAuditEvent({ eventType: 'key.deploy', category: 'security', summary: 'Deployed key to ' + params.host })
             resolve()
           }
         })

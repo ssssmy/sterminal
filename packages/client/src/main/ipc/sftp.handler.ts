@@ -291,6 +291,7 @@ export function registerSftpHandlers(): void {
             reject(err)
           }
         } else {
+          logAuditEvent({ eventType: 'sftp.mkdir', category: 'transfer', summary: 'Created directory: ' + params.path })
           resolve()
         }
       })

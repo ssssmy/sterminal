@@ -11,6 +11,7 @@ import { IPC_SYSTEM } from '../../shared/types/ipc-channels'
 import { assertUnderHome } from '../utils/platform'
 import { dbAll, dbRun, dbGet } from '../services/db'
 import { parseSshConfig } from '../services/ssh-config-parser'
+import { logAuditEvent } from '../services/audit-service'
 
 /**
  * 注册系统操作相关的 IPC handlers
@@ -68,6 +69,7 @@ export function registerSystemHandlers(): void {
         )
         imported++
       }
+      logAuditEvent({ eventType: 'data.import', category: 'system', summary: 'Imported ' + imported + ' hosts from SSH config' })
       return { total: parsed.length, imported, skipped: parsed.length - imported }
     }
 
@@ -120,6 +122,7 @@ export function registerSystemHandlers(): void {
           imported++
         }
       }
+      logAuditEvent({ eventType: 'data.import', category: 'system', summary: 'Imported ' + imported + ' records from STerminal backup' })
       return { imported }
     }
 
@@ -158,6 +161,7 @@ export function registerSystemHandlers(): void {
         settings: dbAll('SELECT * FROM settings'),
       },
     }
+    logAuditEvent({ eventType: 'data.export', category: 'system', summary: 'Exported data backup' })
     return JSON.stringify(exportData, null, 2)
   })
 
@@ -210,6 +214,7 @@ export function registerSystemHandlers(): void {
       try { dbRun(`DELETE FROM ${table}`) } catch { /* table may not exist */ }
     }
     dbRun('PRAGMA foreign_keys = ON')
+    logAuditEvent({ eventType: 'data.clear', category: 'system', summary: 'Cleared local data' })
     return true
   })
 }

@@ -18,7 +18,7 @@ import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.st
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { findThemePreset } from '@shared/constants/terminal-themes'
 import CompletionPanel from './TerminalCompletionPanel.vue'
-import { nextTick, watch } from 'vue'
+import { nextTick, watch, reactive } from 'vue'
 import { keybindingService } from '@/services/keybinding.service'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
@@ -70,12 +70,13 @@ interface CompletionState {
   visible: boolean
   debounceTimer: ReturnType<typeof setTimeout> | null
 }
-const completionStates = new Map<string, CompletionState>()
+// 用 reactive Map 确保 Vue render 函数能追踪变化
+const completionStates = reactive(new Map<string, CompletionState>())
 
 function getCompletionState(terminalId: string): CompletionState {
   let state = completionStates.get(terminalId)
   if (!state) {
-    state = { inputBuffer: '', items: [], visible: false, debounceTimer: null }
+    state = reactive({ inputBuffer: '', items: [] as CompletionState['items'], visible: false, debounceTimer: null }) as CompletionState
     completionStates.set(terminalId, state)
   }
   return state

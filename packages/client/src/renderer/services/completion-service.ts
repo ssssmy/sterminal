@@ -60,8 +60,8 @@ class CompletionService {
   /**
    * 从所有启用的 provider 获取补全建议，合并后按 score 排序
    */
-  async complete(context: CompletionContext): Promise<CompletionItem[]> {
-    if (!context.input.trim()) return []
+  async complete(context: CompletionContext, maxResults = 10): Promise<CompletionItem[]> {
+    if (!context.input.trim() || context.input.length < 2) return []
 
     const results = await Promise.allSettled(
       Array.from(this.providers.values())
@@ -85,7 +85,7 @@ class CompletionService {
       }
     }
 
-    return Array.from(seen.values()).sort((a, b) => b.score - a.score)
+    return Array.from(seen.values()).sort((a, b) => b.score - a.score).slice(0, maxResults)
   }
 }
 

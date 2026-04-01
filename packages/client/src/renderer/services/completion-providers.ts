@@ -38,20 +38,19 @@ export class HistoryCompletionProvider implements CompletionProvider {
     for (const row of this.cache) {
       const cmd = row.command.trim()
       if (!cmd || seen.has(cmd)) continue
-      if (!cmd.toLowerCase().includes(input)) continue
+      // 只做前缀匹配，避免结果过多
+      if (!cmd.toLowerCase().startsWith(input)) continue
       seen.add(cmd)
 
-      // 前缀匹配比包含匹配得分更高
-      const isPrefix = cmd.toLowerCase().startsWith(input)
       items.push({
         label: cmd,
         insertText: cmd,
         source: 'history',
         sourceLabel: '历史',
-        score: isPrefix ? 80 : 40,
+        score: 80 - Math.min(cmd.length, 30), // 短命令优先
       })
 
-      if (items.length >= 10) break
+      if (items.length >= 8) break
     }
 
     return items
@@ -88,9 +87,10 @@ export class SnippetCompletionProvider implements CompletionProvider {
     const items: CompletionItem[] = []
 
     for (const snippet of this.cache) {
-      const nameMatch = snippet.name.toLowerCase().includes(input)
-      const contentMatch = snippet.content.toLowerCase().includes(input)
-      if (!nameMatch && !contentMatch) continue
+      const namePrefix = snippet.name.toLowerCase().startsWith(input)
+      const contentPrefix = snippet.content.toLowerCase().startsWith(input)
+      const nameContains = !namePrefix && snippet.name.toLowerCase().includes(input)
+      if (!namePrefix && !contentPrefix && !nameContains) continue
 
       items.push({
         label: snippet.name,
@@ -98,11 +98,10 @@ export class SnippetCompletionProvider implements CompletionProvider {
         source: 'snippet',
         sourceLabel: '片段',
         description: snippet.description || undefined,
-        // 片段按使用频率加权
-        score: (nameMatch ? 70 : 30) + Math.min(snippet.use_count, 20),
+        score: (namePrefix ? 70 : contentPrefix ? 60 : 30) + Math.min(snippet.use_count, 10),
       })
 
-      if (items.length >= 8) break
+      if (items.length >= 5) break
     }
 
     return items

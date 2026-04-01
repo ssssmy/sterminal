@@ -156,6 +156,8 @@
     "resetZoom": "Reset",
     "compactMode": "Compact Mode",
     "compactModeDesc": "Reduce UI spacing, suitable for small screens",
+    "minimizeToTray": "Minimize to tray",
+    "minimizeToTrayDesc": "Minimize to tray instead of quitting when closing window",
     "recordingSection": "Recording",
     "autoRecord": "Auto Record",
     "autoRecordDesc": "Automatically start recording when a new terminal is opened",
@@ -920,5 +922,10 @@
     "installRestart": "Restart & Install",
     "checkFailed": "Update check failed",
     "upToDate": "You're on the latest version"
+  },
+  "tray": {
+    "show": "Show Window",
+    "quit": "Quit",
+    "settings": "Settings"
   }
 }

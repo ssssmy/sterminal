@@ -8,6 +8,7 @@ import { IPC_DB } from '../../shared/types/ipc-channels'
 import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 import { syncEngine } from '../services/sync-engine'
 import { e2eCrypto } from '../services/crypto'
+import { logAuditEvent } from '../services/audit-service'
 
 /**
  * 数据变更后防抖触发同步（5 秒内多次变更只触发一次）
@@ -280,6 +281,7 @@ function registerHostsHandlers(): void {
       ]
     )
     scheduleSyncAfterChange()
+    logAuditEvent({ eventType: 'host.create', category: 'config', summary: 'Created host: ' + (data.label ?? data.address) })
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
   })
 
@@ -337,6 +339,7 @@ function registerHostsHandlers(): void {
   ipcMain.handle(IPC_DB.HOSTS_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM hosts WHERE id = ?', [id])
     trackDelete('host', id)
+    logAuditEvent({ eventType: 'host.delete', category: 'config', summary: 'Deleted host: ' + id })
     return true
   })
 }
@@ -804,6 +807,7 @@ function registerKeysHandlers(): void {
     }
     dbRun('DELETE FROM keys WHERE id = ?', [id])
     trackDelete('key', id)
+    logAuditEvent({ eventType: 'key.delete', category: 'security', summary: 'Deleted SSH key: ' + id })
     return true
   })
 }

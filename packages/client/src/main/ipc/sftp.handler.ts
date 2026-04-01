@@ -9,6 +9,7 @@ import { IPC_SFTP } from '../../shared/types/ipc-channels'
 import type { SftpFileInfo, SftpTransferItem } from '../../shared/types/sftp'
 import { sshSessions } from './ssh.handler'
 import { v4 as uuidv4 } from 'uuid'
+import { logAuditEvent } from '../services/audit-service'
 
 // 活跃的 SFTP 会话
 const sftpSessions = new Map<string, { sftp: SFTPWrapper; connectionId: string }>()
@@ -316,6 +317,7 @@ export function registerSftpHandlers(): void {
         })
       })
     }
+    logAuditEvent({ eventType: 'sftp.delete', category: 'transfer', summary: 'Deleted ' + params.path })
   })
 
   // 重命名/移动
@@ -473,6 +475,7 @@ export function registerSftpHandlers(): void {
       if (!webContents.isDestroyed()) {
         webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'upload', success: true })
       }
+      logAuditEvent({ eventType: 'sftp.upload', category: 'transfer', summary: 'Uploaded ' + params.remotePath })
       return { transferId }
     }
 
@@ -511,6 +514,7 @@ export function registerSftpHandlers(): void {
           if (!webContents.isDestroyed()) {
             webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'upload', success: true })
           }
+          logAuditEvent({ eventType: 'sftp.upload', category: 'transfer', summary: 'Uploaded ' + params.remotePath })
           resolve({ transferId })
         }
       })
@@ -567,6 +571,7 @@ export function registerSftpHandlers(): void {
       if (!webContents.isDestroyed()) {
         webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'download', success: true })
       }
+      logAuditEvent({ eventType: 'sftp.download', category: 'transfer', summary: 'Downloaded ' + params.remotePath })
       return { transferId }
     }
 
@@ -606,6 +611,7 @@ export function registerSftpHandlers(): void {
           if (!webContents.isDestroyed()) {
             webContents.send(IPC_SFTP.TRANSFER_COMPLETE, { transferId, direction: 'download', success: true })
           }
+          logAuditEvent({ eventType: 'sftp.download', category: 'transfer', summary: 'Downloaded ' + params.remotePath })
           resolve({ transferId })
         }
       })

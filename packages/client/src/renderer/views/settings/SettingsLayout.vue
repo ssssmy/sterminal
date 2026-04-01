@@ -59,6 +59,10 @@
           <el-icon><Document /></el-icon>
           <span>{{ t('settings.logs') }}</span>
         </el-menu-item>
+        <el-menu-item index="audit">
+          <el-icon><Tickets /></el-icon>
+          <span>{{ t('settings.audit') }}</span>
+        </el-menu-item>
         <el-menu-item index="data">
           <el-icon><DataAnalysis /></el-icon>
           <span>{{ t('settings.data') }}</span>
@@ -79,6 +83,7 @@
           <KnownHostsSettings v-else-if="activeSection === 'known-hosts'" />
           <KeysSettings v-else-if="activeSection === 'keys'" />
           <VaultSettings v-else-if="activeSection === 'vault'" />
+          <LogsAuditView v-else-if="activeSection === 'audit'" />
           <DataSettings v-else-if="activeSection === 'data'" />
           <div v-else class="settings-layout__placeholder">
             <el-empty :description="t('settings.underDevelopment')" />
@@ -94,7 +99,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  ArrowLeft, User, Monitor, Brush, Key, Connection, Lock, Document, DataAnalysis
+  ArrowLeft, User, Monitor, Brush, Key, Connection, Lock, Document, DataAnalysis, Tickets
 } from '@element-plus/icons-vue'
 import AccountSettings from './AccountSettings.vue'
 import TerminalSettings from './TerminalSettings.vue'
@@ -104,6 +109,7 @@ import KnownHostsSettings from './KnownHostsSettings.vue'
 import KeysSettings from './KeysSettings.vue'
 import VaultSettings from './VaultSettings.vue'
 import DataSettings from './DataSettings.vue'
+import LogsAuditView from './LogsAuditView.vue'
 import KeybindingsSettings from './KeybindingsSettings.vue'
 
 const router = useRouter()

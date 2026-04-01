@@ -342,6 +342,24 @@ CREATE TABLE IF NOT EXISTS sftp_bookmarks (
 );
 
 -- ============================================================
+-- 操作审计日志
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id              TEXT PRIMARY KEY,
+    event_type      TEXT NOT NULL,
+    category        TEXT NOT NULL,
+    summary         TEXT NOT NULL,
+    detail          TEXT,
+    host_id         TEXT,
+    host_label      TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_time ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_type ON audit_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_category ON audit_logs(category);
+
+-- ============================================================
 -- 同步删除追踪（本地记录已删除实体，等待推送到服务端）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sync_deletes (

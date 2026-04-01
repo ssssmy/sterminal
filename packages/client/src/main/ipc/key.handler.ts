@@ -9,6 +9,7 @@ import { dbRun, dbGet } from '../services/db'
 import { e2eCrypto } from '../services/crypto'
 import { sshSessions } from './ssh.handler'
 import type { SshKey } from '../../shared/types/key'
+import { logAuditEvent } from '../services/audit-service'
 
 interface SshKeyRow {
   id: string
@@ -80,6 +81,7 @@ export function registerKeyHandlers(): void {
 
     const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [id])
     if (!row) throw new Error('Failed to retrieve generated key')
+    logAuditEvent({ eventType: 'key.generate', category: 'security', summary: 'Generated SSH key: ' + params.name })
     return mapRow(row)
   })
 

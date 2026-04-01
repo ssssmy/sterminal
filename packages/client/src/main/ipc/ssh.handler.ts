@@ -10,6 +10,7 @@ import { recordData, shouldAutoRecord, startRecording } from '../services/sessio
 import { dbGet, dbRun, dbAll } from '../services/db'
 import { v4 as uuidv4 } from 'uuid'
 import { e2eCrypto } from '../services/crypto'
+import { logAuditEvent } from '../services/audit-service'
 
 // 待用户确认的主机密钥请求
 const pendingHostVerify = new Map<string, { resolve: (accept: boolean) => void }>()
@@ -165,6 +166,7 @@ export function registerSshHandlers(): void {
 
       conn.on('ready', () => {
         webContents.send(IPC_SSH.STATUS, { connectionId, hostId: params.hostId, status: 'connected' })
+        logAuditEvent({ eventType: 'ssh.connect', category: 'connection', summary: 'SSH connected', hostId: params.hostId, hostLabel: hostConfig.label || hostConfig.address })
 
         conn.shell({ term: 'xterm-256color', cols, rows }, (err, stream) => {
           if (err) {
@@ -198,6 +200,7 @@ export function registerSshHandlers(): void {
             if (!webContents.isDestroyed()) {
               webContents.send(IPC_SSH.STATUS, { connectionId, status: 'disconnected' })
             }
+            logAuditEvent({ eventType: 'ssh.disconnect', category: 'connection', summary: 'SSH disconnected', hostId: params.hostId, hostLabel: hostConfig.label || hostConfig.address })
             conn.end()
             sshSessions.delete(connectionId)
           })
@@ -243,6 +246,7 @@ export function registerSshHandlers(): void {
         if (!webContents.isDestroyed()) {
           webContents.send(IPC_SSH.ERROR, { connectionId, error: err.message })
         }
+        logAuditEvent({ eventType: 'ssh.error', category: 'connection', summary: 'SSH error: ' + err.message, hostId: params.hostId, hostLabel: hostConfig.label || hostConfig.address })
         sshSessions.delete(connectionId)
         if (!settled) { settled = true; reject(err) }
       })

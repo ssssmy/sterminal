@@ -189,6 +189,10 @@ export const IPC_LOG = {
   REPLAY: 'log:replay',
   OPEN_DIRECTORY: 'log:open-directory',
   EXPORT_GIF: 'log:export-gif',
+  AUDIT_LIST: 'log:audit-list',
+  AUDIT_EXPORT: 'log:audit-export',
+  AUDIT_CLEAN: 'log:audit-clean',
+  AUDIT_CLEAR: 'log:audit-clear',
 } as const
 
 // ===== 系统操作 =====

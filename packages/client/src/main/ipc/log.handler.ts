@@ -14,6 +14,7 @@ import {
   getLogDirectory,
 } from '../services/session-recorder'
 import { exportToGif } from '../services/gif-exporter'
+import { queryAuditLogs, exportAuditLogs, cleanAuditLogs, clearAuditLogs } from '../services/audit-service'
 import { assertUnderHome } from '../utils/platform'
 
 export function registerLogHandlers(): void {
@@ -87,5 +88,30 @@ export function registerLogHandlers(): void {
       // 清理临时文件
       try { fs.rmSync(tmpFile, { force: true }) } catch { /* ignore */ }
     }
+  })
+
+  // ===== 审计日志 =====
+
+  ipcMain.handle(IPC_LOG.AUDIT_LIST, (_event, params: {
+    category?: string
+    eventType?: string
+    search?: string
+    limit?: number
+    offset?: number
+  }) => {
+    return queryAuditLogs(params)
+  })
+
+  ipcMain.handle(IPC_LOG.AUDIT_EXPORT, (_event, params?: { category?: string }) => {
+    return exportAuditLogs(params)
+  })
+
+  ipcMain.handle(IPC_LOG.AUDIT_CLEAN, (_event, retainDays: number) => {
+    return cleanAuditLogs(retainDays)
+  })
+
+  ipcMain.handle(IPC_LOG.AUDIT_CLEAR, () => {
+    clearAuditLogs()
+    return true
   })
 }

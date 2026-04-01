@@ -156,6 +156,8 @@
     "resetZoom": "重置",
     "compactMode": "紧凑模式",
     "compactModeDesc": "减小界面间距，适合小屏幕",
+    "minimizeToTray": "最小化到系统托盘",
+    "minimizeToTrayDesc": "关闭窗口时最小化到托盘而非退出",
     "recordingSection": "录制",
     "autoRecord": "自动录制",
     "autoRecordDesc": "打开新终端时自动开始录制会话",
@@ -920,5 +922,10 @@
     "installRestart": "重启并安装",
     "checkFailed": "检查更新失败",
     "upToDate": "当前已是最新版本"
+  },
+  "tray": {
+    "show": "显示窗口",
+    "quit": "退出",
+    "settings": "设置"
   }
 }

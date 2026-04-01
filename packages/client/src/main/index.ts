@@ -1,7 +1,7 @@
 // Electron 主进程入口
 // 负责创建窗口、注册 IPC handlers、初始化数据库
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron'
 import path from 'path'
 import { initDatabase, closeDatabase, dbGet, dbRun } from './services/db'
 import { registerAllHandlers } from './ipc/index'
@@ -19,6 +19,7 @@ import { IPC_WINDOW } from '../shared/types/ipc-channels'
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 
 // ===== 窗口尺寸/位置持久化 =====
 
@@ -58,6 +59,77 @@ function saveWindowBounds(): void {
  */
 function isIntegratedGpu(vendorId: number): boolean {
   return vendorId === 0x8086
+}
+
+function isMinimizeToTray(): boolean {
+  try {
+    const row = dbGet<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['system.minimizeToTray'])
+    if (row) return row.value === 'true' || row.value === '1'
+  } catch { /* ignore */ }
+  // default is true (from DEFAULT_SETTINGS)
+  return true
+}
+
+function createTray(): void {
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '../../resources/icon.png')
+
+  let icon = nativeImage.createFromPath(iconPath)
+
+  if (process.platform === 'darwin') {
+    // macOS: resize to 16x16 template image for menu bar
+    icon = icon.resize({ width: 16, height: 16 })
+    icon.setTemplateImage(true)
+  } else {
+    icon = icon.resize({ width: 16, height: 16 })
+  }
+
+  tray = new Tray(icon)
+  tray.setToolTip('STerminal')
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show Window',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Settings',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show()
+          mainWindow.focus()
+          mainWindow.webContents.send('system:tray-action', 'open-settings')
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.quit()
+      },
+    },
+  ])
+
+  tray.setContextMenu(contextMenu)
+
+  // Single-click toggles window visibility
+  tray.on('click', () => {
+    if (!mainWindow) return
+    if (mainWindow.isVisible()) {
+      mainWindow.hide()
+    } else {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
 }
 
 /**
@@ -148,6 +220,13 @@ function createWindow(): void {
     }
   })
 
+  mainWindow.on('close', (event) => {
+    if (isMinimizeToTray() && tray) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -192,17 +271,24 @@ app.whenReady().then(() => {
   // 3. 创建主窗口
   createWindow()
 
-  // macOS：点击 Dock 图标时重新创建窗口
+  // 4. 创建系统托盘
+  createTray()
+
+  // macOS：点击 Dock 图标时显示窗口
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (mainWindow) {
+      mainWindow.show()
+      mainWindow.focus()
+    } else {
       createWindow()
     }
   })
 })
 
 // 所有窗口关闭时退出（Windows / Linux）
+// 如果启用了 minimizeToTray，close 事件会被阻止，此处不会触发
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && !isMinimizeToTray()) {
     app.quit()
   }
 })
@@ -210,6 +296,10 @@ app.on('window-all-closed', () => {
 // 应用退出前清理资源
 app.on('before-quit', () => {
   saveWindowBounds()
+  if (tray) {
+    tray.destroy()
+    tray = null
+  }
   vaultService.lock()
   stopSync()
   stopAllRecordings()

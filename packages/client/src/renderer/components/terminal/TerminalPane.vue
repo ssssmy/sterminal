@@ -11,12 +11,13 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
-import { IPC_PTY, IPC_SSH, IPC_LOG, IPC_DB } from '@shared/types/ipc-channels'
+import { IPC_PTY, IPC_SSH, IPC_LOG } from '@shared/types/ipc-channels'
 import { useSessionsStore } from '@/stores/sessions.store'
 import { useUiStore } from '@/stores/ui.store'
 import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { findThemePreset } from '@shared/constants/terminal-themes'
+import CompletionPanel from './TerminalCompletionPanel.vue'
 import { nextTick, watch } from 'vue'
 import { keybindingService } from '@/services/keybinding.service'
 
@@ -50,8 +51,6 @@ interface PooledTerminal {
   dirtyWhileHidden: boolean
   /** 检测到的主机环境（用于显示安全警示边框） */
   environment: 'production' | 'staging' | null
-  /** 当前行输入缓冲（用于自动补全） */
-  inputBuffer: string
 }
 
 // ===== 主机环境检测 =====
@@ -62,112 +61,121 @@ function detectHostEnvironment(host: { address: string; label?: string }): 'prod
   return null
 }
 
-// ===== 自动补全 =====
-import type { TerminalInstance } from '@shared/types/terminal'
-import { completionService, type CompletionItem } from '@/services/completion-service'
-import { HistoryCompletionProvider, SnippetCompletionProvider } from '@/services/completion-providers'
-import { ref as vueRef, shallowRef } from 'vue'
+const terminalPool = new Map<string, PooledTerminal>()
 
-// 注册内置补全源（只注册一次）
-let _completionProvidersRegistered = false
-function ensureCompletionProviders(): void {
-  if (_completionProvidersRegistered) return
-  _completionProvidersRegistered = true
-  completionService.registerProvider(new HistoryCompletionProvider())
-  completionService.registerProvider(new SnippetCompletionProvider())
+// ===== 终端补全状态（per-terminal） =====
+interface CompletionState {
+  inputBuffer: string          // 当前行输入缓冲
+  items: { text: string; label: string; source: 'history' | 'snippet' | 'command' | 'ai'; description?: string; score: number }[]
+  visible: boolean
+  debounceTimer: ReturnType<typeof setTimeout> | null
+}
+const completionStates = new Map<string, CompletionState>()
+
+function getCompletionState(terminalId: string): CompletionState {
+  let state = completionStates.get(terminalId)
+  if (!state) {
+    state = { inputBuffer: '', items: [], visible: false, debounceTimer: null }
+    completionStates.set(terminalId, state)
+  }
+  return state
 }
 
-// 全局补全状态（响应式，供 TerminalWrapper render 函数使用）
-const completionItems = shallowRef<CompletionItem[]>([])
-const completionTerminalId = vueRef<string | null>(null)
-const completionPos = vueRef({ x: 0, y: 0 })
-let completionDebounceTimer: ReturnType<typeof setTimeout> | null = null
-
-function triggerCompletion(terminalId: string, input: string, pooled: PooledTerminal, instance?: TerminalInstance): void {
-  if (completionDebounceTimer) clearTimeout(completionDebounceTimer)
-
+/** 请求补全建议 */
+async function requestCompletions(terminalId: string, hostId?: string, type: 'local' | 'ssh' = 'local'): Promise<void> {
+  const state = getCompletionState(terminalId)
+  const input = state.inputBuffer.trim()
   if (input.length < 2) {
-    completionItems.value = []
-    completionTerminalId.value = null
+    state.items = []
+    state.visible = false
+    return
+  }
+  try {
+    const items = await ipcInvoke<typeof state.items>('completion:request', {
+      input,
+      hostId,
+      terminalType: type,
+      limit: 10,
+    })
+    state.items = items || []
+    state.visible = state.items.length > 0
+  } catch {
+    state.items = []
+    state.visible = false
+  }
+}
+
+/** 处理终端输入（维护 inputBuffer + 触发补全） */
+function handleCompletionInput(terminalId: string, data: string, hostId?: string, type: 'local' | 'ssh' = 'local'): void {
+  const state = getCompletionState(terminalId)
+
+  if (data === '\r' || data === '\n') {
+    // Enter：记录命令到历史，清空缓冲
+    if (state.inputBuffer.trim()) {
+      ipcInvoke('completion:record-cmd', { command: state.inputBuffer.trim(), hostId }).catch(() => {})
+    }
+    state.inputBuffer = ''
+    state.items = []
+    state.visible = false
     return
   }
 
-  completionDebounceTimer = setTimeout(async () => {
-    ensureCompletionProviders()
-    const items = await completionService.complete({
-      input,
-      hostId: instance?.hostId,
-      terminalType: instance?.type || 'local',
-    })
-    completionItems.value = items
-    completionTerminalId.value = items.length > 0 ? terminalId : null
+  if (data === '\x7f' || data === '\b') {
+    // Backspace
+    state.inputBuffer = state.inputBuffer.slice(0, -1)
+  } else if (data === '\t') {
+    // Tab：如果有补全项，选择第一个（不传递到终端）
+    // Tab 由外部处理
+    return
+  } else if (data === '\x1b') {
+    // Escape：关闭补全
+    state.items = []
+    state.visible = false
+    return
+  } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+    // 普通可打印字符
+    state.inputBuffer += data
+  } else if (data === '\x03') {
+    // Ctrl+C
+    state.inputBuffer = ''
+    state.items = []
+    state.visible = false
+    return
+  } else {
+    // 其他控制序列（箭头等）不影响缓冲
+    return
+  }
 
-    // 计算弹窗位置
-    if (items.length > 0 && pooled.terminal) {
-      const rect = pooled.wrapperEl.getBoundingClientRect()
-      const buffer = pooled.terminal.buffer.active
-      const charWidth = rect.width / pooled.terminal.cols
-      const charHeight = rect.height / pooled.terminal.rows
-      completionPos.value = {
-        x: rect.left + buffer.cursorX * charWidth,
-        y: window.innerHeight - (rect.top + (buffer.cursorY + 1) * charHeight),
-      }
-    }
-  }, 150)
+  // 防抖请求补全
+  if (state.debounceTimer) clearTimeout(state.debounceTimer)
+  state.debounceTimer = setTimeout(() => {
+    requestCompletions(terminalId, hostId, type)
+  }, 200)
 }
 
-function closeCompletion(): void {
-  completionItems.value = []
-  completionTerminalId.value = null
-}
-
-function acceptCompletion(terminalId: string, item: CompletionItem): void {
+/** 应用补全项到终端 */
+function applyCompletion(terminalId: string, completionText: string): void {
+  const state = getCompletionState(terminalId)
   const pooled = terminalPool.get(terminalId)
   if (!pooled) return
 
-  // 发送 backspace 清除已输入的文本
-  const bs = '\x7f'.repeat(pooled.inputBuffer.length)
+  // 计算需要补全的部分（替换当前输入）
+  const currentInput = state.inputBuffer
+  // 先删除当前输入（发送 backspace）
+  const bs = '\b \b'.repeat(0) // 不删除，直接清行再输入
+  // 用 \x15 (Ctrl+U) 清除当前行，然后输入补全文本
+  const clearAndType = '\x15' + completionText
+
   if (pooled.sshConnectionId) {
-    ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data: bs + item.insertText })
+    ipcInvoke('ssh:write', { connectionId: pooled.sshConnectionId, data: clearAndType })
   } else if (pooled.ptyId) {
-    ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data: bs + item.insertText })
+    ipcInvoke('pty:write', { ptyId: pooled.ptyId, data: clearAndType })
   }
 
-  pooled.inputBuffer = item.insertText
-  closeCompletion()
+  state.inputBuffer = completionText
+  state.items = []
+  state.visible = false
 }
-
-// 导出供 TerminalCompletion 组件使用
-export { completionItems, completionTerminalId, completionPos, closeCompletion, acceptCompletion }
-
-function trackInputBuffer(pooled: PooledTerminal, data: string, terminalId: string, instance?: TerminalInstance): void {
-  for (const ch of data) {
-    if (ch === '\r' || ch === '\n') {
-      const cmd = pooled.inputBuffer.trim()
-      if (cmd) {
-        ipcInvoke(IPC_DB.CMD_HISTORY_ADD, { command: cmd, hostId: instance?.hostId }).catch(() => {})
-      }
-      pooled.inputBuffer = ''
-      closeCompletion()
-    } else if (ch === '\x7f' || ch === '\b') {
-      pooled.inputBuffer = pooled.inputBuffer.slice(0, -1)
-    } else if (ch === '\x03' || ch === '\x15') {
-      pooled.inputBuffer = ''
-      closeCompletion()
-    } else if (ch.charCodeAt(0) >= 32) {
-      pooled.inputBuffer += ch
-    }
-  }
-  // 触发补全（防抖 150ms）
-  triggerCompletion(terminalId, pooled.inputBuffer, pooled, instance)
-}
-
-// 导出补全触发函数，供外部组件调用
-export function getTerminalInputBuffer(terminalId: string): string {
-  return terminalPool.get(terminalId)?.inputBuffer ?? ''
-}
-
-const terminalPool = new Map<string, PooledTerminal>()
 
 // ===== 终端搜索 API（供外部组件调用） =====
 
@@ -513,30 +521,14 @@ const TerminalXterm = defineComponent({
         ipcCallbacks: [],
         dirtyWhileHidden: false,
         environment: null,
-        inputBuffer: '',
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
-      // 键盘事件拦截：快捷键 > 补全导航 > 粘贴处理 > 传给 xterm
+      // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
       terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         // 优先检查 app 级快捷键绑定
         if (e.type === 'keydown' && keybindingService.handleKeyEvent(e)) {
-          return false
-        }
-        // 补全弹窗可见时拦截导航键
-        if (e.type === 'keydown' && completionTerminalId.value === xtermProps.terminalId && completionItems.value.length > 0) {
-          if (e.key === 'Tab' || e.key === 'Enter') {
-            e.preventDefault()
-            const item = completionItems.value[0] // 选中第一个（或当前活跃项由组件管理）
-            acceptCompletion(xtermProps.terminalId, item)
-            return false
-          }
-          if (e.key === 'Escape') {
-            e.preventDefault()
-            closeCompletion()
-            return false
-          }
-          // ArrowUp/Down 由 TerminalCompletion 组件处理（通过 ref）
+          return false // 已被快捷键服务消费
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
           const s = useSettingsStoreModule().settings
@@ -693,8 +685,8 @@ const TerminalXterm = defineComponent({
         }
 
         terminal.onData((data: string) => {
-          // 跟踪输入缓冲用于自动补全和历史记录
-          trackInputBuffer(pooled, data, xtermProps.terminalId, instance)
+          // 补全输入追踪
+          handleCompletionInput(xtermProps.terminalId, data, instance?.hostId, 'ssh')
           if (pooled.sshConnectionId) {
             ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
           }
@@ -760,7 +752,8 @@ const TerminalXterm = defineComponent({
         trackOn(IPC_PTY.EXIT, ptyExitCallback)
 
         terminal.onData((data: string) => {
-          trackInputBuffer(pooled, data, xtermProps.terminalId, instance)
+          // 补全输入追踪
+          handleCompletionInput(xtermProps.terminalId, data, undefined, 'local')
           if (pooled.ptyId) ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
           broadcastInput(xtermProps.terminalId, data)
         })
@@ -871,29 +864,23 @@ const TerminalWrapper = defineComponent({
           h(Transition, { name: 'st-fade' }, {
             default: () => sshStatus.value === 'connecting' ? connectingOverlay() : null,
           }),
-          // 自动补全弹窗
-          completionTerminalId.value === wrapperProps.terminalId && completionItems.value.length > 0
-            ? h('div', {
-                class: 'terminal-completion-anchor',
-                style: {
-                  position: 'absolute',
-                  left: `${completionPos.value.x - (terminalPool.get(wrapperProps.terminalId)?.wrapperEl.getBoundingClientRect().left ?? 0)}px`,
-                  bottom: `${(terminalPool.get(wrapperProps.terminalId)?.wrapperEl.getBoundingClientRect().bottom ?? 0) - completionPos.value.y + 20}px`,
-                  zIndex: 100,
-                },
+          // 补全面板
+          (() => {
+            const cState = completionStates.get(wrapperProps.terminalId)
+            if (!cState?.visible || !cState.items.length) return null
+            return h(CompletionPanel, {
+              items: cState.items,
+              visible: cState.visible,
+              x: 12,
+              y: 36,
+              onSelect: (item: { text: string }) => {
+                applyCompletion(wrapperProps.terminalId, item.text)
               },
-              completionItems.value.map((item, idx) =>
-                h('div', {
-                  class: ['terminal-completion-item', idx === 0 ? 'terminal-completion-item--active' : ''],
-                  onMousedown: (e: MouseEvent) => { e.preventDefault(); acceptCompletion(wrapperProps.terminalId, item) },
-                }, [
-                  h('span', { class: 'terminal-completion-source' }, item.sourceLabel),
-                  h('span', { class: 'terminal-completion-label' }, item.label),
-                  item.description ? h('span', { class: 'terminal-completion-desc' }, item.description) : null,
-                ])
-              )
-            )
-            : null,
+              onDismiss: () => {
+                if (cState) { cState.visible = false; cState.items = [] }
+              },
+            })
+          })(),
           wrapperProps.showClose && hovered.value
             ? h('button', {
                 class: 'split-close-btn',
@@ -1099,58 +1086,6 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
     opacity: 1;
     background: rgba(239, 68, 68, 1);
   }
-}
-
-:deep(.terminal-completion-anchor) {
-  min-width: 240px;
-  max-width: 420px;
-  max-height: 200px;
-  overflow-y: auto;
-  background: var(--bg-surface, #232438);
-  border: 1px solid var(--border, #2e3048);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  padding: 4px 0;
-  font-size: 12px;
-}
-
-:deep(.terminal-completion-item) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
-  cursor: pointer;
-  transition: background-color 0.08s;
-  &:hover, &--active {
-    background: var(--bg-hover, #2a2b40);
-  }
-}
-
-:deep(.terminal-completion-source) {
-  font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--accent, #6366f1);
-  color: white;
-  flex-shrink: 0;
-  opacity: 0.8;
-}
-
-:deep(.terminal-completion-label) {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary, #e4e4e8);
-}
-
-:deep(.terminal-completion-desc) {
-  font-size: 11px;
-  color: var(--text-tertiary, #5c5e72);
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 :deep(.ssh-connecting-overlay) {

@@ -82,7 +82,10 @@ function registerSettingsHandlers(): void {
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, sync_updated_at = excluded.sync_updated_at`,
       [key, jsonValue]
     )
-    if (!LOCAL_ONLY_SETTINGS.includes(key)) scheduleSyncAfterChange()
+    if (!LOCAL_ONLY_SETTINGS.includes(key)) {
+      scheduleSyncAfterChange()
+      logAuditEvent({ eventType: 'settings.change', category: 'config', summary: 'Setting changed: ' + key })
+    }
     return true
   })
 
@@ -332,6 +335,7 @@ function registerHostsHandlers(): void {
     params.push(id)
     dbRun(`UPDATE hosts SET ${sets.join(', ')} WHERE id = ?`, params)
     scheduleSyncAfterChange()
+    logAuditEvent({ eventType: 'host.update', category: 'config', summary: 'Updated host: ' + id })
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
   })
 
@@ -872,6 +876,7 @@ function registerVaultHandlers(): void {
       ]
     )
     scheduleSyncAfterChange()
+    logAuditEvent({ eventType: 'vault.create', category: 'security', summary: 'Created vault entry: ' + data.name })
     const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
     return row ? mapVaultRow(row) : null
   })
@@ -914,6 +919,7 @@ function registerVaultHandlers(): void {
   ipcMain.handle(IPC_DB.VAULT_DELETE, (_event, id: string) => {
     dbRun('DELETE FROM vault_entries WHERE id = ?', [id])
     trackDelete('vault_entry', id)
+    logAuditEvent({ eventType: 'vault.delete', category: 'security', summary: 'Deleted vault entry: ' + id })
     return true
   })
 }

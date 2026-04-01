@@ -51,6 +51,7 @@ export function registerDbHandlers(): void {
   registerVaultHandlers()
   registerThemesHandlers()
   registerKeybindingsHandlers()
+  registerCommandHistoryHandlers()
 }
 
 // ===== 设置 =====
@@ -999,6 +1000,40 @@ function registerKeybindingsHandlers(): void {
       [action, shortcut]
     )
     scheduleSyncAfterChange()
+    return true
+  })
+}
+
+// ===== 命令历史 =====
+
+function registerCommandHistoryHandlers(): void {
+  ipcMain.handle(IPC_DB.CMD_HISTORY_LIST, (_event, params: { limit?: number; hostId?: string }) => {
+    const limit = params.limit || 200
+    if (params.hostId) {
+      return dbAll(
+        'SELECT command, host_id, created_at FROM command_history WHERE host_id = ? ORDER BY created_at DESC LIMIT ?',
+        [params.hostId, limit]
+      )
+    }
+    return dbAll(
+      'SELECT command, host_id, created_at FROM command_history ORDER BY created_at DESC LIMIT ?',
+      [limit]
+    )
+  })
+
+  ipcMain.handle(IPC_DB.CMD_HISTORY_ADD, (_event, params: { command: string; hostId?: string }) => {
+    const cmd = params.command.trim()
+    if (!cmd) return false
+    dbRun(
+      'INSERT INTO command_history (command, host_id) VALUES (?, ?)',
+      [cmd, params.hostId ?? null]
+    )
+    // 保留最近 1000 条，自动清理旧记录
+    dbRun(
+      `DELETE FROM command_history WHERE id NOT IN (
+        SELECT id FROM command_history ORDER BY created_at DESC LIMIT 1000
+      )`
+    )
     return true
   })
 }

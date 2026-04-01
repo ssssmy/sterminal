@@ -11,7 +11,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
-import { IPC_PTY, IPC_SSH, IPC_LOG } from '@shared/types/ipc-channels'
+import { IPC_PTY, IPC_SSH, IPC_LOG, IPC_DB } from '@shared/types/ipc-channels'
 import { useSessionsStore } from '@/stores/sessions.store'
 import { useUiStore } from '@/stores/ui.store'
 import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
@@ -50,6 +50,8 @@ interface PooledTerminal {
   dirtyWhileHidden: boolean
   /** 检测到的主机环境（用于显示安全警示边框） */
   environment: 'production' | 'staging' | null
+  /** 当前行输入缓冲（用于自动补全） */
+  inputBuffer: string
 }
 
 // ===== 主机环境检测 =====
@@ -58,6 +60,39 @@ function detectHostEnvironment(host: { address: string; label?: string }): 'prod
   if (/\bprod(uction)?\b/.test(text)) return 'production'
   if (/\bstag(ing|e)?\b/.test(text)) return 'staging'
   return null
+}
+
+// ===== 输入缓冲跟踪（用于自动补全 + 命令历史） =====
+import type { TerminalInstance } from '@shared/types/terminal'
+
+function trackInputBuffer(pooled: PooledTerminal, data: string, instance?: TerminalInstance): void {
+  for (const ch of data) {
+    if (ch === '\r' || ch === '\n') {
+      // Enter：保存命令到历史
+      const cmd = pooled.inputBuffer.trim()
+      if (cmd) {
+        ipcInvoke(IPC_DB.CMD_HISTORY_ADD, { command: cmd, hostId: instance?.hostId }).catch(() => {})
+      }
+      pooled.inputBuffer = ''
+    } else if (ch === '\x7f' || ch === '\b') {
+      // Backspace
+      pooled.inputBuffer = pooled.inputBuffer.slice(0, -1)
+    } else if (ch === '\x03') {
+      // Ctrl+C：清空缓冲
+      pooled.inputBuffer = ''
+    } else if (ch === '\x15') {
+      // Ctrl+U：清空行
+      pooled.inputBuffer = ''
+    } else if (ch.charCodeAt(0) >= 32) {
+      // 可打印字符
+      pooled.inputBuffer += ch
+    }
+  }
+}
+
+// 导出补全触发函数，供外部组件调用
+export function getTerminalInputBuffer(terminalId: string): string {
+  return terminalPool.get(terminalId)?.inputBuffer ?? ''
 }
 
 const terminalPool = new Map<string, PooledTerminal>()
@@ -406,6 +441,7 @@ const TerminalXterm = defineComponent({
         ipcCallbacks: [],
         dirtyWhileHidden: false,
         environment: null,
+        inputBuffer: '',
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
@@ -570,6 +606,8 @@ const TerminalXterm = defineComponent({
         }
 
         terminal.onData((data: string) => {
+          // 跟踪输入缓冲用于自动补全和历史记录
+          trackInputBuffer(pooled, data, instance)
           if (pooled.sshConnectionId) {
             ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
           }
@@ -635,6 +673,7 @@ const TerminalXterm = defineComponent({
         trackOn(IPC_PTY.EXIT, ptyExitCallback)
 
         terminal.onData((data: string) => {
+          trackInputBuffer(pooled, data, instance)
           if (pooled.ptyId) ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
           broadcastInput(xtermProps.terminalId, data)
         })

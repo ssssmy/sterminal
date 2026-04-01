@@ -195,6 +195,12 @@ export const IPC_LOG = {
   AUDIT_CLEAR: 'log:audit-clear',
 } as const
 
+// ===== 终端补全 =====
+export const IPC_COMPLETION = {
+  REQUEST: 'completion:request',
+  RECORD_CMD: 'completion:record-cmd',
+} as const
+
 // ===== 系统操作 =====
 export const IPC_SYSTEM = {
   TRAY_ACTION: 'system:tray-action',

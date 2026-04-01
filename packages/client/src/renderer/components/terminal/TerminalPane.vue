@@ -1121,9 +1121,11 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
   padding: 5px 10px;
   cursor: pointer;
   transition: background-color 0.08s;
-  &:hover, &--active {
-    background: var(--bg-hover, #2a2b40);
-  }
+}
+
+:deep(.terminal-completion-item:hover),
+:deep(.terminal-completion-item--active) {
+  background: var(--bg-hover, #2a2b40);
 }
 
 :deep(.terminal-completion-source) {

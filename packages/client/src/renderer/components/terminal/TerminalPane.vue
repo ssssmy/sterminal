@@ -62,32 +62,104 @@ function detectHostEnvironment(host: { address: string; label?: string }): 'prod
   return null
 }
 
-// ===== 输入缓冲跟踪（用于自动补全 + 命令历史） =====
+// ===== 自动补全 =====
 import type { TerminalInstance } from '@shared/types/terminal'
+import { completionService, type CompletionItem } from '@/services/completion-service'
+import { HistoryCompletionProvider, SnippetCompletionProvider } from '@/services/completion-providers'
+import { ref as vueRef, shallowRef } from 'vue'
 
-function trackInputBuffer(pooled: PooledTerminal, data: string, instance?: TerminalInstance): void {
+// 注册内置补全源（只注册一次）
+let _completionProvidersRegistered = false
+function ensureCompletionProviders(): void {
+  if (_completionProvidersRegistered) return
+  _completionProvidersRegistered = true
+  completionService.registerProvider(new HistoryCompletionProvider())
+  completionService.registerProvider(new SnippetCompletionProvider())
+}
+
+// 全局补全状态（响应式，供 TerminalWrapper render 函数使用）
+const completionItems = shallowRef<CompletionItem[]>([])
+const completionTerminalId = vueRef<string | null>(null)
+const completionPos = vueRef({ x: 0, y: 0 })
+let completionDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function triggerCompletion(terminalId: string, input: string, pooled: PooledTerminal, instance?: TerminalInstance): void {
+  if (completionDebounceTimer) clearTimeout(completionDebounceTimer)
+
+  if (input.length < 2) {
+    completionItems.value = []
+    completionTerminalId.value = null
+    return
+  }
+
+  completionDebounceTimer = setTimeout(async () => {
+    ensureCompletionProviders()
+    const items = await completionService.complete({
+      input,
+      hostId: instance?.hostId,
+      terminalType: instance?.type || 'local',
+    })
+    completionItems.value = items
+    completionTerminalId.value = items.length > 0 ? terminalId : null
+
+    // 计算弹窗位置
+    if (items.length > 0 && pooled.terminal) {
+      const rect = pooled.wrapperEl.getBoundingClientRect()
+      const buffer = pooled.terminal.buffer.active
+      const charWidth = rect.width / pooled.terminal.cols
+      const charHeight = rect.height / pooled.terminal.rows
+      completionPos.value = {
+        x: rect.left + buffer.cursorX * charWidth,
+        y: window.innerHeight - (rect.top + (buffer.cursorY + 1) * charHeight),
+      }
+    }
+  }, 150)
+}
+
+function closeCompletion(): void {
+  completionItems.value = []
+  completionTerminalId.value = null
+}
+
+function acceptCompletion(terminalId: string, item: CompletionItem): void {
+  const pooled = terminalPool.get(terminalId)
+  if (!pooled) return
+
+  // 发送 backspace 清除已输入的文本
+  const bs = '\x7f'.repeat(pooled.inputBuffer.length)
+  if (pooled.sshConnectionId) {
+    ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data: bs + item.insertText })
+  } else if (pooled.ptyId) {
+    ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data: bs + item.insertText })
+  }
+
+  pooled.inputBuffer = item.insertText
+  closeCompletion()
+}
+
+// 导出供 TerminalCompletion 组件使用
+export { completionItems, completionTerminalId, completionPos, closeCompletion, acceptCompletion }
+
+function trackInputBuffer(pooled: PooledTerminal, data: string, terminalId: string, instance?: TerminalInstance): void {
   for (const ch of data) {
     if (ch === '\r' || ch === '\n') {
-      // Enter：保存命令到历史
       const cmd = pooled.inputBuffer.trim()
       if (cmd) {
         ipcInvoke(IPC_DB.CMD_HISTORY_ADD, { command: cmd, hostId: instance?.hostId }).catch(() => {})
       }
       pooled.inputBuffer = ''
+      closeCompletion()
     } else if (ch === '\x7f' || ch === '\b') {
-      // Backspace
       pooled.inputBuffer = pooled.inputBuffer.slice(0, -1)
-    } else if (ch === '\x03') {
-      // Ctrl+C：清空缓冲
+    } else if (ch === '\x03' || ch === '\x15') {
       pooled.inputBuffer = ''
-    } else if (ch === '\x15') {
-      // Ctrl+U：清空行
-      pooled.inputBuffer = ''
+      closeCompletion()
     } else if (ch.charCodeAt(0) >= 32) {
-      // 可打印字符
       pooled.inputBuffer += ch
     }
   }
+  // 触发补全（防抖 150ms）
+  triggerCompletion(terminalId, pooled.inputBuffer, pooled, instance)
 }
 
 // 导出补全触发函数，供外部组件调用
@@ -445,11 +517,26 @@ const TerminalXterm = defineComponent({
       }
       terminalPool.set(xtermProps.terminalId, pooled)
 
-      // 粘贴拦截：仅在开启了换行警告或去尾换行时拦截
+      // 键盘事件拦截：快捷键 > 补全导航 > 粘贴处理 > 传给 xterm
       terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         // 优先检查 app 级快捷键绑定
         if (e.type === 'keydown' && keybindingService.handleKeyEvent(e)) {
-          return false // 已被快捷键服务消费
+          return false
+        }
+        // 补全弹窗可见时拦截导航键
+        if (e.type === 'keydown' && completionTerminalId.value === xtermProps.terminalId && completionItems.value.length > 0) {
+          if (e.key === 'Tab' || e.key === 'Enter') {
+            e.preventDefault()
+            const item = completionItems.value[0] // 选中第一个（或当前活跃项由组件管理）
+            acceptCompletion(xtermProps.terminalId, item)
+            return false
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            closeCompletion()
+            return false
+          }
+          // ArrowUp/Down 由 TerminalCompletion 组件处理（通过 ref）
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'v' && e.type === 'keydown') {
           const s = useSettingsStoreModule().settings
@@ -607,7 +694,7 @@ const TerminalXterm = defineComponent({
 
         terminal.onData((data: string) => {
           // 跟踪输入缓冲用于自动补全和历史记录
-          trackInputBuffer(pooled, data, instance)
+          trackInputBuffer(pooled, data, xtermProps.terminalId, instance)
           if (pooled.sshConnectionId) {
             ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
           }
@@ -673,7 +760,7 @@ const TerminalXterm = defineComponent({
         trackOn(IPC_PTY.EXIT, ptyExitCallback)
 
         terminal.onData((data: string) => {
-          trackInputBuffer(pooled, data, instance)
+          trackInputBuffer(pooled, data, xtermProps.terminalId, instance)
           if (pooled.ptyId) ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
           broadcastInput(xtermProps.terminalId, data)
         })
@@ -784,6 +871,29 @@ const TerminalWrapper = defineComponent({
           h(Transition, { name: 'st-fade' }, {
             default: () => sshStatus.value === 'connecting' ? connectingOverlay() : null,
           }),
+          // 自动补全弹窗
+          completionTerminalId.value === wrapperProps.terminalId && completionItems.value.length > 0
+            ? h('div', {
+                class: 'terminal-completion-anchor',
+                style: {
+                  position: 'absolute',
+                  left: `${completionPos.value.x - (terminalPool.get(wrapperProps.terminalId)?.wrapperEl.getBoundingClientRect().left ?? 0)}px`,
+                  bottom: `${(terminalPool.get(wrapperProps.terminalId)?.wrapperEl.getBoundingClientRect().bottom ?? 0) - completionPos.value.y + 20}px`,
+                  zIndex: 100,
+                },
+              },
+              completionItems.value.map((item, idx) =>
+                h('div', {
+                  class: ['terminal-completion-item', idx === 0 ? 'terminal-completion-item--active' : ''],
+                  onMousedown: (e: MouseEvent) => { e.preventDefault(); acceptCompletion(wrapperProps.terminalId, item) },
+                }, [
+                  h('span', { class: 'terminal-completion-source' }, item.sourceLabel),
+                  h('span', { class: 'terminal-completion-label' }, item.label),
+                  item.description ? h('span', { class: 'terminal-completion-desc' }, item.description) : null,
+                ])
+              )
+            )
+            : null,
           wrapperProps.showClose && hovered.value
             ? h('button', {
                 class: 'split-close-btn',
@@ -989,6 +1099,58 @@ const SplitView: ReturnType<typeof defineComponent> = defineComponent({
     opacity: 1;
     background: rgba(239, 68, 68, 1);
   }
+}
+
+:deep(.terminal-completion-anchor) {
+  min-width: 240px;
+  max-width: 420px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-surface, #232438);
+  border: 1px solid var(--border, #2e3048);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+:deep(.terminal-completion-item) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background-color 0.08s;
+  &:hover, &--active {
+    background: var(--bg-hover, #2a2b40);
+  }
+}
+
+:deep(.terminal-completion-source) {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--accent, #6366f1);
+  color: white;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+:deep(.terminal-completion-label) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, #e4e4e8);
+}
+
+:deep(.terminal-completion-desc) {
+  font-size: 11px;
+  color: var(--text-tertiary, #5c5e72);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :deep(.ssh-connecting-overlay) {

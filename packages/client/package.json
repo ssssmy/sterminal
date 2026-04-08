@@ -5,6 +5,9 @@
   "author": "STerminal Team",
   "homepage": "https://github.com/ssssmy/sterminal",
   "main": "dist-electron/main/index.js",
+  "bin": {
+    "sterminal": "bin/sterminal.js"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

@@ -128,6 +128,19 @@ onMounted(async () => {
         }
         break
       }
+      case 'sftp': {
+        // SFTP 需要先建立 SSH 连接，CLI 先打开 SSH 终端，用户再手动切 SFTP
+        // 未来可优化为自动打开 SFTP 面板
+        const sftpHost = hostsStore.hosts.find(h =>
+          h.address === params.host &&
+          (!params.port || h.port === parseInt(params.port)) &&
+          (!params.user || h.username === params.user)
+        )
+        if (sftpHost) {
+          sessionsStore.createTab(sftpHost.label || sftpHost.address, 'ssh', sftpHost.id)
+        }
+        break
+      }
       case 'new-terminal':
         sessionsStore.createTab()
         break

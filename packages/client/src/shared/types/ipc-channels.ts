@@ -211,6 +211,9 @@ export const IPC_SYSTEM = {
   EXPORT_HOSTS: 'system:export-hosts',
   BACKUP: 'system:backup',
   RESTORE: 'system:restore',
+  INSTALL_CLI: 'system:install-cli',
+  UNINSTALL_CLI: 'system:uninstall-cli',
+  CHECK_CLI: 'system:check-cli',
   PING: 'system:ping',
 } as const
 

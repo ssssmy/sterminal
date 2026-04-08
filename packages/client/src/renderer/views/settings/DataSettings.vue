@@ -59,6 +59,31 @@
       </div>
     </div>
 
+    <!-- ===== CLI 工具 ===== -->
+    <div class="settings-block">
+      <h4 class="settings-block__title">{{ t('dataSettings.cliSection') }}</h4>
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('dataSettings.cliLabel') }}</label>
+          <span class="settings-row__desc">{{ t('dataSettings.cliDesc') }}</span>
+        </div>
+        <el-button
+          v-if="!cliInstalled"
+          type="primary"
+          :loading="cliLoading"
+          @click="handleInstallCli"
+        >{{ t('dataSettings.cliInstall') }}</el-button>
+        <el-button
+          v-else
+          :loading="cliLoading"
+          @click="handleUninstallCli"
+        >{{ t('dataSettings.cliUninstall') }}</el-button>
+      </div>
+      <div v-if="cliPath" class="settings-row__hint">
+        {{ t('dataSettings.cliPath') }}: <code>{{ cliPath }}</code>
+      </div>
+    </div>
+
     <!-- ===== 危险操作区块 ===== -->
     <div class="settings-block settings-block--danger">
       <h4 class="settings-block__title settings-block__title--danger">{{ t('dataSettings.dangerSection') }}</h4>
@@ -86,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useIpc } from '../../composables/useIpc'
@@ -207,6 +232,51 @@ async function handleExport(): Promise<void> {
   }
 }
 
+// ===== CLI 安装 =====
+
+const cliInstalled = ref(false)
+const cliPath = ref('')
+const cliLoading = ref(false)
+
+async function checkCli(): Promise<void> {
+  const result = await invoke<{ installed: boolean; path: string }>(IPC_SYSTEM.CHECK_CLI)
+  if (result) {
+    cliInstalled.value = result.installed
+    cliPath.value = result.path
+  }
+}
+
+async function handleInstallCli(): Promise<void> {
+  cliLoading.value = true
+  try {
+    const result = await invoke<{ success: boolean; path: string; error?: string }>(IPC_SYSTEM.INSTALL_CLI)
+    if (result?.success) {
+      ElMessage.success(t('dataSettings.cliInstallSuccess'))
+      cliInstalled.value = true
+      cliPath.value = result.path
+    } else {
+      ElMessage.error(result?.error || t('dataSettings.cliInstallError'))
+    }
+  } finally {
+    cliLoading.value = false
+  }
+}
+
+async function handleUninstallCli(): Promise<void> {
+  cliLoading.value = true
+  try {
+    const result = await invoke<{ success: boolean; error?: string }>(IPC_SYSTEM.UNINSTALL_CLI)
+    if (result?.success) {
+      ElMessage.success(t('dataSettings.cliUninstallSuccess'))
+      cliInstalled.value = false
+    } else {
+      ElMessage.error(result?.error || t('dataSettings.cliInstallError'))
+    }
+  } finally {
+    cliLoading.value = false
+  }
+}
+
 // ===== 清除所有数据 =====
 
 const clearingData = ref(false)
@@ -249,6 +319,10 @@ async function handleClearData(scope: 'local' | 'all'): Promise<void> {
     clearingAll.value = false
   }
 }
+
+onMounted(() => {
+  checkCli()
+})
 </script>
 
 <style lang="scss" scoped>

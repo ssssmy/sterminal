@@ -13,6 +13,7 @@ import { closeAllSftpSessions } from './ipc/sftp.handler'
 import { stopSync } from './ipc/sync.handler'
 import { vaultService } from './services/vault-service'
 import { initAutoUpdater, registerUpdateHandlers, scheduleUpdateCheck } from './services/auto-updater'
+import { registerCliHandlers } from './services/cli-installer'
 import { initTray, setQuitting, getQuitting, updateTrayMenu, destroyTray } from './services/tray-service'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
@@ -174,9 +175,10 @@ app.whenReady().then(() => {
   // 2. 注册所有 IPC handlers
   registerAllHandlers()
 
-  // 3. 自动更新
+  // 3. 自动更新 + CLI
   initAutoUpdater()
   registerUpdateHandlers()
+  registerCliHandlers()
   if (!isDev) scheduleUpdateCheck() // 开发模式不检查更新
 
   // 启动时自动清理过期录制文件

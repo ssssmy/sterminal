@@ -73,7 +73,7 @@ jobs:
       - run: npm install
 
       - name: Build & Package
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --mac --${{ matrix.arch }}
+        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --mac --${{ matrix.arch }} --publish never
         working-directory: packages/client
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -112,7 +112,8 @@ jobs:
       - run: npm install
 
       - name: Build & Package (NSIS + Portable)
-        run: npm run client:pack:win
+        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --win --publish never
+        working-directory: packages/client
 
       - name: Upload NSIS installer
         uses: actions/upload-artifact@v4
@@ -155,7 +156,8 @@ jobs:
       - run: npm install
 
       - name: Build & Package
-        run: npm run client:pack:linux
+        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --linux --publish never
+        working-directory: packages/client
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

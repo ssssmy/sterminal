@@ -32,15 +32,27 @@ export function initTray(mainWindow: BrowserWindow): void {
   const candidates = [
     path.join(__dirname, '../../resources/icons', iconName),
     path.join(app.getAppPath(), 'resources/icons', iconName),
+    path.join(process.cwd(), 'resources/icons', iconName),
+    path.join(process.cwd(), 'packages/client/resources/icons', iconName),
   ]
 
   let trayIcon: Electron.NativeImage = nativeImage.createEmpty()
   for (const p of candidates) {
-    const img = nativeImage.createFromPath(p)
-    if (!img.isEmpty()) { trayIcon = img; break }
+    try {
+      const img = nativeImage.createFromPath(p)
+      if (!img.isEmpty()) {
+        console.log(`[Tray] Icon loaded from: ${p} (${img.getSize().width}x${img.getSize().height})`)
+        trayIcon = img
+        break
+      }
+    } catch { /* skip */ }
   }
 
-  // Windows: 用 resize 确保图标尺寸正确（系统托盘需要 16x16 或 32x32）
+  if (trayIcon.isEmpty()) {
+    console.warn('[Tray] No icon found, tried:', candidates)
+  }
+
+  // Windows: resize to 16x16 for system tray
   if (!isMac && !trayIcon.isEmpty()) {
     trayIcon = trayIcon.resize({ width: 16, height: 16 })
   }

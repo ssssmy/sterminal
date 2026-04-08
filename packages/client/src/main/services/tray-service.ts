@@ -32,25 +32,38 @@ export function initTray(mainWindow: BrowserWindow): void {
   const isWin = process.platform === 'win32'
   const iconName = isMac ? 'tray-16x16.png' : isWin ? 'tray-win.png' : 'tray-opaque-32.png'
 
-  // 尝试多个路径（生产模式 vs 开发模式）
+  // 尝试多个路径（生产模式 + 开发模式）
+  // 生产模式：asarUnpack 解包到 app.asar.unpacked/resources/icons/
+  const appPath = app.getAppPath()
+  const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked')
   const candidates = [
-    path.join(__dirname, '../../resources/icons', iconName),
-    path.join(app.getAppPath(), 'resources/icons', iconName),
-    path.join(process.cwd(), 'resources/icons', iconName),
-    path.join(process.cwd(), 'packages/client/resources/icons', iconName),
+    path.join(unpackedPath, 'resources/icons', iconName),       // 生产：asarUnpack 解包路径
+    path.join(__dirname, '../../resources/icons', iconName),     // 开发：dist-electron/main/ 相对路径
+    path.join(appPath, 'resources/icons', iconName),             // 备选：asar 内（createFromPath 可以读 asar）
+    path.join(process.cwd(), 'resources/icons', iconName),       // 备选：cwd
+    path.join(process.cwd(), 'packages/client/resources/icons', iconName), // 备选：monorepo 根
   ]
 
   let trayIcon: Electron.NativeImage = nativeImage.createEmpty()
   for (const p of candidates) {
     try {
-      if (!fs.existsSync(p)) continue
-      // 用 createFromBuffer 替代 createFromPath — Windows 上更可靠
-      const buf = fs.readFileSync(p)
-      const img = nativeImage.createFromBuffer(buf)
-      if (!img.isEmpty()) {
-        console.log(`[Tray] Icon loaded from: ${p} (${img.getSize().width}x${img.getSize().height})`)
-        trayIcon = img
-        break
+      // 优先用 fs 读真实文件（asarUnpack 解包后的路径），再用 createFromPath（可读 asar 内文件）
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p)
+        const img = nativeImage.createFromBuffer(buf)
+        if (!img.isEmpty()) {
+          console.log(`[Tray] Icon loaded (buffer) from: ${p} (${img.getSize().width}x${img.getSize().height})`)
+          trayIcon = img
+          break
+        }
+      } else {
+        // createFromPath 可以读取 asar 内的文件
+        const img = nativeImage.createFromPath(p)
+        if (!img.isEmpty()) {
+          console.log(`[Tray] Icon loaded (path) from: ${p} (${img.getSize().width}x${img.getSize().height})`)
+          trayIcon = img
+          break
+        }
       }
     } catch (err) {
       console.warn(`[Tray] Failed to load ${p}:`, err)

@@ -105,23 +105,29 @@ onMounted(async () => {
     const { action, params } = data as { action: string; params: Record<string, string> }
     router.push('/')
     switch (action) {
-      case 'connect':
+      case 'connect': {
+        // 按优先级匹配主机：id > name/label > host+port+user
+        let targetHost = null as typeof hostsStore.hosts[0] | null
         if (params.id) {
-          // sterminal://connect?id=<hostId>
-          sessionsStore.createTab(undefined, 'ssh', params.id)
+          targetHost = hostsStore.hosts.find(h => h.id === params.id) || null
+        } else if (params.name) {
+          // sterminal://connect?name=prod-server
+          targetHost = hostsStore.hosts.find(h =>
+            (h.label || '').toLowerCase() === params.name.toLowerCase() ||
+            h.address.toLowerCase() === params.name.toLowerCase()
+          ) || null
         } else if (params.host) {
-          // sterminal://connect?host=<addr>&port=<port>&user=<user>
-          // 查找匹配的主机，找到则连接
-          const host = hostsStore.hosts.find(h =>
+          targetHost = hostsStore.hosts.find(h =>
             h.address === params.host &&
             (!params.port || h.port === parseInt(params.port)) &&
             (!params.user || h.username === params.user)
-          )
-          if (host) {
-            sessionsStore.createTab(host.label || host.address, 'ssh', host.id)
-          }
+          ) || null
+        }
+        if (targetHost) {
+          sessionsStore.createTab(targetHost.label || targetHost.address, 'ssh', targetHost.id)
         }
         break
+      }
       case 'new-terminal':
         sessionsStore.createTab()
         break

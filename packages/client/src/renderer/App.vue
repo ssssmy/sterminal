@@ -100,6 +100,37 @@ onMounted(async () => {
     router.push('/')
   })
 
+  // Deep Link 事件：sterminal:// URI Scheme
+  window.electronAPI?.ipc.on('system:deep-link', (data: unknown) => {
+    const { action, params } = data as { action: string; params: Record<string, string> }
+    router.push('/')
+    switch (action) {
+      case 'connect':
+        if (params.id) {
+          // sterminal://connect?id=<hostId>
+          sessionsStore.createTab(undefined, 'ssh', params.id)
+        } else if (params.host) {
+          // sterminal://connect?host=<addr>&port=<port>&user=<user>
+          // 查找匹配的主机，找到则连接
+          const host = hostsStore.hosts.find(h =>
+            h.address === params.host &&
+            (!params.port || h.port === parseInt(params.port)) &&
+            (!params.user || h.username === params.user)
+          )
+          if (host) {
+            sessionsStore.createTab(host.label || host.address, 'ssh', host.id)
+          }
+        }
+        break
+      case 'new-terminal':
+        sessionsStore.createTab()
+        break
+      case 'open':
+        // 仅打开窗口（已在主进程处理）
+        break
+    }
+  })
+
   // 监听主机密钥验证请求
   window.electronAPI?.ipc.on(IPC_SSH.HOST_VERIFY, async (data: unknown) => {
     const { verifyId, host, port, keyType, fingerprint, oldFingerprint, type } = data as {

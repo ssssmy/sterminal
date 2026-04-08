@@ -35,6 +35,12 @@ asarUnpack:
   - "node_modules/better-sqlite3/**"
   - "node_modules/ssh2/**"
 
+# ===== URI Scheme 协议注册 =====
+protocols:
+  - name: STerminal
+    schemes:
+      - sterminal
+
 # ===== macOS 配置 =====
 mac:
   icon: resources/icon.icns

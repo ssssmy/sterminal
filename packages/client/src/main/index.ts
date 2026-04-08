@@ -73,10 +73,16 @@ function createWindow(): void {
   const isWindows = process.platform === 'win32'
   const saved = loadWindowBounds()
 
+  // 窗口图标（Windows/Linux 需要显式设置，macOS 由 .icns 处理）
+  const windowIcon = !isMac
+    ? path.join(__dirname, '../../resources/icon.png')
+    : undefined
+
   mainWindow = new BrowserWindow({
     width: saved.width,
     height: saved.height,
     ...(saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : {}),
+    ...(windowIcon ? { icon: windowIcon } : {}),
     minWidth: 1024,
     minHeight: 600,
     show: false, // 等渲染完成再显示，避免白屏闪烁

@@ -10,6 +10,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import OnboardingWizard from './components/common/OnboardingWizard.vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
@@ -25,6 +26,7 @@ import { useSnippetsStore } from './stores/snippets.store'
 import { usePortForwardsStore } from './stores/port-forwards.store'
 
 const { locale } = useI18n()
+const router = useRouter()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
 const authStore = useAuthStore()
@@ -80,6 +82,25 @@ onMounted(async () => {
   if (!onboardingCompleted) {
     showOnboarding.value = true
   }
+
+  // 系统托盘事件：快速连接主机
+  window.electronAPI?.ipc.on('system:tray-connect', (data: unknown) => {
+    const { hostId } = data as { hostId: string }
+    if (hostId) {
+      const { useSessionsStore } = require('./stores/sessions.store')
+      const sessionsStore = useSessionsStore()
+      sessionsStore.createTab(undefined, 'ssh', hostId)
+      router.push('/')
+    }
+  })
+
+  // 系统托盘事件：新建终端
+  window.electronAPI?.ipc.on('system:tray-new-terminal', () => {
+    const { useSessionsStore } = require('./stores/sessions.store')
+    const sessionsStore = useSessionsStore()
+    sessionsStore.createTab()
+    router.push('/')
+  })
 
   // 监听主机密钥验证请求
   window.electronAPI?.ipc.on(IPC_SSH.HOST_VERIFY, async (data: unknown) => {

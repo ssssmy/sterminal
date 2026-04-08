@@ -23,9 +23,10 @@ export function getQuitting(): boolean {
 export function initTray(mainWindow: BrowserWindow): void {
   if (tray) return
 
-  // 托盘图标：macOS 用 16x16 Template 图片（自动适配深浅色菜单栏），其他平台用 32x32
+  // 托盘图标：macOS 用 16x16 PNG，Windows 用 .ico（避免透明渲染问题），Linux 用 32x32 PNG
   const isMac = process.platform === 'darwin'
-  const iconName = isMac ? 'tray-16x16.png' : 'tray-32x32.png'
+  const isWin = process.platform === 'win32'
+  const iconName = isMac ? 'tray-16x16.png' : isWin ? 'tray.ico' : 'tray-32x32.png'
 
   // 尝试多个路径（生产模式 vs 开发模式）
   const candidates = [
@@ -38,7 +39,6 @@ export function initTray(mainWindow: BrowserWindow): void {
     const img = nativeImage.createFromPath(p)
     if (!img.isEmpty()) { trayIcon = img; break }
   }
-  // 不设置 Template — 直接显示彩色图标（紫色 S 设计在深浅色菜单栏都清晰可见）
 
   tray = new Tray(trayIcon)
   tray.setToolTip('STerminal')

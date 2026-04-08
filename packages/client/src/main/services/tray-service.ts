@@ -42,13 +42,19 @@ export function initTray(mainWindow: BrowserWindow): void {
   tray = new Tray(trayIcon)
   tray.setToolTip('STerminal')
 
-  // 点击托盘图标显示/隐藏窗口（Windows/Linux），macOS 用左键
+  // 点击托盘图标：macOS 始终显示窗口，Windows/Linux 切换显示/隐藏
   tray.on('click', () => {
-    if (mainWindow.isVisible()) {
-      mainWindow.hide()
-    } else {
+    if (process.platform === 'darwin') {
+      // macOS：点击托盘始终显示并聚焦，不做隐藏
       mainWindow.show()
       mainWindow.focus()
+    } else {
+      if (mainWindow.isVisible() && mainWindow.isFocused()) {
+        mainWindow.hide()
+      } else {
+        mainWindow.show()
+        mainWindow.focus()
+      }
     }
   })
 

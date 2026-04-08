@@ -24,6 +24,7 @@ import { useHostsStore } from './stores/hosts.store'
 import { useTerminalsStore } from './stores/terminals.store'
 import { useSnippetsStore } from './stores/snippets.store'
 import { usePortForwardsStore } from './stores/port-forwards.store'
+import { useSessionsStore } from './stores/sessions.store'
 
 const { locale } = useI18n()
 const router = useRouter()
@@ -84,11 +85,10 @@ onMounted(async () => {
   }
 
   // 系统托盘事件：快速连接主机
+  const sessionsStore = useSessionsStore()
   window.electronAPI?.ipc.on('system:tray-connect', (data: unknown) => {
     const { hostId } = data as { hostId: string }
     if (hostId) {
-      const { useSessionsStore } = require('./stores/sessions.store')
-      const sessionsStore = useSessionsStore()
       sessionsStore.createTab(undefined, 'ssh', hostId)
       router.push('/')
     }
@@ -96,8 +96,6 @@ onMounted(async () => {
 
   // 系统托盘事件：新建终端
   window.electronAPI?.ipc.on('system:tray-new-terminal', () => {
-    const { useSessionsStore } = require('./stores/sessions.store')
-    const sessionsStore = useSessionsStore()
     sessionsStore.createTab()
     router.push('/')
   })

@@ -84,9 +84,12 @@ function installCli(): { success: boolean; path: string; error?: string } {
     // 权限不足时，macOS 用 osascript 提权
     if (process.platform === 'darwin' && err.code === 'EACCES') {
       try {
-        const shellContent = `#!/bin/sh\\nexec node "${source}" "$@"\\n`
+        // 先写到临时文件，再用 osascript 提权 move 过去
+        const tmpFile = path.join(app.getPath('temp'), 'sterminal-cli-tmp')
+        const shellContent = `#!/bin/sh\nexec node "${source}" "$@"\n`
+        fs.writeFileSync(tmpFile, shellContent, { mode: 0o755 })
         execSync(
-          `osascript -e 'do shell script "echo \\"${shellContent}\\" > ${target} && chmod 755 ${target}" with administrator privileges'`
+          `osascript -e 'do shell script "mv ${tmpFile} ${target} && chmod 755 ${target}" with administrator privileges'`
         )
         return { success: true, path: target }
       } catch (sudoErr: any) {

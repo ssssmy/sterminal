@@ -13,6 +13,7 @@ import { closeAllSftpSessions } from './ipc/sftp.handler'
 import { stopSync } from './ipc/sync.handler'
 import { vaultService } from './services/vault-service'
 import { initAutoUpdater, registerUpdateHandlers, scheduleUpdateCheck } from './services/auto-updater'
+import { initTray, setQuitting, getQuitting, updateTrayMenu, destroyTray } from './services/tray-service'
 import { IPC_WINDOW } from '../shared/types/ipc-channels'
 
 // 是否为开发模式
@@ -148,6 +149,14 @@ function createWindow(): void {
     }
   })
 
+  // 关闭窗口时最小化到托盘（非真正退出）
+  mainWindow.on('close', (e) => {
+    if (!getQuitting()) {
+      e.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -192,23 +201,31 @@ app.whenReady().then(() => {
   // 3. 创建主窗口
   createWindow()
 
-  // macOS：点击 Dock 图标时重新创建窗口
+  // 4. 初始化系统托盘
+  if (mainWindow) {
+    initTray(mainWindow)
+  }
+
+  // macOS：点击 Dock 图标时重新创建窗口或显示已有窗口
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
+    } else if (mainWindow) {
+      mainWindow.show()
+      mainWindow.focus()
     }
   })
 })
 
-// 所有窗口关闭时退出（Windows / Linux）
+// 所有窗口关闭时：有托盘不退出，macOS 不退出
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  // 托盘模式下不退出，让用户通过托盘菜单退出
 })
 
-// 应用退出前清理资源
+// Cmd+Q / Alt+F4 真正退出时标记
 app.on('before-quit', () => {
+  setQuitting(true)
+  destroyTray()
   saveWindowBounds()
   vaultService.lock()
   stopSync()

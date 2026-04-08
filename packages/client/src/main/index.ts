@@ -19,6 +19,9 @@ import { IPC_WINDOW } from '../shared/types/ipc-channels'
 // 是否为开发模式
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
+// ===== URI Scheme 协议注册（sterminal://） =====
+app.setAsDefaultProtocolClient('sterminal')
+
 let mainWindow: BrowserWindow | null = null
 
 // ===== 窗口尺寸/位置持久化 =====
@@ -216,6 +219,60 @@ app.whenReady().then(() => {
     }
   })
 })
+
+// ===== Deep Link 处理（sterminal:// URI Scheme） =====
+
+/**
+ * 解析 sterminal:// URL 并转发到渲染进程
+ *
+ * 支持的 URL 格式：
+ *   sterminal://connect?host=<address>&port=<port>&user=<username>
+ *   sterminal://connect?id=<hostId>
+ *   sterminal://open                         (打开窗口)
+ *   sterminal://new-terminal                 (新建本地终端)
+ */
+function handleDeepLink(url: string): void {
+  if (!url.startsWith('sterminal://')) return
+  // 显示并聚焦窗口
+  if (mainWindow) {
+    if (!mainWindow.isVisible()) mainWindow.show()
+    mainWindow.focus()
+  }
+  try {
+    const parsed = new URL(url)
+    const action = parsed.hostname || parsed.pathname.replace(/^\/+/, '')
+    mainWindow?.webContents.send('system:deep-link', {
+      action,
+      params: Object.fromEntries(parsed.searchParams.entries()),
+    })
+  } catch {
+    // 无效 URL 静默忽略
+  }
+}
+
+// macOS: 应用已运行时收到 URL
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+// Windows/Linux: 单实例锁 + 第二实例传 URL
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    // Windows: URL 在 argv 最后一个参数
+    const url = argv.find(arg => arg.startsWith('sterminal://'))
+    if (url) handleDeepLink(url)
+    // 聚焦已有窗口
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
 
 // 所有窗口关闭时：有托盘不退出，macOS 不退出
 app.on('window-all-closed', () => {

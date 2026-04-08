@@ -99,17 +99,6 @@
           @change="handleCompactChange"
         />
       </div>
-
-      <div class="settings-row">
-        <div class="settings-row__info">
-          <label class="settings-row__label">{{ t('settings.minimizeToTray') }}</label>
-          <span class="settings-row__desc">{{ t('settings.minimizeToTrayDesc') }}</span>
-        </div>
-        <el-switch
-          :model-value="getBool('system.minimizeToTray')"
-          @change="(val: unknown) => set('system.minimizeToTray', !!val)"
-        />
-      </div>
     </div>
 
     <!-- ===== 导出 ===== -->
@@ -224,7 +213,6 @@ onMounted(async () => {
     settingsStore.getSetting('app.language'),
     settingsStore.getSetting('app.zoomLevel'),
     settingsStore.getSetting('app.compactMode'),
-    settingsStore.getSetting('system.minimizeToTray'),
     settingsStore.getSetting('terminal.theme'),
     settingsStore.getSetting('app.accentColor'),
     themesStore.loadCustomThemes(),

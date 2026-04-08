@@ -156,8 +156,6 @@
     "resetZoom": "重設",
     "compactMode": "緊湊模式",
     "compactModeDesc": "縮小介面間距，適合小螢幕",
-    "minimizeToTray": "最小化到系統匣",
-    "minimizeToTrayDesc": "關閉視窗時最小化到系統匣而非退出",
     "recordingSection": "錄製",
     "autoRecord": "自動錄製",
     "autoRecordDesc": "開啟新終端時自動開始錄製工作階段",
@@ -922,10 +920,5 @@
     "installRestart": "重啟並安裝",
     "checkFailed": "檢查更新失敗",
     "upToDate": "目前已是最新版本"
-  },
-  "tray": {
-    "show": "顯示視窗",
-    "quit": "結束",
-    "settings": "設定"
   }
 }

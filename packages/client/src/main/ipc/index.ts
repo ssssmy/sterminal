@@ -13,7 +13,6 @@ import { registerSyncHandlers } from './sync.handler'
 import { registerServerUrlHandlers } from '../services/server-url-service'
 import { registerKeyHandlers } from './key.handler'
 import { registerVaultHandlers } from './vault.handler'
-import { registerCompletionHandlers } from './completion.handler'
 
 /**
  * 注册所有 IPC handlers
@@ -32,6 +31,5 @@ export function registerAllHandlers(): void {
   registerServerUrlHandlers()
   registerKeyHandlers()
   registerVaultHandlers()
-  registerCompletionHandlers()
   console.log('[IPC] 所有 handlers 注册完成')
 }

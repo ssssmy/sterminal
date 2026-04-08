@@ -162,6 +162,7 @@
                     <el-dropdown-item v-else command="connect">{{ t('sidebar.hostNewConnect') }}</el-dropdown-item>
                     <el-dropdown-item command="edit">{{ t('sidebar.hostEdit') }}</el-dropdown-item>
                     <el-dropdown-item command="duplicate">{{ t('sidebar.hostDuplicate') }}</el-dropdown-item>
+                    <el-dropdown-item command="copyLink">{{ t('sidebar.hostCopyLink') }}</el-dropdown-item>
                     <el-dropdown-item class="ctx-menu-danger" command="delete" divided>{{ t('sidebar.hostDelete') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -1303,6 +1304,10 @@ async function handleHostCmd(cmd: string, host: Host): Promise<void> {
       socksProxy: host.socksProxy,
       httpProxy: host.httpProxy,
     })
+  } else if (cmd === 'copyLink') {
+    const name = encodeURIComponent(host.label || host.address)
+    const link = `sterminal://connect?name=${name}`
+    navigator.clipboard.writeText(link)
   } else if (cmd === 'delete') {
     // 检查是否有端口转发规则绑定该主机
     const boundRules = portForwardsStore.rules.filter(r => r.hostId === host.id)

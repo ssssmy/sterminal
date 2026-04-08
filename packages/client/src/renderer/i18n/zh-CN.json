@@ -516,6 +516,7 @@
     "hostNewConnect": "新建连接",
     "hostEdit": "编辑",
     "hostDuplicate": "复制",
+    "hostCopyLink": "复制连接链接",
     "hostDelete": "删除",
     "terminalOpen": "打开",
     "terminalEdit": "编辑",

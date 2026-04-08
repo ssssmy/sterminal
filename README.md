@@ -98,11 +98,14 @@
 - 可配置服务器 (官方云服务或自托管后端)
 
 ### 系统集成
-- 系统托盘 (最小化到托盘，快速连接菜单)
-- 自动更新 (electron-updater，GitHub Releases)
+- 系统托盘 (最小化到托盘，快速连接最近 10 台主机，紫色 S 品牌图标)
+- 自动更新 (electron-updater，GitHub Releases，通知栏下载 + 重启安装)
+- URI Scheme (`sterminal://connect?name=prod-server` 深度链接，右键主机复制链接)
+- CLI 命令行工具 (`sterminal ssh user@host`，设置页一键安装到 PATH)
 - 完整国际化 (简体中文 / English / 繁體中文，即时切换)
 - 平台适配 (macOS 交通灯 / Windows 标题栏覆盖 / Linux)
 - 数据管理 (OpenSSH config 导入 / JSON 备份导出导入 / 清除数据)
+- 关于页面 (版本号 + 完整功能概览 + GitHub / 反馈链接)
 
 ## 项目结构
 
@@ -110,8 +113,9 @@
 sterminal/
 ├── packages/
 │   ├── client/          # Electron 桌面客户端
+│   │   ├── bin/             # CLI 工具 (sterminal 命令)
 │   │   ├── src/
-│   │   │   ├── main/        # 主进程 (IPC, PTY, SSH, DB, 审计, 更新)
+│   │   │   ├── main/        # 主进程 (IPC, PTY, SSH, DB, 审计, 更新, 托盘)
 │   │   │   ├── preload/     # contextBridge 预加载脚本
 │   │   │   ├── renderer/    # Vue 渲染进程 (views, components, stores)
 │   │   │   └── shared/      # 共享类型、常量、工具函数
@@ -127,7 +131,8 @@ sterminal/
 │           └── database/
 ├── .github/
 │   └── workflows/
-│       └── build.yml    # CI: typecheck + test + 三平台构建
+│       ├── build.yml    # CI: typecheck + test + 三平台构建
+│       └── release.yml  # 发布: tag 触发 → 构建 + 上传 GitHub Releases
 └── docs/
     ├── PRD.md           # 产品需求文档
     ├── ARCHITECTURE.md  # 系统架构文档
@@ -235,6 +240,33 @@ npm run pm2:restart  # 重启服务
 npm run pm2:logs     # 查看日志
 ```
 
+## CLI 命令行工具
+
+安装：设置 → 数据管理 → 命令行工具 → 安装 CLI
+
+```bash
+sterminal ssh root@10.0.0.1              # SSH 连接
+sterminal ssh deploy@prod.com -p 2222    # 指定端口
+sterminal sftp admin@files.com           # SFTP 文件管理
+sterminal connect "Production Server"    # 按名称连接已保存主机
+sterminal list                           # 打开应用显示主机列表
+sterminal open                           # 打开/聚焦窗口
+sterminal new                            # 新建本地终端
+sterminal version                        # 显示版本
+sterminal help                           # 帮助信息
+```
+
+## URI Scheme 深度链接
+
+```
+sterminal://connect?name=prod-server     # 按名称连接
+sterminal://connect?host=10.0.0.1&port=22&user=root  # 按地址连接
+sterminal://new-terminal                 # 新建终端
+sterminal://open                         # 打开窗口
+```
+
+> 在侧边栏右键主机 → "复制连接链接" 可快速获取分享链接。
+
 ## 快捷键
 
 | 快捷键 | 功能 |
@@ -256,11 +288,11 @@ npm run pm2:logs     # 查看日志
 | P0 MVP | 本地终端、SSH、主机管理、多标签/分屏 | ✅ 已完成 |
 | P0+ | 广播模式、会话录制、终端搜索、远端OS检测 | ✅ 已完成 |
 | P1 核心增强 | SFTP、命令片段、端口转发、设置、i18n、云同步 | ✅ 已完成 |
-| P2 进阶功能 | 密钥管理、Vault、回放器、操作审计 | ✅ 已完成 |
-| P3 体验优化 | 自动补全、命令面板、主题引擎、快捷键自定义、数据管理、自动更新、系统托盘 | ✅ 大部分完成 |
+| P2 进阶功能 | 密钥管理、Vault、回放器、操作审计（20种事件） | ✅ 已完成 |
+| P3 体验优化 | 自动补全、命令面板、主题引擎、快捷键、数据管理、自动更新、系统托盘、CLI、URI Scheme、关于页 | ✅ 已完成 |
 | Design-First | 设计 Token、动效系统、首次向导、环境感知边框、复制反馈 | ✅ 已完成 |
 | 测试 | 204 个单元+集成测试 | ✅ 已完成 |
-| CI/CD | GitHub Actions 三平台构建 + Windows 免安装版 | ✅ 已完成 |
+| CI/CD | GitHub Actions 三平台构建 + Windows 免安装版 + tag 自动发布 | ✅ 已完成 |
 
 详见 [docs/PROGRESS.md](docs/PROGRESS.md)。
 

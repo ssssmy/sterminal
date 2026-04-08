@@ -74,13 +74,12 @@ function createWindow(): void {
   const saved = loadWindowBounds()
 
   // 窗口图标（Windows/Linux 需要显式设置，macOS 由 .icns 处理）
-  const appPath = app.getAppPath()
-  const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked')
+  const resPath = process.resourcesPath || ''
   const windowIcon = !isMac
     ? [
-        path.join(unpackedPath, 'resources/icon.png'),
+        path.join(resPath, 'app.asar.unpacked', 'resources/icon.png'),
         path.join(__dirname, '../../resources/icon.png'),
-        path.join(appPath, 'resources/icon.png'),
+        path.join(app.getAppPath(), 'resources/icon.png'),
       ].find(p => require('fs').existsSync(p))
     : undefined
 

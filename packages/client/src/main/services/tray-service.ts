@@ -33,15 +33,16 @@ export function initTray(mainWindow: BrowserWindow): void {
   const iconName = isMac ? 'tray-16x16.png' : isWin ? 'tray-win.png' : 'tray-opaque-32.png'
 
   // 尝试多个路径（生产模式 + 开发模式）
-  // 生产模式：asarUnpack 解包到 app.asar.unpacked/resources/icons/
+  // process.resourcesPath: Electron 生产模式下指向 .../resources/ 目录
+  // asarUnpack 解包后文件在: resources/app.asar.unpacked/resources/icons/
+  const resPath = process.resourcesPath || ''
   const appPath = app.getAppPath()
-  const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked')
   const candidates = [
-    path.join(unpackedPath, 'resources/icons', iconName),       // 生产：asarUnpack 解包路径
-    path.join(__dirname, '../../resources/icons', iconName),     // 开发：dist-electron/main/ 相对路径
-    path.join(appPath, 'resources/icons', iconName),             // 备选：asar 内（createFromPath 可以读 asar）
-    path.join(process.cwd(), 'resources/icons', iconName),       // 备选：cwd
-    path.join(process.cwd(), 'packages/client/resources/icons', iconName), // 备选：monorepo 根
+    path.join(resPath, 'app.asar.unpacked', 'resources/icons', iconName),  // 生产：asarUnpack
+    path.join(__dirname, '../../resources/icons', iconName),                // 开发：dist-electron/main/
+    path.join(appPath, 'resources/icons', iconName),                       // asar 内（createFromPath）
+    path.join(process.cwd(), 'resources/icons', iconName),
+    path.join(process.cwd(), 'packages/client/resources/icons', iconName),
   ]
 
   let trayIcon: Electron.NativeImage = nativeImage.createEmpty()

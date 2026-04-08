@@ -38,7 +38,7 @@ export function initTray(mainWindow: BrowserWindow): void {
     const img = nativeImage.createFromPath(p)
     if (!img.isEmpty()) { trayIcon = img; break }
   }
-  if (isMac) trayIcon.setTemplateImage(true)
+  // 不设置 Template — 直接显示彩色图标（紫色 S 设计在深浅色菜单栏都清晰可见）
 
   tray = new Tray(trayIcon)
   tray.setToolTip('STerminal')

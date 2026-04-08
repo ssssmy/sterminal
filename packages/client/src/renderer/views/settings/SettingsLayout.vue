@@ -67,6 +67,10 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>{{ t('settings.data') }}</span>
         </el-menu-item>
+        <el-menu-item index="about">
+          <el-icon><InfoFilled /></el-icon>
+          <span>{{ t('settings.about') }}</span>
+        </el-menu-item>
       </el-menu>
     </nav>
 
@@ -85,6 +89,7 @@
           <VaultSettings v-else-if="activeSection === 'vault'" />
           <LogsAuditView v-else-if="activeSection === 'audit'" />
           <DataSettings v-else-if="activeSection === 'data'" />
+          <AboutView v-else-if="activeSection === 'about'" />
           <div v-else class="settings-layout__placeholder">
             <el-empty :description="t('settings.underDevelopment')" />
           </div>
@@ -99,7 +104,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
-  ArrowLeft, User, Monitor, Brush, Key, Connection, Lock, Document, DataAnalysis, Tickets
+  ArrowLeft, User, Monitor, Brush, Key, Connection, Lock, Document, DataAnalysis, Tickets, InfoFilled
 } from '@element-plus/icons-vue'
 import AccountSettings from './AccountSettings.vue'
 import TerminalSettings from './TerminalSettings.vue'
@@ -111,6 +116,7 @@ import VaultSettings from './VaultSettings.vue'
 import DataSettings from './DataSettings.vue'
 import LogsAuditView from './LogsAuditView.vue'
 import KeybindingsSettings from './KeybindingsSettings.vue'
+import AboutView from './AboutView.vue'
 
 const router = useRouter()
 const { t } = useI18n()

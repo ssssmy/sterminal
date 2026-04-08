@@ -163,38 +163,7 @@
     <div class="settings-block">
       <h4 class="settings-block__title">{{ t('settings.terminalBehavior') }}</h4>
 
-      <div class="settings-row">
-        <div class="settings-row__info">
-          <label class="settings-row__label">{{ t('settings.rightClickPaste') }}</label>
-          <span class="settings-row__desc">{{ t('settings.rightClickPasteDesc') }}</span>
-        </div>
-        <el-switch
-          :model-value="getStr('terminal.rightClickAction') === 'paste'"
-          @change="(v: unknown) => set('terminal.rightClickAction', v ? 'paste' : 'none')"
-        />
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row__info">
-          <label class="settings-row__label">{{ t('settings.pasteWarning') }}</label>
-          <span class="settings-row__desc">{{ t('settings.pasteWarningDesc') }}</span>
-        </div>
-        <el-switch
-          :model-value="getBool('terminal.pasteWarning')"
-          @change="(v: unknown) => set('terminal.pasteWarning', v)"
-        />
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row__info">
-          <label class="settings-row__label">{{ t('settings.trimPasteNewlines') }}</label>
-          <span class="settings-row__desc">{{ t('settings.trimPasteNewlinesDesc') }}</span>
-        </div>
-        <el-switch
-          :model-value="getBool('terminal.trimPasteNewlines')"
-          @change="(v: unknown) => set('terminal.trimPasteNewlines', v)"
-        />
-      </div>
+      <!-- 右键粘贴/粘贴换行警告/去尾换行 已移除，右键行为由 TerminalPane 统一处理 -->
 
       <div class="settings-row">
         <div class="settings-row__info">

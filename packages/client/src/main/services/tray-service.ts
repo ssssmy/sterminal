@@ -6,6 +6,11 @@ import path from 'path'
 import fs from 'fs'
 import { dbAll } from './db'
 
+// 内嵌托盘图标 base64（彻底绕开文件路径问题）
+const TRAY_ICON_WIN = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRABjAGYA8aExw/oAAAAHdElNRQfqBAgLMRJyjoVwAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA0LTA4VDA5OjEyOjEyKzAwOjAw/c26fQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wNC0wOFQwOToxMjoxMiswMDowMIyQAsEAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDQtMDhUMTE6NDk6MTgrMDA6MDAxThn+AAABUElEQVQ4y6WTvU4CQRSFvzv7A1IgQSN2WmiihUEttYLKn1pfwIT4ZMZ30GgjGistRGMUK4hWAg0BdnfGYmVdEiNruNXMJHPud87ckaNKxzBBqUkujwgYwBhIpQTXFUxCLnu4SKeEcsmluGajNdzcelSvB2idgEBrWF2x2N9zeXr2ea37bG85zM6osSQRgeeBDmC+oHio+dzd9/hsaUQSECgF9beAk9MefgC7OykOD9JMZ8cTRBbWizabGw5n5wMuLgcsLlgUCgktiECjqSmXhOPKFEqg9ujTaAaIhK8TD1MpImsyHCRjIJsVCnMKreH9Q9Pthu3zecXykoVIKPTy4tNqG0RiIQJ0OoZ2O4i6DIUdG3I5QQloA7Yj35MTE8hkBMv63We3a7iqetE+CH4sRBm4DuEE/p0ZAvT7hn4/JmAMtDsmwkpSIwTxg//WxL/xCxSYflAjlSI8AAAAAElFTkSuQmCC'
+const TRAY_ICON_MAC = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAFzUkdCAK7OHOkAAAGVSURBVDiNnZPNK0RRGIefe+69M1MyPhZoZvbYMD62RMrnQkpIWSl7imShZEfRpERZyX9A+YpkIcXKTKwwyELNZpi5cufeGYvpXiMzvn6r9+2c33Pe877nSMMj0TJgDmgFSvmdnoA9YEIBFoGBXxotlQJDgCqAjj+aM9WhAAVW5nRKtLU68HkFsizx+Giyu68Tj6dyAQoUK5JlmJrMw+sRaFraUF2lUF+nMj0TwzCyE2xARbmC1yOIRJLMzMZBgsEBF8XFAp9PJhw2vwdYpxYWChoaVO7uTNY3Xkkkvm+CDbgNmxwd6zQ1OujrdQEQi6fY3Hrj4FDPCZCGR6KfOlRUJKgsl/H7VWpr0vzAkkYwlL0Jwgp6up2srbppaXZwcppgeUXj7Dxdv9cjspo/XeEiaNDV6aS9zUFJicAwUvirVQDuH5I/A65vTAJLGv19Lrv0SCTJ0bHO5VWOGWYCAIIhg2Ao9mXTwnw+brdk58/PKcbGX2xANPM1ZtP+gY6qfuQZo40qwPZPn2l75y3nkgKMAon/fud36qd/LOJFZDYAAAAASUVORK5CYII='
+const TRAY_ICON_LINUX = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAEjUExURWNm8WFk8WJl8WVo8Wls8pOV9b2++c7P+8zN+rS1+IOG9G1v8sHD+fv7//////Hx/p6g9qWn9+np/cLD+srL+vX1/u7v/Xx/82Fl8V9i8WRn8amr9+nq/efo/ZCS9cnK+v7+/72/+Xx+82Zp8XBz8nJ18pia9vj4/vDx/tnZ/Le5+YeJ9Jud9t7e/PX2/rCy+Gdq8W5x8omL9Kep98vM+vn5/nFz8ry9+aao96yu+LGy+G9y8uTl/ZaY9nF08nd588LD+aus9+jo/e3t/e/v/oKE9Gtu8rK0+O3u/f39/+Hi/JWX9nl885WX9aKk96Ci9o6Q9WBj8cXG+sTF+pKV9a+x+Ovs/evr/aiq92hr8Wxv8nZ583Z482pt8np8846R9XV481++FR0AAAABYktHRACIBR1IAAAAB3RJTUUH6gQICwgXDGD8RQAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNC0wOFQwOToxMjoxMiswMDowMP3Nun0AAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDQtMDhUMDk6MTI6MTIrMDA6MDCMkALBAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA0LTA4VDExOjA4OjIzKzAwOjAw4t1SWwAAAPJJREFUOMtjYBhCgJGJmZmREac0EwsrGzsHJxdOeW4eXj4g4BfAZb4gH5+QsIgon5i4BFYFzBx8vKySUtIysnLYnSElz6egqMSirKLKgsMKNXU+Pg1NLW0pJhyOYNbRBSrh09M3wOkPQyNjE1E+U+xuYDIzl7dglGSw5OOzwq7A2oaP39bO3oGPzxG7L5iAek2dnBX4XFxxKHBz9/Dk4+P18sbpRikfXz//ADuIL6F+RfUyU2BgICNUXi0oGAiCQnAFClNomAwQhEfgjH0WOzCIRNKDBhjBAMmGqOgYTBAdEwtXEBcfgA0kIMyQwgoYhg8AAPUGKcJOsJ7iAAAAAElFTkSuQmCC'
+
 let tray: Tray | null = null
 let isQuitting = false
 
@@ -24,56 +29,12 @@ export function getQuitting(): boolean {
 export function initTray(mainWindow: BrowserWindow): void {
   if (tray) return
 
-  // 托盘图标：
-  // macOS: tray-16x16.png（带透明圆角，macOS 菜单栏原生支持）
-  // Windows: tray-win.png（16x16 32-bit RGBA，完全不透明方形，避免 Windows 托盘透明渲染问题）
-  // Linux: tray-opaque-32.png（32x32 不透明方形）
+  // 托盘图标：内嵌 base64，彻底绕开文件路径和 asar 问题
   const isMac = process.platform === 'darwin'
   const isWin = process.platform === 'win32'
-  const iconName = isMac ? 'tray-16x16.png' : isWin ? 'tray-win.png' : 'tray-opaque-32.png'
-
-  // 尝试多个路径（生产模式 + 开发模式）
-  // process.resourcesPath: Electron 生产模式下指向 .../resources/ 目录
-  // asarUnpack 解包后文件在: resources/app.asar.unpacked/resources/icons/
-  const resPath = process.resourcesPath || ''
-  const appPath = app.getAppPath()
-  const candidates = [
-    path.join(resPath, 'app.asar.unpacked', 'resources/icons', iconName),  // 生产：asarUnpack
-    path.join(__dirname, '../../resources/icons', iconName),                // 开发：dist-electron/main/
-    path.join(appPath, 'resources/icons', iconName),                       // asar 内（createFromPath）
-    path.join(process.cwd(), 'resources/icons', iconName),
-    path.join(process.cwd(), 'packages/client/resources/icons', iconName),
-  ]
-
-  let trayIcon: Electron.NativeImage = nativeImage.createEmpty()
-  for (const p of candidates) {
-    try {
-      // 优先用 fs 读真实文件（asarUnpack 解包后的路径），再用 createFromPath（可读 asar 内文件）
-      if (fs.existsSync(p)) {
-        const buf = fs.readFileSync(p)
-        const img = nativeImage.createFromBuffer(buf)
-        if (!img.isEmpty()) {
-          console.log(`[Tray] Icon loaded (buffer) from: ${p} (${img.getSize().width}x${img.getSize().height})`)
-          trayIcon = img
-          break
-        }
-      } else {
-        // createFromPath 可以读取 asar 内的文件
-        const img = nativeImage.createFromPath(p)
-        if (!img.isEmpty()) {
-          console.log(`[Tray] Icon loaded (path) from: ${p} (${img.getSize().width}x${img.getSize().height})`)
-          trayIcon = img
-          break
-        }
-      }
-    } catch (err) {
-      console.warn(`[Tray] Failed to load ${p}:`, err)
-    }
-  }
-
-  if (trayIcon.isEmpty()) {
-    console.warn('[Tray] No icon found, tried:', candidates)
-  }
+  const b64 = isMac ? TRAY_ICON_MAC : isWin ? TRAY_ICON_WIN : TRAY_ICON_LINUX
+  const trayIcon = nativeImage.createFromBuffer(Buffer.from(b64, 'base64'))
+  console.log(`[Tray] Icon loaded from embedded base64 (${trayIcon.getSize().width}x${trayIcon.getSize().height})`)
 
   tray = new Tray(trayIcon)
   tray.setToolTip('STerminal')

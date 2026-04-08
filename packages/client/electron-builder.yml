@@ -13,6 +13,7 @@ files:
   - dist/**/*
   - dist-electron/main/**/*
   - dist-electron/preload/**/*
+  - bin/**/*
   - package.json
   # external 模块需要随应用打包（monorepo hoist 到根 node_modules）
   - from: ../../node_modules/libsodium

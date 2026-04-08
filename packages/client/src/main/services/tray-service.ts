@@ -23,21 +23,22 @@ export function getQuitting(): boolean {
 export function initTray(mainWindow: BrowserWindow): void {
   if (tray) return
 
-  // 托盘图标：macOS 用 Template 图片（自动适配深浅色菜单栏），其他平台用普通图标
+  // 托盘图标：macOS 用 16x16 Template 图片（自动适配深浅色菜单栏），其他平台用 32x32
   const isMac = process.platform === 'darwin'
-  const iconName = isMac ? '16x16.png' : '32x32.png'
-  const iconPath = path.join(__dirname, '../../resources/icons', iconName)
+  const iconName = isMac ? 'tray-16x16.png' : 'tray-32x32.png'
 
-  let trayIcon: Electron.NativeImage
-  try {
-    trayIcon = nativeImage.createFromPath(iconPath)
-    if (isMac) trayIcon.setTemplateImage(true)
-  } catch {
-    // 开发模式下资源路径不同
-    const devIconPath = path.join(app.getAppPath(), 'resources/icons', iconName)
-    trayIcon = nativeImage.createFromPath(devIconPath)
-    if (isMac) trayIcon.setTemplateImage(true)
+  // 尝试多个路径（生产模式 vs 开发模式）
+  const candidates = [
+    path.join(__dirname, '../../resources/icons', iconName),
+    path.join(app.getAppPath(), 'resources/icons', iconName),
+  ]
+
+  let trayIcon: Electron.NativeImage = nativeImage.createEmpty()
+  for (const p of candidates) {
+    const img = nativeImage.createFromPath(p)
+    if (!img.isEmpty()) { trayIcon = img; break }
   }
+  if (isMac) trayIcon.setTemplateImage(true)
 
   tray = new Tray(trayIcon)
   tray.setToolTip('STerminal')

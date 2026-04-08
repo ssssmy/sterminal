@@ -17,8 +17,7 @@ import { useUiStore } from '@/stores/ui.store'
 import { useSettingsStore as useSettingsStoreModule } from '@/stores/settings.store'
 import { DEFAULT_SETTINGS } from '@shared/constants/defaults'
 import { findThemePreset } from '@shared/constants/terminal-themes'
-import CompletionPanel from './TerminalCompletionPanel.vue'
-import { nextTick, watch, reactive } from 'vue'
+import { nextTick, watch } from 'vue'
 import { keybindingService } from '@/services/keybinding.service'
 
 // ===== IPC 直接访问（绕过 useIpc 的自动清理，由终端池自行管理生命周期）=====
@@ -62,121 +61,6 @@ function detectHostEnvironment(host: { address: string; label?: string }): 'prod
 }
 
 const terminalPool = new Map<string, PooledTerminal>()
-
-// ===== 终端补全状态（per-terminal） =====
-interface CompletionState {
-  inputBuffer: string          // 当前行输入缓冲
-  items: { text: string; label: string; source: 'history' | 'snippet' | 'command' | 'ai'; description?: string; score: number }[]
-  visible: boolean
-  debounceTimer: ReturnType<typeof setTimeout> | null
-}
-// 用 reactive Map 确保 Vue render 函数能追踪变化
-const completionStates = reactive(new Map<string, CompletionState>())
-
-function getCompletionState(terminalId: string): CompletionState {
-  let state = completionStates.get(terminalId)
-  if (!state) {
-    state = reactive({ inputBuffer: '', items: [] as CompletionState['items'], visible: false, debounceTimer: null }) as CompletionState
-    completionStates.set(terminalId, state)
-  }
-  return state
-}
-
-/** 请求补全建议 */
-async function requestCompletions(terminalId: string, hostId?: string, type: 'local' | 'ssh' = 'local'): Promise<void> {
-  const state = getCompletionState(terminalId)
-  const input = state.inputBuffer.trim()
-  if (input.length < 2) {
-    state.items = []
-    state.visible = false
-    return
-  }
-  try {
-    const items = await ipcInvoke<typeof state.items>('completion:request', {
-      input,
-      hostId,
-      terminalType: type,
-      limit: 10,
-    })
-    state.items = items || []
-    state.visible = state.items.length > 0
-  } catch {
-    state.items = []
-    state.visible = false
-  }
-}
-
-/** 处理终端输入（维护 inputBuffer + 触发补全） */
-function handleCompletionInput(terminalId: string, data: string, hostId?: string, type: 'local' | 'ssh' = 'local'): void {
-  const state = getCompletionState(terminalId)
-
-  if (data === '\r' || data === '\n') {
-    // Enter：记录命令到历史，清空缓冲
-    if (state.inputBuffer.trim()) {
-      ipcInvoke('completion:record-cmd', { command: state.inputBuffer.trim(), hostId }).catch(() => {})
-    }
-    state.inputBuffer = ''
-    state.items = []
-    state.visible = false
-    return
-  }
-
-  if (data === '\x7f' || data === '\b') {
-    // Backspace
-    state.inputBuffer = state.inputBuffer.slice(0, -1)
-  } else if (data === '\t') {
-    // Tab：如果有补全项，选择第一个（不传递到终端）
-    // Tab 由外部处理
-    return
-  } else if (data === '\x1b') {
-    // Escape：关闭补全
-    state.items = []
-    state.visible = false
-    return
-  } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
-    // 普通可打印字符
-    state.inputBuffer += data
-  } else if (data === '\x03') {
-    // Ctrl+C
-    state.inputBuffer = ''
-    state.items = []
-    state.visible = false
-    return
-  } else {
-    // 其他控制序列（箭头等）不影响缓冲
-    return
-  }
-
-  // 防抖请求补全
-  if (state.debounceTimer) clearTimeout(state.debounceTimer)
-  state.debounceTimer = setTimeout(() => {
-    requestCompletions(terminalId, hostId, type)
-  }, 200)
-}
-
-/** 应用补全项到终端 */
-function applyCompletion(terminalId: string, completionText: string): void {
-  const state = getCompletionState(terminalId)
-  const pooled = terminalPool.get(terminalId)
-  if (!pooled) return
-
-  // 计算需要补全的部分（替换当前输入）
-  const currentInput = state.inputBuffer
-  // 先删除当前输入（发送 backspace）
-  const bs = '\b \b'.repeat(0) // 不删除，直接清行再输入
-  // 用 \x15 (Ctrl+U) 清除当前行，然后输入补全文本
-  const clearAndType = '\x15' + completionText
-
-  if (pooled.sshConnectionId) {
-    ipcInvoke('ssh:write', { connectionId: pooled.sshConnectionId, data: clearAndType })
-  } else if (pooled.ptyId) {
-    ipcInvoke('pty:write', { ptyId: pooled.ptyId, data: clearAndType })
-  }
-
-  state.inputBuffer = completionText
-  state.items = []
-  state.visible = false
-}
 
 // ===== 终端搜索 API（供外部组件调用） =====
 
@@ -499,11 +383,15 @@ const TerminalXterm = defineComponent({
       containerRef.value.appendChild(wrapperEl)
       fitAddon.fit()
 
-      // 右键粘贴
+      // 右键：有选中文本 → 复制，无选中 → 粘贴
       wrapperEl.addEventListener('contextmenu', (e) => {
-        const action = useSettingsStoreModule().settings.get('terminal.rightClickAction') || 'paste'
-        if (action === 'paste') {
-          e.preventDefault()
+        e.preventDefault()
+        const selection = terminal.getSelection()
+        if (selection) {
+          navigator.clipboard.writeText(selection).then(() => {
+            terminal.clearSelection()
+          })
+        } else {
           navigator.clipboard.readText().then(text => {
             if (text) terminal.paste(text)
           })
@@ -686,8 +574,6 @@ const TerminalXterm = defineComponent({
         }
 
         terminal.onData((data: string) => {
-          // 补全输入追踪
-          handleCompletionInput(xtermProps.terminalId, data, instance?.hostId, 'ssh')
           if (pooled.sshConnectionId) {
             ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
           }
@@ -753,8 +639,6 @@ const TerminalXterm = defineComponent({
         trackOn(IPC_PTY.EXIT, ptyExitCallback)
 
         terminal.onData((data: string) => {
-          // 补全输入追踪
-          handleCompletionInput(xtermProps.terminalId, data, undefined, 'local')
           if (pooled.ptyId) ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
           broadcastInput(xtermProps.terminalId, data)
         })
@@ -865,23 +749,6 @@ const TerminalWrapper = defineComponent({
           h(Transition, { name: 'st-fade' }, {
             default: () => sshStatus.value === 'connecting' ? connectingOverlay() : null,
           }),
-          // 补全面板
-          (() => {
-            const cState = completionStates.get(wrapperProps.terminalId)
-            if (!cState?.visible || !cState.items.length) return null
-            return h(CompletionPanel, {
-              items: cState.items,
-              visible: cState.visible,
-              x: 12,
-              y: 36,
-              onSelect: (item: { text: string }) => {
-                applyCompletion(wrapperProps.terminalId, item.text)
-              },
-              onDismiss: () => {
-                if (cState) { cState.visible = false; cState.items = [] }
-              },
-            })
-          })(),
           wrapperProps.showClose && hovered.value
             ? h('button', {
                 class: 'split-close-btn',

@@ -3,6 +3,7 @@
 
 import { Tray, Menu, nativeImage, BrowserWindow, app } from 'electron'
 import path from 'path'
+import fs from 'fs'
 import { dbAll } from './db'
 
 let tray: Tray | null = null
@@ -42,13 +43,18 @@ export function initTray(mainWindow: BrowserWindow): void {
   let trayIcon: Electron.NativeImage = nativeImage.createEmpty()
   for (const p of candidates) {
     try {
-      const img = nativeImage.createFromPath(p)
+      if (!fs.existsSync(p)) continue
+      // 用 createFromBuffer 替代 createFromPath — Windows 上更可靠
+      const buf = fs.readFileSync(p)
+      const img = nativeImage.createFromBuffer(buf)
       if (!img.isEmpty()) {
         console.log(`[Tray] Icon loaded from: ${p} (${img.getSize().width}x${img.getSize().height})`)
         trayIcon = img
         break
       }
-    } catch { /* skip */ }
+    } catch (err) {
+      console.warn(`[Tray] Failed to load ${p}:`, err)
+    }
   }
 
   if (trayIcon.isEmpty()) {

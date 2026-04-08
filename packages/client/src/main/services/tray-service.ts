@@ -23,10 +23,10 @@ export function getQuitting(): boolean {
 export function initTray(mainWindow: BrowserWindow): void {
   if (tray) return
 
-  // 托盘图标：macOS 用 16x16 PNG，Windows 用 .ico（避免透明渲染问题），Linux 用 32x32 PNG
+  // 托盘图标：各平台都用不透明 PNG（Windows 对透明 PNG/ICO 渲染不可靠）
+  // macOS: 16x16, Windows/Linux: 32x32 (tray-opaque 无圆角无透明)
   const isMac = process.platform === 'darwin'
-  const isWin = process.platform === 'win32'
-  const iconName = isMac ? 'tray-16x16.png' : isWin ? 'tray.ico' : 'tray-32x32.png'
+  const iconName = isMac ? 'tray-16x16.png' : 'tray-opaque-32.png'
 
   // 尝试多个路径（生产模式 vs 开发模式）
   const candidates = [
@@ -38,6 +38,11 @@ export function initTray(mainWindow: BrowserWindow): void {
   for (const p of candidates) {
     const img = nativeImage.createFromPath(p)
     if (!img.isEmpty()) { trayIcon = img; break }
+  }
+
+  // Windows: 用 resize 确保图标尺寸正确（系统托盘需要 16x16 或 32x32）
+  if (!isMac && !trayIcon.isEmpty()) {
+    trayIcon = trayIcon.resize({ width: 16, height: 16 })
   }
 
   tray = new Tray(trayIcon)

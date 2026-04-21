@@ -14,6 +14,7 @@ interface ElectronAPI {
   platform: 'darwin' | 'win32' | 'linux'
   homePath: string
   ipc: ElectronIpc
+  getPathForFile: (file: File) => string
 }
 
 declare global {

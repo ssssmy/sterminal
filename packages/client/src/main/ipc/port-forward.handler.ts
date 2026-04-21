@@ -42,6 +42,8 @@ interface ActiveTunnel {
   status: TunnelStatus
   error?: string
   connectionCount: number
+  bytesIn: number
+  bytesOut: number
   startedAt: string
   webContents: WebContents
 }
@@ -56,8 +58,21 @@ function emitStatus(tunnel: ActiveTunnel): void {
     status: tunnel.status,
     error: tunnel.error,
     connectionCount: tunnel.connectionCount,
+    bytesIn: tunnel.bytesIn,
+    bytesOut: tunnel.bytesOut,
     startedAt: tunnel.startedAt,
   })
+}
+
+/** 节流：隧道流量频繁更新时，限制 status 推送频率 */
+const emitThrottle = new Map<string, NodeJS.Timeout>()
+function emitStatusThrottled(tunnel: ActiveTunnel): void {
+  if (emitThrottle.has(tunnel.ruleId)) return
+  const timer = setTimeout(() => {
+    emitThrottle.delete(tunnel.ruleId)
+    emitStatus(tunnel)
+  }, 500)
+  emitThrottle.set(tunnel.ruleId, timer)
 }
 
 /** 查找同主机的其他活跃 SSH 连接 */
@@ -110,6 +125,8 @@ function watchSshClientClose(sshClient: Client): void {
         startLocalForward(rule, altClient, false, webContents)
       } else if (rule.type === 'remote') {
         startRemoteForward(rule, altClient, false, webContents)
+      } else if (rule.type === 'dynamic') {
+        startDynamicForward(rule, altClient, false, webContents)
       }
     }
   }
@@ -225,6 +242,8 @@ function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean,
     activeChannels: new Set(),
     status: 'starting',
     connectionCount: 0,
+    bytesIn: 0,
+    bytesOut: 0,
     startedAt: new Date().toISOString(),
     webContents,
   }
@@ -251,7 +270,18 @@ function startLocalForward(rule: PortForward, sshClient: Client, owned: boolean,
           return
         }
         tunnel.activeChannels.add(channel)
-        socket.pipe(channel).pipe(socket)
+
+        // 手动 pipe + 字节统计（socket -> channel = 出站，channel -> socket = 入站）
+        socket.on('data', (chunk: Buffer) => {
+          tunnel.bytesOut += chunk.length
+          channel.write(chunk)
+          emitStatusThrottled(tunnel)
+        })
+        channel.on('data', (chunk: Buffer) => {
+          tunnel.bytesIn += chunk.length
+          socket.write(chunk)
+          emitStatusThrottled(tunnel)
+        })
 
         const cleanup = () => {
           tunnel.activeChannels.delete(socket)
@@ -299,6 +329,8 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
     activeChannels: new Set(),
     status: 'starting',
     connectionCount: 0,
+    bytesIn: 0,
+    bytesOut: 0,
     startedAt: new Date().toISOString(),
     webContents,
   }
@@ -322,7 +354,7 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
     }
   )
 
-  sshClient.on('tcp connection', (info, accept, reject) => {
+  sshClient.on('tcp connection', (_info, accept, reject) => {
     if (tunnel.status !== 'active') { reject(); return }
 
     const channel = accept()
@@ -334,7 +366,17 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
       rule.localTargetPort || 80,
       rule.localTargetAddr || '127.0.0.1',
       () => {
-        channel.pipe(localSocket).pipe(channel)
+        // 手动 pipe + 字节统计（channel -> localSocket = 入站，localSocket -> channel = 出站）
+        channel.on('data', (chunk: Buffer) => {
+          tunnel.bytesIn += chunk.length
+          localSocket.write(chunk)
+          emitStatusThrottled(tunnel)
+        })
+        localSocket.on('data', (chunk: Buffer) => {
+          tunnel.bytesOut += chunk.length
+          channel.write(chunk)
+          emitStatusThrottled(tunnel)
+        })
       }
     )
 
@@ -350,6 +392,171 @@ function startRemoteForward(rule: PortForward, sshClient: Client, owned: boolean
     localSocket.on('close', cleanup)
     channel.on('error', cleanup)
     channel.on('close', cleanup)
+  })
+}
+
+/**
+ * Dynamic 转发（SOCKS5 代理）：本地监听 SOCKS5 端口，通过 SSH 建立隧道到目标地址
+ */
+function startDynamicForward(rule: PortForward, sshClient: Client, owned: boolean, webContents: WebContents): void {
+  const tunnel: ActiveTunnel = {
+    ruleId: rule.id,
+    hostId: rule.hostId,
+    type: 'dynamic',
+    sshClient,
+    ownsSshClient: owned,
+    activeChannels: new Set(),
+    status: 'starting',
+    connectionCount: 0,
+    bytesIn: 0,
+    bytesOut: 0,
+    startedAt: new Date().toISOString(),
+    webContents,
+  }
+  activeTunnels.set(rule.id, tunnel)
+  emitStatus(tunnel)
+  watchSshClientClose(sshClient)
+
+  const server = net.createServer((socket) => {
+    tunnel.activeChannels.add(socket)
+
+    let state: 'greeting' | 'request' | 'established' = 'greeting'
+    let buf: Buffer = Buffer.alloc(0)
+    let channel: ClientChannel | undefined
+
+    const destroyConn = () => {
+      tunnel.activeChannels.delete(socket)
+      if (channel) tunnel.activeChannels.delete(channel)
+      tunnel.connectionCount = Math.max(0, tunnel.connectionCount - 1)
+      emitStatus(tunnel)
+      try { socket.destroy() } catch {}
+      try { channel?.close() } catch {}
+    }
+
+    socket.on('error', destroyConn)
+    socket.on('close', destroyConn)
+
+    socket.on('data', (chunk: Buffer) => {
+      if (state === 'established' && channel) {
+        tunnel.bytesOut += chunk.length
+        channel.write(chunk)
+        emitStatusThrottled(tunnel)
+        return
+      }
+
+      buf = Buffer.concat([buf, chunk])
+
+      if (state === 'greeting') {
+        // [VER=0x05, NMETHODS, METHODS...]
+        if (buf.length < 2) return
+        const nmethods = buf[1]
+        if (buf.length < 2 + nmethods) return
+        if (buf[0] !== 0x05) { destroyConn(); return }
+        // 回复无需认证
+        socket.write(Buffer.from([0x05, 0x00]))
+        buf = buf.subarray(2 + nmethods)
+        state = 'request'
+      }
+
+      if (state === 'request') {
+        // [VER=0x05, CMD, RSV, ATYP, DST.ADDR, DST.PORT]
+        if (buf.length < 4) return
+        const ver = buf[0]
+        const cmd = buf[1]
+        const atyp = buf[3]
+        if (ver !== 0x05 || cmd !== 0x01) {
+          // 仅支持 CONNECT
+          socket.write(Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]))
+          destroyConn()
+          return
+        }
+
+        let targetHost = ''
+        let targetPort = 0
+        let headerEnd = 0
+
+        if (atyp === 0x01) {
+          // IPv4
+          if (buf.length < 4 + 4 + 2) return
+          targetHost = `${buf[4]}.${buf[5]}.${buf[6]}.${buf[7]}`
+          targetPort = buf.readUInt16BE(8)
+          headerEnd = 10
+        } else if (atyp === 0x03) {
+          // 域名
+          if (buf.length < 5) return
+          const addrLen = buf[4]
+          if (buf.length < 5 + addrLen + 2) return
+          targetHost = buf.subarray(5, 5 + addrLen).toString('utf8')
+          targetPort = buf.readUInt16BE(5 + addrLen)
+          headerEnd = 5 + addrLen + 2
+        } else {
+          // 不支持 IPv6 (0x04) 等
+          socket.write(Buffer.from([0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0]))
+          destroyConn()
+          return
+        }
+
+        const leftover = buf.subarray(headerEnd)
+        buf = Buffer.alloc(0)
+
+        // 通过 SSH 建立隧道
+        sshClient.forwardOut(
+          socket.remoteAddress || '127.0.0.1',
+          socket.remotePort || 0,
+          targetHost,
+          targetPort,
+          (err, ch) => {
+            if (err) {
+              // 0x05 = Connection refused
+              socket.write(Buffer.from([0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]))
+              destroyConn()
+              return
+            }
+            channel = ch
+            tunnel.activeChannels.add(ch)
+            tunnel.connectionCount++
+            emitStatus(tunnel)
+
+            // 回复成功：VER=5, REP=0, RSV=0, ATYP=1, 0.0.0.0:0
+            socket.write(Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]))
+            state = 'established'
+
+            // 处理客户端在握手完成前发送的剩余数据
+            if (leftover.length > 0) {
+              tunnel.bytesOut += leftover.length
+              ch.write(leftover)
+            }
+
+            ch.on('data', (d: Buffer) => {
+              tunnel.bytesIn += d.length
+              socket.write(d)
+              emitStatusThrottled(tunnel)
+            })
+            ch.on('error', destroyConn)
+            ch.on('close', destroyConn)
+          }
+        )
+      }
+    })
+  })
+
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    tunnel.status = 'error'
+    if (err.code === 'EADDRINUSE') {
+      tunnel.error = `本地端口 ${rule.localBindAddr}:${rule.localPort} 已被占用`
+    } else if (err.code === 'EACCES') {
+      tunnel.error = `无权限绑定本地端口 ${rule.localPort}（端口 < 1024 需管理员权限）`
+    } else {
+      tunnel.error = `本地监听失败: ${err.message}`
+    }
+    emitStatus(tunnel)
+    activeTunnels.delete(rule.id)
+  })
+
+  server.listen(rule.localPort, rule.localBindAddr || '127.0.0.1', () => {
+    tunnel.status = 'active'
+    tunnel.server = server
+    emitStatus(tunnel)
   })
 }
 
@@ -438,8 +645,10 @@ export function registerPortForwardHandlers(): void {
         startLocalForward(rule, client, owned, webContents)
       } else if (rule.type === 'remote') {
         startRemoteForward(rule, client, owned, webContents)
+      } else if (rule.type === 'dynamic') {
+        startDynamicForward(rule, client, owned, webContents)
       } else {
-        return { success: false, error: 'Dynamic 转发暂未支持' }
+        return { success: false, error: '未知的转发类型' }
       }
 
       return { success: true }
@@ -473,6 +682,8 @@ export function registerPortForwardHandlers(): void {
         status: tunnel.status,
         error: tunnel.error,
         connectionCount: tunnel.connectionCount,
+        bytesIn: tunnel.bytesIn,
+        bytesOut: tunnel.bytesOut,
         startedAt: tunnel.startedAt,
       })
     }

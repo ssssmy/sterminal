@@ -1,12 +1,13 @@
 // Electron 预加载脚本
 // 通过 contextBridge 向渲染进程安全暴露 IPC API
 
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron'
 
 // 暴露给渲染进程的 electronAPI
 const electronAPI = {
   platform: process.platform as 'darwin' | 'win32' | 'linux',
   homePath: process.env.HOME || process.env.USERPROFILE || '',
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
   ipc: {
     /**

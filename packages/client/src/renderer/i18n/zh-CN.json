@@ -264,7 +264,8 @@
     "empty": "暂无数据",
     "success": "操作成功",
     "error": "操作失败",
-    "deleteConfirm": "确定要删除吗？此操作不可撤销。"
+    "deleteConfirm": "确定要删除吗？此操作不可撤销。",
+    "noResults": "无匹配结果"
   },
   "hostDialog": {
     "addTitle": "新增主机",
@@ -345,7 +346,7 @@
     "name": "名称",
     "namePlaceholder": "如：重启 Nginx、查看日志",
     "command": "命令",
-    "commandPlaceholder": "输入命令内容，支持多行\n\n试试点击上方按钮插入变量 —— 执行时会弹窗让你填值\n例如: systemctl restart ${service:nginx}",
+    "commandPlaceholder": "输入命令内容，支持多行\n\n试试点击上方按钮插入变量 —— 执行时会弹窗让你填值\n例如: systemctl restart ${'{'}service:nginx{'}'}",
     "insertVar": "插入变量:",
     "varText": "文本",
     "varWithDefault": "带默认值",
@@ -371,7 +372,8 @@
     "addTag": "+ 标签",
     "save": "保存",
     "validNameRequired": "请输入片段名称",
-    "validContentRequired": "请输入命令内容"
+    "validContentRequired": "请输入命令内容",
+    "saveFailed": "保存失败，请重试"
   },
   "snippetVar": {
     "title": "填写变量",
@@ -687,7 +689,22 @@
     "desc": "管理已信任的 SSH 主机指纹。删除后下次连接将重新验证。",
     "empty": "暂无已知主机",
     "firstSeen": "首次连接",
-    "lastSeen": "最近连接"
+    "lastSeen": "最近连接",
+    "search": "搜索主机地址...",
+    "total": "共 {count} 条记录",
+    "copyFingerprint": "复制指纹",
+    "copied": "已复制",
+    "deleteConfirmTitle": "删除已知主机",
+    "deleteConfirm": "删除后，下次 SSH 连接将重新弹窗验证主机身份。确认删除？",
+    "newTitle": "未知主机",
+    "newMsg": "首次连接到 {host}:{port}\n\n密钥类型：{keyType}\n指纹：{fingerprint}\n\n是否信任该主机并继续连接？",
+    "trustConnect": "信任并连接",
+    "cancelConnect": "取消",
+    "changedTitle": "主机密钥已更改",
+    "changedMsg": "警告：{host}:{port} 的主机密钥已更改！\n\n旧指纹：{oldFingerprint}\n新指纹：{fingerprint}\n\n这可能意味着中间人攻击，请谨慎确认。\n\n是否接受新密钥并继续？",
+    "acceptUpdate": "接受并更新",
+    "rejectConnect": "拒绝",
+    "deleted": "已删除"
   },
   "keys": {
     "title": "SSH 密钥",
@@ -828,7 +845,6 @@
     "importSshDesc": "自动读取 ~/.ssh/config 文件中的主机配置",
     "importSshBtn": "导入",
     "importJsonLabel": "STerminal 备份文件",
-    "importJsonDesc": "从 .json 备份文件恢复数据",
     "importJsonBtn": "选择文件",
     "exportLabel": "导出所有数据",
     "exportDesc": "导出主机、密钥、片段、密码库等所有数据为 JSON 文件",
@@ -880,7 +896,8 @@
     "transferQueued": "等待中",
     "transferCancelled": "已取消",
     "localDeleteNotSupported": "本地文件删除暂不支持",
-    "localRenameNotSupported": "本地文件重命名暂不支持"
+    "localRenameNotSupported": "本地文件重命名暂不支持",
+    "dropToUpload": "释放以上传到远程"
   },
   "onboarding": {
     "steps": {

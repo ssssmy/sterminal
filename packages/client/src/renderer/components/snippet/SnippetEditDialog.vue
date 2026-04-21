@@ -151,6 +151,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../stores/ui.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
@@ -278,8 +279,8 @@ async function handleSave(): Promise<void> {
     const data: Record<string, unknown> = {
       name: form.value.name,
       content: form.value.content,
-      description: form.value.description || undefined,
-      groupId: form.value.groupId || undefined,
+      description: form.value.description || null,
+      groupId: form.value.groupId || null,
       tags: form.value.tags,
     }
 
@@ -291,6 +292,8 @@ async function handleSave(): Promise<void> {
     }
 
     uiStore.closeSnippetEditDialog()
+  } catch {
+    ElMessage.error(t('snippetDialog.saveFailed'))
   } finally {
     saving.value = false
   }

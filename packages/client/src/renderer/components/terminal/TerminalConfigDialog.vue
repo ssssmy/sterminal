@@ -27,10 +27,7 @@
       <el-form-item label="Shell" prop="shell">
         <el-select v-model="form.shell" filterable allow-create style="width: 100%">
           <el-option :label="t('terminalDialog.shellDefault')" value="" />
-          <el-option label="/bin/zsh" value="/bin/zsh" />
-          <el-option label="/bin/bash" value="/bin/bash" />
-          <el-option label="/bin/sh" value="/bin/sh" />
-          <el-option label="/usr/bin/fish" value="/usr/bin/fish" />
+          <el-option v-for="opt in shellOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
         </el-select>
       </el-form-item>
 
@@ -67,7 +64,7 @@
         />
       </el-form-item>
 
-      <el-form-item :label="t('terminalDialog.loginShell')" prop="loginShell">
+      <el-form-item v-if="!isWindows" :label="t('terminalDialog.loginShell')" prop="loginShell">
         <el-switch v-model="form.loginShell" />
         <span class="form-hint">{{ t('terminalDialog.loginShellHint') }}</span>
       </el-form-item>
@@ -100,6 +97,26 @@ const { t } = useI18n()
 const uiStore = useUiStore()
 const terminalsStore = useTerminalsStore()
 
+const isWindows = window.electronAPI?.platform === 'win32'
+
+const shellOptions = computed(() => {
+  if (isWindows) {
+    return [
+      { label: 'PowerShell', value: 'powershell.exe' },
+      { label: 'PowerShell 7 (pwsh)', value: 'pwsh.exe' },
+      { label: 'Command Prompt (cmd)', value: 'cmd.exe' },
+      { label: 'Git Bash', value: 'C:\\Program Files\\Git\\bin\\bash.exe' },
+      { label: 'WSL', value: 'wsl.exe' },
+    ]
+  }
+  return [
+    { label: '/bin/zsh', value: '/bin/zsh' },
+    { label: '/bin/bash', value: '/bin/bash' },
+    { label: '/bin/sh', value: '/bin/sh' },
+    { label: '/usr/bin/fish', value: '/usr/bin/fish' },
+  ]
+})
+
 const visible = computed({
   get: () => uiStore.showTerminalConfigDialog,
   set: (val) => {
@@ -129,7 +146,7 @@ function defaultForm(): FormData {
     cwd: '',
     groupId: '',
     startupCommand: '',
-    loginShell: true,
+    loginShell: !isWindows,
     isDefault: false,
   }
 }

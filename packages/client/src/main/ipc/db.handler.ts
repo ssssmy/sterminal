@@ -549,6 +549,64 @@ function registerSnippetsHandlers(): void {
     const row = dbGet<Record<string, unknown>>('SELECT use_count, last_used_at FROM snippets WHERE id = ?', [id])
     return row ? { useCount: row.use_count, lastUsedAt: row.last_used_at } : null
   })
+
+  // 导出所有片段 + 分组为 JSON 格式
+  ipcMain.handle(IPC_DB.SNIPPETS_EXPORT, () => {
+    const snippets = dbAll<Record<string, unknown>>('SELECT * FROM snippets')
+    const groups = dbAll<Record<string, unknown>>('SELECT * FROM snippet_groups')
+    return {
+      snippets,
+      groups,
+      exportedAt: new Date().toISOString(),
+    }
+  })
+
+  // 批量导入片段（带分组），跳过 id 冲突
+  ipcMain.handle(
+    IPC_DB.SNIPPETS_IMPORT,
+    (_event, payload: { snippets?: Record<string, unknown>[]; groups?: Record<string, unknown>[] }) => {
+      let imported = 0
+      const snippetRows = Array.isArray(payload?.snippets) ? payload.snippets : []
+      const groupRows = Array.isArray(payload?.groups) ? payload.groups : []
+
+      // 先导入分组，再导入片段
+      for (const row of groupRows) {
+        const id = row.id as string | undefined
+        if (!id) continue
+        const exists = dbGet('SELECT id FROM snippet_groups WHERE id = ?', [id])
+        if (exists) continue
+        const cols = Object.keys(row)
+        const placeholders = cols.map(() => '?').join(', ')
+        const values = cols.map(c => {
+          const v = row[c]
+          return v === undefined || v === null ? null : typeof v === 'object' ? JSON.stringify(v) : v
+        })
+        try {
+          dbRun(`INSERT OR REPLACE INTO snippet_groups (${cols.join(', ')}) VALUES (${placeholders})`, values)
+        } catch { /* skip invalid rows */ }
+      }
+
+      for (const row of snippetRows) {
+        const id = row.id as string | undefined
+        if (!id) continue
+        const exists = dbGet('SELECT id FROM snippets WHERE id = ?', [id])
+        if (exists) continue
+        const cols = Object.keys(row)
+        const placeholders = cols.map(() => '?').join(', ')
+        const values = cols.map(c => {
+          const v = row[c]
+          return v === undefined || v === null ? null : typeof v === 'object' ? JSON.stringify(v) : v
+        })
+        try {
+          dbRun(`INSERT OR REPLACE INTO snippets (${cols.join(', ')}) VALUES (${placeholders})`, values)
+          imported++
+        } catch { /* skip invalid rows */ }
+      }
+
+      scheduleSyncAfterChange()
+      return { imported }
+    }
+  )
 }
 
 // ===== 命令片段分组 =====

@@ -264,7 +264,8 @@
     "empty": "尚無資料",
     "success": "操作成功",
     "error": "操作失敗",
-    "deleteConfirm": "確定要刪除嗎？此操作無法復原。"
+    "deleteConfirm": "確定要刪除嗎？此操作無法復原。",
+    "noResults": "無匹配結果"
   },
   "hostDialog": {
     "addTitle": "新增主機",
@@ -345,7 +346,7 @@
     "name": "名稱",
     "namePlaceholder": "如：重啟 Nginx、查看日誌",
     "command": "指令",
-    "commandPlaceholder": "輸入指令內容，支援多行\n\n試試點擊上方按鈕插入變數 —— 執行時會彈窗讓你填值\n例如: systemctl restart ${service:nginx}",
+    "commandPlaceholder": "輸入指令內容，支援多行\n\n試試點擊上方按鈕插入變數 —— 執行時會彈窗讓你填值\n例如: systemctl restart ${'{'}service:nginx{'}'}",
     "insertVar": "插入變數:",
     "varText": "文字",
     "varWithDefault": "帶預設值",
@@ -371,7 +372,8 @@
     "addTag": "+ 標籤",
     "save": "儲存",
     "validNameRequired": "請輸入片段名稱",
-    "validContentRequired": "請輸入指令內容"
+    "validContentRequired": "請輸入指令內容",
+    "saveFailed": "儲存失敗，請重試"
   },
   "snippetVar": {
     "title": "填寫變數",
@@ -687,7 +689,22 @@
     "desc": "管理已信任的 SSH 主機指紋。刪除後下次連線將重新驗證。",
     "empty": "尚無已知主機",
     "firstSeen": "首次連線",
-    "lastSeen": "最近連線"
+    "lastSeen": "最近連線",
+    "search": "搜尋主機位址...",
+    "total": "共 {count} 筆記錄",
+    "copyFingerprint": "複製指紋",
+    "copied": "已複製",
+    "deleteConfirmTitle": "刪除已知主機",
+    "deleteConfirm": "刪除後，下次 SSH 連線將重新彈窗驗證主機身份。確認刪除？",
+    "newTitle": "未知主機",
+    "newMsg": "首次連線到 {host}:{port}\n\n金鑰類型：{keyType}\n指紋：{fingerprint}\n\n是否信任該主機並繼續連線？",
+    "trustConnect": "信任並連線",
+    "cancelConnect": "取消",
+    "changedTitle": "主機金鑰已更改",
+    "changedMsg": "警告：{host}:{port} 的主機金鑰已更改！\n\n舊指紋：{oldFingerprint}\n新指紋：{fingerprint}\n\n這可能意味著中間人攻擊，請謹慎確認。\n\n是否接受新金鑰並繼續？",
+    "acceptUpdate": "接受並更新",
+    "rejectConnect": "拒絕",
+    "deleted": "已刪除"
   },
   "keys": {
     "title": "SSH 金鑰",
@@ -828,7 +845,6 @@
     "importSshDesc": "自動讀取 ~/.ssh/config 檔案中的主機設定",
     "importSshBtn": "匯入",
     "importJsonLabel": "STerminal 備份檔案",
-    "importJsonDesc": "從 .json 備份檔案還原資料",
     "importJsonBtn": "選擇檔案",
     "exportLabel": "匯出所有資料",
     "exportDesc": "匯出主機、金鑰、指令片段、密碼庫等所有資料為 JSON 檔案",
@@ -880,7 +896,8 @@
     "transferQueued": "等待中",
     "transferCancelled": "已取消",
     "localDeleteNotSupported": "本地檔案刪除暫不支援",
-    "localRenameNotSupported": "本地檔案重新命名暫不支援"
+    "localRenameNotSupported": "本地檔案重新命名暫不支援",
+    "dropToUpload": "釋放以上傳到遠端"
   },
   "onboarding": {
     "steps": {

@@ -67,7 +67,16 @@
         />
 
         <!-- 远程栏 -->
-        <div class="sftp-panel__pane sftp-panel__pane--remote">
+        <div
+          class="sftp-panel__pane sftp-panel__pane--remote"
+          :class="{ 'sftp-panel__pane--dragover': isDragOver }"
+          @dragover.prevent="handleDragOver"
+          @dragleave="handleDragLeave"
+          @drop.prevent="handleDrop"
+        >
+          <div v-if="isDragOver" class="sftp-panel__drag-overlay">
+            {{ t('sftp.dropToUpload') }}
+          </div>
           <div class="sftp-panel__pane-header">
             <span class="sftp-panel__pane-title">{{ t('sftp.remote') }}</span>
             <span class="sftp-panel__pane-label">{{ tab.sftpMeta?.hostLabel }}</span>
@@ -236,6 +245,36 @@ async function handleEditorSave(filePath: string, content: string): Promise<void
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : String(err))
   }
+}
+
+// ===== 拖拽上传 =====
+const isDragOver = ref(false)
+
+function handleDragOver(e: DragEvent): void {
+  if (e.dataTransfer?.types.includes('Files')) {
+    isDragOver.value = true
+  }
+}
+
+function handleDragLeave(e: DragEvent): void {
+  // 只在真正离开远程面板时重置（避免子元素 dragleave 触发）
+  const target = e.currentTarget as HTMLElement
+  const related = e.relatedTarget as Node | null
+  if (!related || !target.contains(related)) {
+    isDragOver.value = false
+  }
+}
+
+function handleDrop(e: DragEvent): void {
+  isDragOver.value = false
+  const files = e.dataTransfer?.files
+  if (!files || !files.length) return
+  const paths: string[] = []
+  for (let i = 0; i < files.length; i++) {
+    const p = window.electronAPI?.getPathForFile(files[i]) || ''
+    if (p) paths.push(p)
+  }
+  if (paths.length) handleUploadPaths(paths)
 }
 
 // ===== 上传/下载 =====
@@ -427,6 +466,26 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &__pane--dragover {
+    outline: 2px dashed var(--el-color-primary);
+    outline-offset: -2px;
+    position: relative;
+  }
+
+  &__drag-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+    font-size: 15px;
+    font-weight: 600;
+    pointer-events: none;
   }
 
   &__divider {

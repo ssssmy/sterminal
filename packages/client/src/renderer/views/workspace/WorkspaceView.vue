@@ -80,6 +80,10 @@
       @confirm="handleSnippetVarConfirm"
       @cancel="uiStore.closeSnippetVariableDialog()"
     />
+    <!-- 片段快捷面板 -->
+    <SnippetQuickPanel v-if="uiStore.showSnippetQuickPanel" />
+    <!-- Vault 自动填充对话框 -->
+    <VaultFillDialog v-if="uiStore.showVaultFillDialog" />
   </div>
 </template>
 
@@ -110,6 +114,8 @@ const TerminalSearchBar = defineAsyncComponent(() => import('../../components/te
 const SnippetEditDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetEditDialog.vue'))
 const PortForwardDialog = defineAsyncComponent(() => import('../../components/port-forward/PortForwardDialog.vue'))
 const SnippetVariableDialog = defineAsyncComponent(() => import('../../components/snippet/SnippetVariableDialog.vue'))
+const SnippetQuickPanel = defineAsyncComponent(() => import('../../components/snippet/SnippetQuickPanel.vue'))
+const VaultFillDialog = defineAsyncComponent(() => import('../../components/vault/VaultFillDialog.vue'))
 const SftpPanel = defineAsyncComponent(() => import('../../components/sftp/SftpPanel.vue'))
 const UpdateNotification = defineAsyncComponent(() => import('../../components/common/UpdateNotification.vue'))
 
@@ -232,6 +238,12 @@ onMounted(async () => {
       uiStore.showTerminalSearch = true
     }
   })
+  keybindingService.register('snippet-panel', 'Ctrl+Shift+S', () => {
+    uiStore.openSnippetQuickPanel()
+  })
+  keybindingService.register('vault-fill', 'Ctrl+Shift+V', () => {
+    uiStore.openVaultFillDialog()
+  })
 
   window.addEventListener('keydown', handleKeydown)
 })
@@ -243,6 +255,8 @@ onBeforeUnmount(() => {
   keybindingService.unregister('command-palette')
   keybindingService.unregister('command-palette-alt')
   keybindingService.unregister('terminal-search')
+  keybindingService.unregister('snippet-panel')
+  keybindingService.unregister('vault-fill')
 })
 </script>
 

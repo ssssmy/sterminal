@@ -3,6 +3,10 @@
 
 import { ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
+import { spawn } from 'child_process'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { IPC_KEY } from '../../shared/types/ipc-channels'
 import { keyManager } from '../services/key-manager'
 import { dbRun, dbGet } from '../services/db'
@@ -10,6 +14,42 @@ import { e2eCrypto } from '../services/crypto'
 import { sshSessions } from './ssh.handler'
 import type { SshKey } from '../../shared/types/key'
 import { logAuditEvent } from '../services/audit-service'
+
+/** 调用 ssh-add，返回 stderr 内容 */
+function runSshAdd(args: string[], stdinData?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('ssh-add', args, {
+      env: { ...process.env },
+      stdio: stdinData !== undefined ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
+    })
+    let out = ''
+    let err = ''
+    proc.stdout?.on('data', (d: Buffer) => { out += d.toString() })
+    proc.stderr?.on('data', (d: Buffer) => { err += d.toString() })
+    proc.on('close', (code) => {
+      if (code === 0) resolve(out + err)
+      else reject(new Error((err || out).trim() || `ssh-add exited ${code}`))
+    })
+    proc.on('error', (e) => reject(new Error(`ssh-add not found: ${e.message}`)))
+    if (stdinData !== undefined && proc.stdin) {
+      proc.stdin.write(stdinData)
+      proc.stdin.end()
+    }
+  })
+}
+
+/** 获取当前 agent 中已加载密钥的指纹列表 */
+async function getAgentFingerprints(): Promise<string[]> {
+  try {
+    const output = await runSshAdd(['-l'])
+    return output.split('\n').filter(Boolean).map(line => {
+      const parts = line.trim().split(' ')
+      return parts[1] || ''
+    }).filter(Boolean)
+  } catch {
+    return []
+  }
+}
 
 interface SshKeyRow {
   id: string
@@ -174,13 +214,54 @@ export function registerKeyHandlers(): void {
     })
   })
 
-  // SSH Agent 加载（存根）
-  ipcMain.handle(IPC_KEY.AGENT_LOAD, (_event, _keyId: string) => {
-    return true
+  // SSH Agent 查询：返回当前 agent 中已加载的指纹列表
+  ipcMain.handle(IPC_KEY.AGENT_LIST, async () => {
+    return getAgentFingerprints()
   })
 
-  // SSH Agent 卸载（存根）
-  ipcMain.handle(IPC_KEY.AGENT_UNLOAD, (_event, _keyId: string) => {
-    return true
+  // SSH Agent 加载：将指定密钥写入临时文件后调用 ssh-add
+  ipcMain.handle(IPC_KEY.AGENT_LOAD, async (_event, keyId: string) => {
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [keyId])
+    if (!row) throw new Error(`Key not found: ${keyId}`)
+
+    // 解密私钥
+    let privateKey = row.private_key_enc
+    if (e2eCrypto.hasKey() && privateKey) {
+      try { privateKey = e2eCrypto.decrypt(privateKey) } catch { /* 已明文 */ }
+    }
+    if (!privateKey) throw new Error('Private key not available')
+
+    // 写入临时文件（限制权限 600）
+    const tmpFile = path.join(os.tmpdir(), `sterminal_key_${uuidv4()}`)
+    try {
+      fs.writeFileSync(tmpFile, privateKey, { mode: 0o600 })
+      await runSshAdd([tmpFile])
+      logAuditEvent({ eventType: 'key.agent_load', category: 'security', summary: `Loaded key to agent: ${row.name}` })
+      return true
+    } finally {
+      try { fs.unlinkSync(tmpFile) } catch { /* ignore */ }
+    }
+  })
+
+  // SSH Agent 卸载：通过公钥从 agent 移除
+  ipcMain.handle(IPC_KEY.AGENT_UNLOAD, async (_event, keyId: string) => {
+    const row = dbGet<SshKeyRow>('SELECT * FROM keys WHERE id = ?', [keyId])
+    if (!row) throw new Error(`Key not found: ${keyId}`)
+
+    // 写入临时公钥文件，让 ssh-add -d 识别
+    const tmpPub = path.join(os.tmpdir(), `sterminal_pub_${uuidv4()}.pub`)
+    try {
+      let pubKey = row.public_key
+      // 确保是 OpenSSH 格式
+      if (!pubKey.startsWith('ssh-') && !pubKey.startsWith('ecdsa-')) {
+        pubKey = keyManager.getOpenSshPublicKey(pubKey)
+      }
+      fs.writeFileSync(tmpPub, pubKey, { mode: 0o644 })
+      await runSshAdd(['-d', tmpPub])
+      logAuditEvent({ eventType: 'key.agent_unload', category: 'security', summary: `Unloaded key from agent: ${row.name}` })
+      return true
+    } finally {
+      try { fs.unlinkSync(tmpPub) } catch { /* ignore */ }
+    }
   })
 }

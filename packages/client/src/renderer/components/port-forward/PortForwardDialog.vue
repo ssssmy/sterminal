@@ -49,6 +49,9 @@
           <el-radio-button value="remote">
             Remote (-R)
           </el-radio-button>
+          <el-radio-button value="dynamic">
+            Dynamic (-D)
+          </el-radio-button>
         </el-radio-group>
       </el-form-item>
 
@@ -90,6 +93,20 @@
             <el-input v-model="form.localTargetAddr" placeholder="127.0.0.1" class="pf-addr" />
             <span class="pf-colon">:</span>
             <el-input-number v-model="form.localTargetPort" :min="1" :max="65535" :placeholder="t('portForwardDialog.portPlaceholder')" controls-position="right" class="pf-port" />
+          </div>
+        </el-form-item>
+      </template>
+
+      <!-- Dynamic 转发字段（SOCKS5 代理） -->
+      <template v-if="form.type === 'dynamic'">
+        <div class="pf-direction-hint">
+          {{ t('portForwardDialog.dynamicHint') }}
+        </div>
+        <el-form-item :label="t('portForwardDialog.localPort')" prop="localPort" required>
+          <div class="pf-addr-port">
+            <el-input v-model="form.localBindAddr" placeholder="127.0.0.1" class="pf-addr" />
+            <span class="pf-colon">:</span>
+            <el-input-number v-model="form.localPort" :min="1" :max="65535" :placeholder="t('portForwardDialog.portPlaceholder')" controls-position="right" class="pf-port" />
           </div>
         </el-form-item>
       </template>
@@ -151,7 +168,7 @@ const saving = ref(false)
 interface FormData {
   name: string
   hostId: string
-  type: 'local' | 'remote'
+  type: 'local' | 'remote' | 'dynamic'
   localBindAddr: string
   localPort: number | undefined
   remoteTargetAddr: string
@@ -196,6 +213,10 @@ const commandPreview = computed(() => {
     const rp = form.value.remoteTargetPort || '?'
     return `ssh -L ${form.value.localBindAddr}:${lp}:${ra}:${rp} ${hostStr}`
   }
+  if (form.value.type === 'dynamic') {
+    const lp = form.value.localPort || '?'
+    return `ssh -D ${form.value.localBindAddr}:${lp} ${hostStr}`
+  }
   const rp = form.value.remotePort || '?'
   const la = form.value.localTargetAddr || '127.0.0.1'
   const lp = form.value.localTargetPort || '?'
@@ -216,7 +237,7 @@ watch(
     form.value = {
       name: rule.name || '',
       hostId: rule.hostId,
-      type: rule.type === 'remote' ? 'remote' : 'local',
+      type: rule.type,
       localBindAddr: rule.localBindAddr || '127.0.0.1',
       localPort: rule.localPort,
       remoteTargetAddr: rule.remoteTargetAddr || '127.0.0.1',

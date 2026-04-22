@@ -26,7 +26,7 @@ import { useSnippetsStore } from './stores/snippets.store'
 import { usePortForwardsStore } from './stores/port-forwards.store'
 import { useSessionsStore } from './stores/sessions.store'
 
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const router = useRouter()
 const uiStore = useUiStore()
 const settingsStore = useSettingsStore()
@@ -160,21 +160,15 @@ onMounted(async () => {
     try {
       if (type === 'changed') {
         await ElMessageBox.confirm(
-          `WARNING: Host key for ${host}:${port} has changed!\n\n` +
-          `Old fingerprint: ${oldFingerprint}\n` +
-          `New fingerprint: ${fingerprint}\n\n` +
-          `This could indicate a man-in-the-middle attack.\nDo you want to continue and update the key?`,
-          'Host Key Changed',
-          { confirmButtonText: 'Accept & Update', cancelButtonText: 'Reject', type: 'warning' }
+          t('knownHosts.changedMsg', { host, port, fingerprint, oldFingerprint }),
+          t('knownHosts.changedTitle'),
+          { confirmButtonText: t('knownHosts.acceptUpdate'), cancelButtonText: t('knownHosts.rejectConnect'), type: 'warning' }
         )
       } else {
         await ElMessageBox.confirm(
-          `First connection to ${host}:${port}\n\n` +
-          `Key type: ${keyType}\n` +
-          `Fingerprint: ${fingerprint}\n\n` +
-          `Do you want to trust this host and continue?`,
-          'Unknown Host',
-          { confirmButtonText: 'Trust & Connect', cancelButtonText: 'Cancel', type: 'info' }
+          t('knownHosts.newMsg', { host, port, keyType, fingerprint }),
+          t('knownHosts.newTitle'),
+          { confirmButtonText: t('knownHosts.trustConnect'), cancelButtonText: t('knownHosts.cancelConnect'), type: 'info' }
         )
       }
       window.electronAPI?.ipc.invoke('ssh:host-verify-response', { verifyId, accept: true })

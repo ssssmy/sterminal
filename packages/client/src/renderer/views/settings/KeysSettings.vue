@@ -38,6 +38,20 @@
           </span>
         </div>
         <div class="keys__actions">
+          <el-tooltip
+            :content="agentFingerprints.includes(key.fingerprint) ? t('keys.agentUnload') : t('keys.agentLoad')"
+            placement="top"
+          >
+            <el-button
+              size="small"
+              text
+              :type="agentFingerprints.includes(key.fingerprint) ? 'success' : undefined"
+              :loading="agentLoading === key.id"
+              @click="toggleAgent(key)"
+            >
+              {{ agentFingerprints.includes(key.fingerprint) ? t('keys.inAgent') : t('keys.agentLoad') }}
+            </el-button>
+          </el-tooltip>
           <el-button size="small" text @click="copyPublicKey(key)">
             {{ pubKeyCopied ? '✓' : t('keys.copyPublicKey') }}
           </el-button>
@@ -150,14 +164,49 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useKeysStore } from '../../stores/keys.store'
+import { useIpc } from '../../composables/useIpc'
+import { IPC_KEY } from '../../../shared/types/ipc-channels'
 import type { SshKey } from '../../../shared/types/key'
 import { useCopyFeedback } from '../../composables/useCopyFeedback'
 
 const { t } = useI18n()
 const keysStore = useKeysStore()
+const { invoke } = useIpc()
 
 const { copied: pubKeyCopied, copyWithFeedback: copyPubKey } = useCopyFeedback()
 const { copied: deployCopied, copyWithFeedback: copyDeploy } = useCopyFeedback()
+
+// ===== SSH Agent 状态 =====
+const agentFingerprints = ref<string[]>([])
+const agentLoading = ref<string | null>(null)
+
+async function refreshAgentKeys(): Promise<void> {
+  try {
+    const fps = await invoke<string[]>(IPC_KEY.AGENT_LIST)
+    agentFingerprints.value = fps || []
+  } catch {
+    agentFingerprints.value = []
+  }
+}
+
+async function toggleAgent(key: SshKey): Promise<void> {
+  agentLoading.value = key.id
+  try {
+    const loaded = agentFingerprints.value.includes(key.fingerprint)
+    if (loaded) {
+      await invoke(IPC_KEY.AGENT_UNLOAD, key.id)
+      ElMessage.success(t('keys.agentUnloadSuccess'))
+    } else {
+      await invoke(IPC_KEY.AGENT_LOAD, key.id)
+      ElMessage.success(t('keys.agentLoadSuccess'))
+    }
+    await refreshAgentKeys()
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('keys.agentError'))
+  } finally {
+    agentLoading.value = null
+  }
+}
 
 // ===== 对话框状态 =====
 
@@ -301,7 +350,10 @@ function formatDate(iso?: string): string {
 
 // ===== 初始化 =====
 
-onMounted(() => keysStore.fetchKeys())
+onMounted(async () => {
+  await keysStore.fetchKeys()
+  await refreshAgentKeys()
+})
 </script>
 
 <style lang="scss" scoped>

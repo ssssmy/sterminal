@@ -325,6 +325,11 @@ npm run client:dev          # 或 cd packages/client && npm run dev
 # 类型检查
 cd packages/client && npm run typecheck   # vue-tsc --noEmit
 
+# 测试（主进程集成测试 + 渲染进程单元测试）
+cd packages/client && npm run test:unit   # 仅渲染进程单元测试（vitest，快速）
+cd packages/client && npm run test:watch  # 监听模式
+cd packages/client && npm run test        # 完整测试（含主进程集成测试，需重新编译 better-sqlite3）
+
 # 生产构建（仅编译，不打安装包）
 npm run client:build
 
@@ -340,6 +345,12 @@ npm run client:pack:all     # 三平台一起构建
 # 后端服务（PM2）
 cd packages/server && npm run pm2:start   # 使用 ecosystem.config.cjs 启动
 ```
+
+## 测试架构
+主进程集成测试位于 `packages/client/src/main/__tests__/`，使用 `vitest` 框架：
+- 测试文件：`hosts-handler`、`keybindings-handler`、`settings-handler`、`snippets-handler`、`themes-handler` 的集成测试
+- 测试辅助：`test-db-helper.ts` 创建内存 SQLite 数据库
+- `npm run test:unit` 排除主进程集成测试（因为需要原生模块以 Node.js 编译）；`npm run test` 会先 rebuild better-sqlite3 for Node.js，测完再 rebuild 回 Electron 版本
 
 ## P1 已知遗留问题
 - `system.handler` 多数为骨架（shell列表、剪贴板等）

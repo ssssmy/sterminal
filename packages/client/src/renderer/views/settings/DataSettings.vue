@@ -29,6 +29,17 @@
         </el-button>
       </div>
 
+      <!-- 导入命令片段 -->
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('dataSettings.importSnippetsLabel') }}</label>
+          <span class="settings-row__desc">{{ t('dataSettings.importSnippetsDesc') }}</span>
+        </div>
+        <el-button :loading="importingSnippets" @click="handleImportSnippets">
+          {{ t('dataSettings.importJsonBtn') }}
+        </el-button>
+      </div>
+
       <!-- 隐藏文件选择器 -->
       <input
         ref="fileInputRef"
@@ -36,6 +47,13 @@
         accept=".json"
         style="display: none"
         @change="onFileSelected"
+      />
+      <input
+        ref="snippetFileInputRef"
+        type="file"
+        accept=".json"
+        style="display: none"
+        @change="onSnippetFileSelected"
       />
     </div>
 
@@ -56,6 +74,17 @@
             {{ t('dataSettings.exportBtn') }}
           </el-button>
         </div>
+      </div>
+
+      <!-- 导出命令片段 -->
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('dataSettings.exportSnippetsLabel') }}</label>
+          <span class="settings-row__desc">{{ t('dataSettings.exportSnippetsDesc') }}</span>
+        </div>
+        <el-button :loading="exportingSnippets" @click="handleExportSnippets">
+          {{ t('dataSettings.exportSnippetsBtn') }}
+        </el-button>
       </div>
     </div>
 
@@ -115,7 +144,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useIpc } from '../../composables/useIpc'
-import { IPC_SYSTEM } from '../../../shared/types/ipc-channels'
+import { IPC_SYSTEM, IPC_DB } from '../../../shared/types/ipc-channels'
 import { useHostsStore } from '../../stores/hosts.store'
 import { useTerminalsStore } from '../../stores/terminals.store'
 import { useSnippetsStore } from '../../stores/snippets.store'
@@ -202,6 +231,64 @@ async function onFileSelected(event: Event): Promise<void> {
     ElMessage.error(err instanceof Error ? err.message : t('dataSettings.importFailed'))
   } finally {
     importingJson.value = false
+  }
+}
+
+// ===== 导入命令片段 =====
+const importingSnippets = ref(false)
+const snippetFileInputRef = ref<HTMLInputElement | null>(null)
+
+function handleImportSnippets(): void {
+  snippetFileInputRef.value?.click()
+}
+
+async function onSnippetFileSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  importingSnippets.value = true
+  try {
+    const content = await file.text()
+    const parsed = JSON.parse(content)
+    // 兼容两种格式：{snippets, groups} 或 直接 snippets 数组
+    const payload = Array.isArray(parsed)
+      ? { snippets: parsed, groups: [] }
+      : { snippets: parsed.snippets || [], groups: parsed.groups || [] }
+    const result = await invoke<{ imported: number }>(IPC_DB.SNIPPETS_IMPORT, payload)
+    await snippetsStore.fetchSnippets()
+    await snippetsStore.fetchGroups()
+    ElMessage.success(t('dataSettings.snippetsImported', { count: result.imported }))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('dataSettings.importFailed'))
+  } finally {
+    importingSnippets.value = false
+  }
+}
+
+// ===== 导出命令片段 =====
+const exportingSnippets = ref(false)
+
+async function handleExportSnippets(): Promise<void> {
+  exportingSnippets.value = true
+  try {
+    const data = await invoke<{ snippets: unknown[]; groups: unknown[]; exportedAt: string }>(
+      IPC_DB.SNIPPETS_EXPORT
+    )
+    const json = JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sterminal-snippets-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('dataSettings.exportSuccess'))
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('dataSettings.exportFailed'))
+  } finally {
+    exportingSnippets.value = false
   }
 }
 

@@ -21,6 +21,7 @@ export function registerPtyHandlers(): void {
   ipcMain.handle(IPC_PTY.SPAWN, (event, params: {
     shell?: string
     args?: string[]
+    loginShell?: boolean
     cwd?: string
     env?: Record<string, string>
     cols: number
@@ -43,9 +44,13 @@ export function registerPtyHandlers(): void {
       cwd = home
     }
 
+    const spawnArgs = (process.platform !== 'win32' && params.loginShell)
+      ? ['-l', ...(params.args || [])]
+      : (params.args || [])
+
     const ptyProcess = pty.spawn(
       params.shell || defaultShell,
-      params.args || [],
+      spawnArgs,
       {
         name: 'xterm-256color',
         cols: params.cols || 80,

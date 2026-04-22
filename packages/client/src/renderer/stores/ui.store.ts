@@ -197,6 +197,16 @@ export const useUiStore = defineStore('ui', () => {
     editingPortForwardId.value = null
   }
 
+  // ===== 片段快捷面板 =====
+  const showSnippetQuickPanel = ref(false)
+  function openSnippetQuickPanel(): void { showSnippetQuickPanel.value = true }
+  function closeSnippetQuickPanel(): void { showSnippetQuickPanel.value = false }
+
+  // ===== Vault 自动填充对话框 =====
+  const showVaultFillDialog = ref(false)
+  function openVaultFillDialog(): void { showVaultFillDialog.value = true }
+  function closeVaultFillDialog(): void { showVaultFillDialog.value = false }
+
   return {
     sidebarWidth,
     sidebarCollapsed,
@@ -231,5 +241,11 @@ export const useUiStore = defineStore('ui', () => {
     editingPortForwardId,
     openPortForwardDialog,
     closePortForwardDialog,
+    showSnippetQuickPanel,
+    openSnippetQuickPanel,
+    closeSnippetQuickPanel,
+    showVaultFillDialog,
+    openVaultFillDialog,
+    closeVaultFillDialog,
   }
 })

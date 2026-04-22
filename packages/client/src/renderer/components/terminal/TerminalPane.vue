@@ -130,6 +130,19 @@ export function sendCommandToTerminal(terminalId: string, command: string): void
   }
 }
 
+/**
+ * 向指定终端发送原始数据（不追加 \r），用于填充密码等场景
+ */
+export function sendRawToTerminal(terminalId: string, data: string): void {
+  const pooled = terminalPool.get(terminalId)
+  if (!pooled) return
+  if (pooled.isSSH && pooled.sshConnectionId) {
+    ipcInvoke(IPC_SSH.WRITE, { connectionId: pooled.sshConnectionId, data })
+  } else if (pooled.ptyId) {
+    ipcInvoke(IPC_PTY.WRITE, { ptyId: pooled.ptyId, data })
+  }
+}
+
 let _offscreenHolder: HTMLDivElement | null = null
 function getOffscreenHolder(): HTMLDivElement {
   if (!_offscreenHolder) {
@@ -595,6 +608,7 @@ const TerminalXterm = defineComponent({
         if (localConfig?.shell) spawnParams.shell = localConfig.shell
         if (localConfig?.cwd) spawnParams.cwd = localConfig.cwd
         if (localConfig?.environment) spawnParams.env = localConfig.environment
+        if (localConfig?.loginShell) spawnParams.loginShell = true
 
         const result = await ipcInvoke<{ ptyId: string }>(IPC_PTY.SPAWN, spawnParams)
         if (result?.ptyId) {

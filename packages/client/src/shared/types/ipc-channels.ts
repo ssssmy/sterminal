@@ -13,6 +13,7 @@ export const IPC_SSH = {
   HOST_VERIFY: 'ssh:host-verify',
   OS_DETECTED: 'ssh:os-detected',
   HEALTH: 'ssh:health',
+  AGENT_CHECK: 'ssh:agent-check',
 } as const
 
 // ===== PTY 本地终端 =====
@@ -80,6 +81,8 @@ export const IPC_DB = {
   SNIPPETS_UPDATE: 'db:snippets:update',
   SNIPPETS_DELETE: 'db:snippets:delete',
   SNIPPETS_INCREMENT_USE: 'db:snippets:increment-use',
+  SNIPPETS_EXPORT: 'db:snippets-export',
+  SNIPPETS_IMPORT: 'db:snippets-import',
   // 命令片段分组
   SNIPPET_GROUPS_LIST: 'db:snippet-groups:list',
   SNIPPET_GROUPS_CREATE: 'db:snippet-groups:create',
@@ -153,6 +156,7 @@ export const IPC_KEY = {
   DEPLOY: 'key:deploy',
   AGENT_LOAD: 'key:agent-load',
   AGENT_UNLOAD: 'key:agent-unload',
+  AGENT_LIST: 'key:agent-list',
 } as const
 
 // ===== 端口转发隧道 =====

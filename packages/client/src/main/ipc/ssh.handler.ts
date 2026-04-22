@@ -15,6 +15,19 @@ import { logAuditEvent } from '../services/audit-service'
 // 待用户确认的主机密钥请求
 const pendingHostVerify = new Map<string, { resolve: (accept: boolean) => void }>()
 
+/** 从 SSH 公钥 Buffer 解析算法名称（如 ssh-ed25519、ssh-rsa、ecdsa-sha2-nistp256） */
+function parseKeyType(key: Buffer): string {
+  try {
+    const nameLen = key.readUInt32BE(0)
+    if (nameLen > 0 && nameLen < 64 && 4 + nameLen <= key.length) {
+      return key.subarray(4, 4 + nameLen).toString('ascii')
+    }
+  } catch {
+    // ignore
+  }
+  return 'ssh-key'
+}
+
 export interface SshSession {
   client: Client
   stream: ClientChannel | null
@@ -322,7 +335,7 @@ export function registerSshHandlers(): void {
       // 主机密钥验证（ssh2 的 hostVerifier 签名: (key, verify) => void）
       connectConfig.hostVerifier = (key: Buffer, verify: (accept: boolean) => void) => {
         const fingerprint = crypto.createHash('sha256').update(key).digest('base64')
-        const keyType = 'ssh-key'
+        const keyType = parseKeyType(key)
         const host = hostConfig.address
         const port = hostConfig.port || 22
 

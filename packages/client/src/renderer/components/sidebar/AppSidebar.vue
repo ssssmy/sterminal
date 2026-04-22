@@ -621,10 +621,14 @@
                   'app-sidebar__pf-status--starting': getPortForwardStatus(rule.id) === 'starting',
                 }"
               />
-              <span class="app-sidebar__pf-type">{{ rule.type === 'local' ? 'L' : 'R' }}</span>
+              <span class="app-sidebar__pf-type">{{ rule.type === 'local' ? 'L' : rule.type === 'remote' ? 'R' : 'D' }}</span>
               <div class="app-sidebar__pf-info">
                 <span class="app-sidebar__pf-name">{{ portForwardLabel(rule) }}</span>
                 <span class="app-sidebar__pf-host">{{ getHostLabel(rule.hostId) }}</span>
+                <span
+                  v-if="getPortForwardStatus(rule.id) === 'active' && portForwardTraffic(rule.id)"
+                  class="app-sidebar__pf-traffic"
+                >{{ portForwardTraffic(rule.id) }}</span>
               </div>
               <button
                 class="app-sidebar__pf-toggle"
@@ -1621,7 +1625,27 @@ function portForwardLabel(rule: PortForward): string {
   if (rule.type === 'local') {
     return `${rule.localPort || '?'} → ${rule.remoteTargetAddr || '?'}:${rule.remoteTargetPort || '?'}`
   }
+  if (rule.type === 'dynamic') {
+    return `SOCKS5 :${rule.localPort || '?'}`
+  }
   return `${rule.remotePort || '?'} → ${rule.localTargetAddr || '?'}:${rule.localTargetPort || '?'}`
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function portForwardTraffic(ruleId: string): string {
+  const state = portForwardsStore.getTunnelStatus(ruleId)
+  if (!state || (!state.bytesIn && !state.bytesOut && !state.connectionCount)) return ''
+  const parts: string[] = []
+  if (state.connectionCount > 0) parts.push(`${state.connectionCount} 连接`)
+  if (state.bytesIn || state.bytesOut) {
+    parts.push(`↓${formatBytes(state.bytesIn)} ↑${formatBytes(state.bytesOut)}`)
+  }
+  return parts.join(' · ')
 }
 
 function portForwardTitle(rule: PortForward): string {
@@ -1630,12 +1654,17 @@ function portForwardTitle(rule: PortForward): string {
   const lines: string[] = []
   if (rule.name) lines.push(rule.name)
   lines.push(`${t('sidebar.portForwardHostLabel')}: ${hostName}`)
-  lines.push(`${t('sidebar.portForwardTypeLabel')}: ${rule.type === 'local' ? 'Local (-L)' : 'Remote (-R)'}`)
+  const typeLabel = rule.type === 'local' ? 'Local (-L)' : rule.type === 'remote' ? 'Remote (-R)' : 'Dynamic (-D)'
+  lines.push(`${t('sidebar.portForwardTypeLabel')}: ${typeLabel}`)
   if (rule.type === 'local') {
     lines.push(`${rule.localBindAddr}:${rule.localPort} → ${rule.remoteTargetAddr}:${rule.remoteTargetPort}`)
-  } else {
+  } else if (rule.type === 'remote') {
     lines.push(`${rule.remoteBindAddr}:${rule.remotePort} → ${rule.localTargetAddr}:${rule.localTargetPort}`)
+  } else {
+    lines.push(`SOCKS5 代理: ${rule.localBindAddr}:${rule.localPort}`)
   }
+  const traffic = portForwardTraffic(rule.id)
+  if (traffic) lines.push(traffic)
   const status = getPortForwardStatus(rule.id)
   if (status !== 'inactive') lines.push(`${t('sidebar.portForwardStatusLabel')}: ${status}`)
   return lines.join('\n')
@@ -2298,6 +2327,12 @@ onBeforeUnmount(() => {
     white-space: nowrap;
     font-size: 10px;
     color: var(--text-tertiary);
+  }
+
+  &__pf-traffic {
+    font-size: 10px;
+    color: var(--el-color-success);
+    white-space: nowrap;
   }
 
   &__pf-toggle {

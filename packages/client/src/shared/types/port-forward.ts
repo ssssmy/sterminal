@@ -30,5 +30,7 @@ export interface TunnelState {
   status: TunnelStatus
   error?: string
   connectionCount: number
+  bytesIn: number
+  bytesOut: number
   startedAt?: string
 }

@@ -156,6 +156,7 @@ export const IPC_KEY = {
   DEPLOY: 'key:deploy',
   AGENT_LOAD: 'key:agent-load',
   AGENT_UNLOAD: 'key:agent-unload',
+  AGENT_LIST: 'key:agent-list',
 } as const
 
 // ===== 端口转发隧道 =====

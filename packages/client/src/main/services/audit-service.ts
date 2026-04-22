@@ -10,7 +10,7 @@ export type AuditEventType =
   | 'ssh.connect' | 'ssh.disconnect' | 'ssh.error'
   | 'sftp.upload' | 'sftp.download' | 'sftp.delete' | 'sftp.mkdir'
   | 'host.create' | 'host.update' | 'host.delete'
-  | 'key.generate' | 'key.import' | 'key.deploy' | 'key.delete'
+  | 'key.generate' | 'key.import' | 'key.deploy' | 'key.delete' | 'key.agent_load' | 'key.agent_unload'
   | 'vault.create' | 'vault.delete'
   | 'settings.change'
   | 'auth.login' | 'auth.logout'

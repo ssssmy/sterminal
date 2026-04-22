@@ -405,6 +405,7 @@
     "portPlaceholder": "Port",
     "localHint": "Local → Remote: forward local port traffic via SSH to remote address",
     "remoteHint": "Remote → Local: forward remote port traffic via SSH to local address",
+    "dynamicHint": "Dynamic forwarding (SOCKS5 proxy): listen on a local SOCKS5 port and proxy all traffic through the SSH tunnel",
     "equivalentCommand": "Equivalent Command",
     "copyCommand": "Copy command",
     "copied": "Copied to clipboard",
@@ -751,7 +752,13 @@
     "importNamePlaceholder": "Key name (optional)",
     "generateError": "Key generation failed",
     "importError": "Key import failed",
-    "deleteSuccess": "Key deleted"
+    "deleteSuccess": "Key deleted",
+    "agentLoad": "Load to Agent",
+    "agentUnload": "Unload from Agent",
+    "inAgent": "In Agent",
+    "agentLoadSuccess": "Key loaded to SSH Agent",
+    "agentUnloadSuccess": "Key unloaded from SSH Agent",
+    "agentError": "SSH Agent operation failed"
   },
   "vault": {
     "title": "Vault",

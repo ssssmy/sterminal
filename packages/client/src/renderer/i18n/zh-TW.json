@@ -405,6 +405,7 @@
     "portPlaceholder": "連接埠",
     "localHint": "本地 → 遠端：將本地連接埠的流量透過 SSH 轉發到遠端位址",
     "remoteHint": "遠端 → 本地：將遠端連接埠的流量透過 SSH 轉發到本地位址",
+    "dynamicHint": "動態轉發（SOCKS5 代理）：在本地監聽 SOCKS5 代理連接埠，透過 SSH 隧道代理所有流量",
     "equivalentCommand": "等效指令",
     "copyCommand": "複製指令",
     "copied": "已複製到剪貼簿",
@@ -751,7 +752,13 @@
     "importNamePlaceholder": "輸入金鑰名稱（選填）",
     "generateError": "金鑰產生失敗",
     "importError": "金鑰匯入失敗",
-    "deleteSuccess": "金鑰已刪除"
+    "deleteSuccess": "金鑰已刪除",
+    "agentLoad": "載入到 Agent",
+    "agentUnload": "從 Agent 卸載",
+    "inAgent": "已在 Agent",
+    "agentLoadSuccess": "金鑰已載入到 SSH Agent",
+    "agentUnloadSuccess": "金鑰已從 SSH Agent 卸載",
+    "agentError": "SSH Agent 操作失敗"
   },
   "vault": {
     "title": "密碼庫",

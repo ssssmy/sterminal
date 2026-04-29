@@ -96,11 +96,14 @@ COPY --from=builder --chown=app:app /repo/packages/server/package.json ./package
 COPY --from=builder --chown=app:app /repo/packages/server/node_modules ./packages/server/node_modules
 COPY --from=builder --chown=app:app /repo/packages/server/dist ./packages/server/dist
 
-# 数据 / 上传目录（生产请挂载 volume）
+# 数据 / 上传目录（生产请挂载 volume；entrypoint 启动时还会 chown 一次以兼容 root 拥有的 host 卷）
 RUN mkdir -p /app/packages/server/data /app/packages/server/uploads \
     && chown -R app:app /app/packages/server
 
-USER app
+# entrypoint 脚本：以 root 启动，修复挂载卷属主后 runuser 降权到 app 用户
+COPY --chmod=0755 packages/server/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# 注意：保持 root 启动，由 entrypoint 在 fix 权限后降权到 app；不直接 USER app
 WORKDIR /app/packages/server
 
 ENV NODE_ENV=production \
@@ -114,5 +117,6 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3001)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
-ENTRYPOINT ["dumb-init", "--"]
+# dumb-init 仍是 PID 1（信号转发 + 僵尸回收），entrypoint 处理权限后 exec 到 node
+ENTRYPOINT ["dumb-init", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]

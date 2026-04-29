@@ -24,11 +24,14 @@ jobs:
 
       - run: npm install
 
-      - name: Vue typecheck
+      - name: Renderer typecheck (vue-tsc)
         run: cd packages/client && npm run typecheck
 
-  test:
-    name: Unit Tests
+      - name: Main process typecheck
+        run: cd packages/client && npm run typecheck:main
+
+  test-server:
+    name: Server Unit & API Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,12 +43,28 @@ jobs:
 
       - run: npm install
 
-      - name: Run unit tests (skip integration — no Electron rebuild in CI)
-        run: cd packages/client && npx vitest run --exclude='src/main/__tests__/**'
+      - name: Run server tests (auth/sync/api)
+        run: cd packages/server && npm test
+
+  test-client:
+    name: Client Unit Tests (renderer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+
+      - name: Run renderer unit tests (skip main integration — no Electron rebuild in CI)
+        run: cd packages/client && npm run test:unit
 
   build-mac:
     name: Build macOS (${{ matrix.arch }})
-    needs: [typecheck, test]
+    needs: [typecheck, test-server, test-client]
     if: github.event_name == 'push'
     runs-on: macos-latest
     strategy:
@@ -72,8 +91,11 @@ jobs:
 
       - run: npm install
 
+      - name: Rebuild native modules for Electron
+        run: cd packages/client && npm run rebuild:electron
+
       - name: Build & Package
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --mac --${{ matrix.arch }} --publish never
+        run: npm run typecheck:all && npx vite build && npx electron-builder --mac --${{ matrix.arch }} --publish never
         working-directory: packages/client
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -87,7 +109,7 @@ jobs:
 
   build-windows:
     name: Build Windows
-    needs: [typecheck, test]
+    needs: [typecheck, test-server, test-client]
     if: github.event_name == 'push'
     runs-on: windows-latest
     steps:
@@ -111,8 +133,11 @@ jobs:
 
       - run: npm install
 
+      - name: Rebuild native modules for Electron
+        run: cd packages/client && npm run rebuild:electron
+
       - name: Build & Package (NSIS + Portable)
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --win --publish never
+        run: npm run typecheck:all && npx vite build && npx electron-builder --win --publish never
         working-directory: packages/client
 
       - name: Upload NSIS installer
@@ -131,7 +156,7 @@ jobs:
 
   build-linux:
     name: Build Linux
-    needs: [typecheck, test]
+    needs: [typecheck, test-server, test-client]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -155,8 +180,11 @@ jobs:
 
       - run: npm install
 
+      - name: Rebuild native modules for Electron
+        run: cd packages/client && npm run rebuild:electron
+
       - name: Build & Package
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --linux --publish never
+        run: npm run typecheck:all && npx vite build && npx electron-builder --linux --publish never
         working-directory: packages/client
 
       - name: Upload artifacts

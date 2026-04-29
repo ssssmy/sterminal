@@ -26,8 +26,11 @@ jobs:
 
       - run: npm install
 
+      - name: Rebuild native modules for Electron
+        run: cd packages/client && npm run rebuild:electron
+
       - name: Build & Publish
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --mac --${{ matrix.arch }} --publish always
+        run: npm run typecheck:all && npx vite build && npx electron-builder --mac --${{ matrix.arch }} --publish always
         working-directory: packages/client
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -50,8 +53,11 @@ jobs:
 
       - run: npm install
 
+      - name: Rebuild native modules for Electron
+        run: cd packages/client && npm run rebuild:electron
+
       - name: Build & Publish
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --win --publish always
+        run: npm run typecheck:all && npx vite build && npx electron-builder --win --publish always
         working-directory: packages/client
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -73,8 +79,11 @@ jobs:
 
       - run: npm install
 
+      - name: Rebuild native modules for Electron
+        run: cd packages/client && npm run rebuild:electron
+
       - name: Build & Publish
-        run: npx vue-tsc --noEmit && npx vite build && npx electron-builder --linux --publish always
+        run: npm run typecheck:all && npx vite build && npx electron-builder --linux --publish always
         working-directory: packages/client
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

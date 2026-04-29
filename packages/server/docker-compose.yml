@@ -1,0 +1,54 @@
+# STerminal 后端 API 一键部署
+#
+# 使用方式（在 packages/server 目录下执行）：
+#   1. 复制环境变量模板：cp .env.example .env，按需修改 JWT_SECRET、SMTP、OAuth 等
+#   2. 启动：           docker compose up -d
+#   3. 查看日志：       docker compose logs -f
+#   4. 停止：           docker compose down
+#   5. 升级：           docker compose pull 或 docker compose build --no-cache && docker compose up -d
+#
+# 数据 / 上传文件持久化在宿主机的 ./data 与 ./uploads 目录（与镜像生命周期解耦）。
+
+services:
+  sterminal-server:
+    build:
+      # build context 必须是仓库根（monorepo workspaces 需要根 lockfile）
+      context: ../..
+      dockerfile: packages/server/Dockerfile
+    image: sterminal-server:latest
+    container_name: sterminal-server
+    restart: unless-stopped
+
+    ports:
+      - "${PORT:-3001}:3001"
+
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DB_PATH: /app/packages/server/data/sterminal.db
+      UPLOAD_DIR: /app/packages/server/uploads
+
+    # 把敏感配置（JWT_SECRET / SMTP / OAuth 等）放到 .env 中，不进入版本库
+    env_file:
+      - .env
+
+    volumes:
+      - ./data:/app/packages/server/data
+      - ./uploads:/app/packages/server/uploads
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:'+(process.env.PORT||3001)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+    # 默认资源上限（按需调整）
+    deploy:
+      resources:
+        limits:
+          memory: 512M

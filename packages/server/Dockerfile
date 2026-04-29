@@ -73,6 +73,7 @@ USER app
 WORKDIR /app/packages/server
 
 ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
     PORT=3001 \
     DB_PATH=/app/packages/server/data/sterminal.db \
     UPLOAD_DIR=/app/packages/server/uploads

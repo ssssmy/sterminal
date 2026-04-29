@@ -6,6 +6,8 @@ import 'dotenv/config';
 export const config = {
   // 服务配置
   port: parseInt(process.env.PORT ?? '3001', 10),
+  // 监听地址：容器 / Kubernetes 等场景必须是 0.0.0.0；如果同机反代独占，可设成 127.0.0.1。
+  host: process.env.HOST ?? '0.0.0.0',
   nodeEnv: process.env.NODE_ENV ?? 'development',
   baseUrl: process.env.BASE_URL ?? 'http://localhost:3001',
 

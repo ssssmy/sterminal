@@ -9,8 +9,8 @@
 - **后端**: Express + SQLite (better-sqlite3) + WebSocket
 - **认证**: JWT + Argon2id + OAuth (GitHub/Google)
 - **加密**: libsodium-wrappers-sumo (E2EE 云同步，Argon2id 密钥派生 + XSalsa20-Poly1305)
-- **测试**: Vitest + happy-dom + better-sqlite3 内存数据库 (204 个测试)
-- **CI/CD**: GitHub Actions (typecheck + test + 三平台构建)
+- **测试**: Vitest + happy-dom + better-sqlite3 内存数据库 (274 个测试)
+- **CI/CD**: GitHub Actions (typecheck + test + 三平台构建 + GHCR 镜像发布)
 
 ## 功能概览
 
@@ -122,17 +122,25 @@ sterminal/
 │   │   ├── vitest.config.ts # 测试配置
 │   │   └── vite.config.ts
 │   └── server/          # 同步服务后端
+│       ├── Dockerfile               # 多阶段镜像（builder + runtime）
+│       ├── docker-entrypoint.sh     # entrypoint：chown 挂载卷 + 降权
+│       ├── docker-compose.yml       # 开发：本地 build
+│       ├── docker-compose.prod.yml  # 生产：拉 GHCR 镜像
+│       ├── ecosystem.config.cjs     # PM2 进程配置
 │       └── src/
 │           ├── controllers/
 │           ├── services/
-│           ├── middleware/
+│           ├── middleware/      # auth / validate / rate-limit / error-handler
 │           ├── routes/
+│           ├── validators/      # Zod schema
 │           ├── websocket/
-│           └── database/
+│           ├── database/        # connection + migrations
+│           ├── utils/           # error-codes, jwt, hash, logger
+│           └── __tests__/       # vitest 单元 + supertest API
 ├── .github/
 │   └── workflows/
-│       ├── build.yml    # CI: typecheck + test + 三平台构建
-│       └── release.yml  # 发布: tag 触发 → 构建 + 上传 GitHub Releases
+│       ├── build.yml    # CI: typecheck (vue + main) + 客户端/服务端测试 + 三平台构建
+│       └── release.yml  # 发布: tag 触发 → Electron 安装包 + Docker 镜像（GHCR）
 └── docs/
     ├── PRD.md           # 产品需求文档
     ├── ARCHITECTURE.md  # 系统架构文档
@@ -185,28 +193,30 @@ cp packages/server/.env.example packages/server/.env
 npm run server:dev
 ```
 
-后端服务默认运行在 `http://localhost:3000`。
+后端服务默认运行在 `http://localhost:3001`。
 
 > 支持官方云服务或自托管：后端代码完全开源，可部署到任意服务器。在客户端设置页配置服务器地址即可切换。
 
 ## 测试
 
+总计 **274 个测试**：客户端 213 + 服务端 61。
+
 ```bash
+# 客户端
 cd packages/client
+npm test                    # 全部（含 Electron 主进程集成测试，自动处理 better-sqlite3 ABI 切换）
+npm run test:unit           # 仅渲染层单元测试 (无需 rebuild)
+npm run typecheck           # 渲染层 vue-tsc
+npm run typecheck:main      # Electron 主进程独立 tsc
 
-# 运行全部测试 (204 个，自动处理 better-sqlite3 Electron/Node 切换)
-npm test
-
-# 仅运行单元测试 (跳过集成测试，无需 rebuild)
-npm run test:unit
-
-# 类型检查
-npm run typecheck
+# 服务端
+cd packages/server
+npm test                    # auth / sync / API 全部
 ```
 
 测试覆盖：
-- 单元测试 (161)：快捷键解析、WCAG 对比度、设计 Token、片段变量、SSH 配置解析、服务器 URL、GIF 导出、剪贴板反馈
-- 集成测试 (43)：Settings / Keybindings / Themes / Hosts / Snippets CRUD (真实 SQLite 内存数据库)
+- **客户端 213**：单元（快捷键解析、WCAG 对比度、设计 Token、片段变量、SSH 配置解析、服务器 URL、GIF 导出、剪贴板反馈、Pinia stores）+ 集成（Settings / Keybindings / Themes / Hosts / Snippets handler，真实 SQLite 内存数据库）
+- **服务端 61**：service 层（auth / sync 含 push / pull / full / reset / encryption）+ API 层（supertest 跑 31 个端点用例，覆盖错误码 40101 / 40901 / 42901 / 40003 / 40004 / 41501 / 40499 等）
 
 ## 构建打包
 
@@ -229,10 +239,46 @@ npm run client:pack:all
 
 安装包输出到 `packages/client/release/`。
 
-## 生产部署 (PM2)
+## 后端部署
+
+### 方式 A：Docker（推荐）
+
+镜像每次 release tag 自动构建并推送到 [GHCR](https://github.com/users/ssssmy/packages/container/sterminal-server)：`ghcr.io/ssssmy/sterminal-server:{版本号, 0.x, latest}`。
+
+**生产部署（拉镜像，秒级启动）**：
 
 ```bash
 cd packages/server
+cp .env.example .env       # 修改 JWT_SECRET、SMTP、OAuth 等
+
+npm run docker:prod:up     # 拉 latest 镜像 + 启动
+npm run docker:prod:logs   # 看日志
+npm run docker:prod:upgrade # 一键升级（pull + recreate）
+```
+
+线上推荐在 `.env` 锁定版本（`IMAGE_TAG=0.1.2`），避免追 latest 意外升级。
+
+**开发模式（本地 build）**：
+
+```bash
+npm run docker:up          # 默认带 --build
+npm run docker:logs
+npm run docker:down
+```
+
+国内 / 防火墙网络可在 `.env` 加镜像源加速 build：
+```
+APT_MIRROR=http://mirrors.aliyun.com
+NPM_REGISTRY=https://registry.npmmirror.com
+```
+
+数据持久化卷：`./data`（SQLite）、`./uploads`（头像等）。Healthcheck 走 `/health`，非 root `app` 用户运行（entrypoint 自动 chown 挂载卷）。
+
+### 方式 B：PM2（裸机）
+
+```bash
+cd packages/server
+npm install
 npm run build
 npm run pm2:start    # 使用 PM2 启动服务
 npm run pm2:stop     # 停止服务
@@ -291,8 +337,9 @@ sterminal://open                         # 打开窗口
 | P2 进阶功能 | 密钥管理、Vault、回放器、操作审计（20种事件） | ✅ 已完成 |
 | P3 体验优化 | 自动补全、命令面板、主题引擎、快捷键、数据管理、自动更新、系统托盘、CLI、URI Scheme、关于页 | ✅ 已完成 |
 | Design-First | 设计 Token、动效系统、首次向导、环境感知边框、复制反馈 | ✅ 已完成 |
-| 测试 | 204 个单元+集成测试 | ✅ 已完成 |
-| CI/CD | GitHub Actions 三平台构建 + Windows 免安装版 + tag 自动发布 | ✅ 已完成 |
+| 测试 | 274 个单元 + 集成 + supertest API 测试 | ✅ 已完成 |
+| CI/CD | GitHub Actions 三平台构建 + Windows 免安装版 + tag 自动发布 + GHCR 镜像 | ✅ 已完成 |
+| 后端部署 | Docker 多阶段镜像 + docker-compose + GHCR 自动发布 | ✅ 已完成 |
 
 详见 [docs/PROGRESS.md](docs/PROGRESS.md)。
 

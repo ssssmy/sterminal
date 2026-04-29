@@ -12,12 +12,32 @@
 #     -e JWT_SECRET=change-me \
 #     sterminal-server:latest
 #
+# 国内 / 防火墙网络可通过 build arg 切换 apt 镜像源（默认走 Debian 官方）
+# 例：--build-arg APT_MIRROR=https://mirrors.aliyun.com  或者
+#     --build-arg APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn
+ARG APT_MIRROR=""
+
+# 同样允许切换 npm 镜像（避免国内 npmjs.com 被节流）
+ARG NPM_REGISTRY=""
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1: Build
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS builder
 
+ARG APT_MIRROR
+ARG NPM_REGISTRY
+
 WORKDIR /repo
+
+# 切 apt 源（如果传了 APT_MIRROR）
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -ri "s#https?://deb\\.debian\\.org/debian-security#${APT_MIRROR}/debian-security#g" /etc/apt/sources.list.d/debian.sources && \
+        sed -ri "s#https?://deb\\.debian\\.org/debian#${APT_MIRROR}/debian#g" /etc/apt/sources.list.d/debian.sources; \
+    fi
+
+# 切 npm 源（如果传了 NPM_REGISTRY）
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
 
 # 编译 better-sqlite3 / argon2 等原生模块所需的工具链
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,6 +68,14 @@ RUN rm -rf node_modules packages/server/node_modules \
 # Stage 2: Runtime
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS runtime
+
+ARG APT_MIRROR
+
+# 切 apt 源（如果传了 APT_MIRROR）
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -ri "s#https?://deb\\.debian\\.org/debian-security#${APT_MIRROR}/debian-security#g" /etc/apt/sources.list.d/debian.sources && \
+        sed -ri "s#https?://deb\\.debian\\.org/debian#${APT_MIRROR}/debian#g" /etc/apt/sources.list.d/debian.sources; \
+    fi
 
 # dumb-init 用于正确转发 PID 1 信号（让 SIGTERM 优雅关闭逻辑生效）
 RUN apt-get update && apt-get install -y --no-install-recommends \

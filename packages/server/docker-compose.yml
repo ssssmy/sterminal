@@ -18,6 +18,12 @@ services:
       # build context 必须是仓库根（monorepo workspaces 需要根 lockfile）
       context: ../..
       dockerfile: packages/server/Dockerfile
+      args:
+        # 国内 / 防火墙环境通过 .env 切换镜像，例：
+        #   APT_MIRROR=https://mirrors.aliyun.com
+        #   NPM_REGISTRY=https://registry.npmmirror.com
+        APT_MIRROR: ${APT_MIRROR:-}
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
     image: sterminal-server:latest
     container_name: sterminal-server
     restart: unless-stopped

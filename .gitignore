@@ -54,3 +54,6 @@ tmp/
 # E2E test artifacts
 packages/client/e2e-report/
 packages/client/test-results/
+
+# Claude Code working dirs (temporary worktrees, agent state, etc.)
+.claude/worktrees/

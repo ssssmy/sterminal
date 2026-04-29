@@ -342,8 +342,10 @@ npm run client:pack:all     # 三平台一起构建
 # 安装包输出到 packages/client/release/
 # 原生模块（node-pty、better-sqlite3、ssh2）通过 asarUnpack 解包
 
-# 后端服务（PM2）
-cd packages/server && npm run pm2:start   # 使用 ecosystem.config.cjs 启动
+# 后端服务
+npm run server:dev          # workspace 入口（等价于 cd packages/server && npm run dev，nodemon + tsx）
+npm run server:build        # workspace 入口（tsc 编译到 dist/）
+cd packages/server && npm run pm2:start   # 生产环境用 ecosystem.config.cjs 启动 PM2
 ```
 
 ## 测试架构

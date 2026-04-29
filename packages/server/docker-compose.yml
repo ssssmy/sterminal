@@ -2,10 +2,13 @@
 #
 # 使用方式（在 packages/server 目录下执行）：
 #   1. 复制环境变量模板：cp .env.example .env，按需修改 JWT_SECRET、SMTP、OAuth 等
-#   2. 启动：           docker compose up -d
+#   2. 启动 / 升级：    docker compose up -d --build   ← 默认带 --build，代码改动也能生效
+#                       docker compose up -d            ← 仅当镜像已就绪、配置变更时使用
 #   3. 查看日志：       docker compose logs -f
 #   4. 停止：           docker compose down
-#   5. 升级：           docker compose pull 或 docker compose build --no-cache && docker compose up -d
+#   5. 完全重建：       docker compose build --no-cache && docker compose up -d
+#
+# 区别速记：`up -d` 只在没有镜像时才 build；改了代码必须 `--build`，否则跑的是旧镜像。
 #
 # 数据 / 上传文件持久化在宿主机的 ./data 与 ./uploads 目录（与镜像生命周期解耦）。
 

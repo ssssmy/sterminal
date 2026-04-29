@@ -243,7 +243,7 @@ npm run client:pack:all
 
 ### 方式 A：Docker（推荐）
 
-镜像每次 release tag 自动构建并推送到 [GHCR](https://github.com/users/ssssmy/packages/container/sterminal-server)：`ghcr.io/ssssmy/sterminal-server:{版本号, 0.x, latest}`。
+镜像每次 release tag 自动构建（multi-arch：`linux/amd64` + `linux/arm64`）并推送到 [GHCR](https://github.com/users/ssssmy/packages/container/sterminal-server)，三个 tag：`ghcr.io/ssssmy/sterminal-server:{版本号, 0.x, latest}`。
 
 **生产部署（拉镜像，秒级启动）**：
 
@@ -256,7 +256,9 @@ npm run docker:prod:logs   # 看日志
 npm run docker:prod:upgrade # 一键升级（pull + recreate）
 ```
 
-线上推荐在 `.env` 锁定版本（`IMAGE_TAG=0.1.2`），避免追 latest 意外升级。
+线上推荐在 `.env` 锁定版本（`IMAGE_TAG=0.1.2`），避免追 `latest` 意外升级。
+
+> 第一次部署时 GHCR 镜像默认是 private，需要去 [package settings](https://github.com/users/ssssmy/packages/container/sterminal-server/settings) 改成 Public，或者在部署机上 `docker login ghcr.io`。
 
 **开发模式（本地 build）**：
 
@@ -264,17 +266,58 @@ npm run docker:prod:upgrade # 一键升级（pull + recreate）
 npm run docker:up          # 默认带 --build
 npm run docker:logs
 npm run docker:down
+npm run docker:rebuild     # build --no-cache + up
 ```
 
-国内 / 防火墙网络可在 `.env` 加镜像源加速 build：
-```
-APT_MIRROR=http://mirrors.aliyun.com
-NPM_REGISTRY=https://registry.npmmirror.com
+数据持久化卷：`./data`（SQLite）、`./uploads`（头像等）。容器以非 root `app` 用户运行（entrypoint 自动 chown 挂载卷），dumb-init 接管 PID 1，HEALTHCHECK 走 `/health`，`restart: unless-stopped` 跟随 docker daemon 自动启动。
+
+### 国内 / 防火墙网络加速
+
+如果 `docker pull` 拉 GHCR 慢，给 docker daemon 配镜像加速器（在国内服务器上一次性配好即可）：
+
+```bash
+# /etc/docker/daemon.json
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://docker.1ms.run"
+  ]
+}
+
+# 重启 daemon 生效
+sudo systemctl restart docker
 ```
 
-数据持久化卷：`./data`（SQLite）、`./uploads`（头像等）。Healthcheck 走 `/health`，非 root `app` 用户运行（entrypoint 自动 chown 挂载卷）。
+如果用开发模式本地 build（不是从 GHCR 拉），还可以在 `.env` 切换 build 阶段的 apt / npm 源：
 
-### 方式 B：PM2（裸机）
+```bash
+APT_MIRROR=http://mirrors.aliyun.com         # Debian 包
+NPM_REGISTRY=https://registry.npmmirror.com  # npm 包
+```
+
+### 后端环境变量
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `PORT` | `3001` | 服务监听端口 |
+| `HOST` | `0.0.0.0` | 监听地址（容器 / 远程访问必须 0.0.0.0） |
+| `NODE_ENV` | `development` | 容器内自动设为 `production` |
+| `BASE_URL` | `http://localhost:3001` | 给客户端展示 / OAuth 回调用 |
+| `JWT_SECRET` | dev 默认 | **生产必须改为强随机值** |
+| `DB_PATH` | `./data/sterminal.db` | SQLite 文件路径（容器里固定 `/app/packages/server/data/...`） |
+| `UPLOAD_DIR` | `./uploads` | 上传文件目录 |
+| `CORS_ORIGIN` | `*` | 允许的前端 origin，逗号分隔可多个。安全靠 JWT，不靠 CORS |
+| `IMAGE_TAG` | `latest` | `docker-compose.prod.yml` 拉哪个 tag |
+| `APT_MIRROR` | — | build 时 apt 镜像源（仅本地 build 用） |
+| `NPM_REGISTRY` | — | build 时 npm 镜像源（仅本地 build 用） |
+| `RATE_LIMIT_AUTH` | `5` | 认证接口每分钟最大请求数 |
+| `RATE_LIMIT_API` | `100` | 通用 API 限流 |
+| `RATE_LIMIT_SYNC` | `30` | 同步接口限流 |
+| `SMTP_*` / `*_CLIENT_ID` / `*_CLIENT_SECRET` | — | 邮件 + GitHub/Google OAuth |
+
+完整模板见 [`packages/server/.env.example`](packages/server/.env.example)。
+
+### 方式 B：PM2（裸机部署）
 
 ```bash
 cd packages/server

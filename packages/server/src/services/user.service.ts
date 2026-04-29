@@ -1,6 +1,7 @@
 import db from '../database/connection.js';
 import { hashPassword, verifyPassword } from '../utils/hash.js';
 import { AppError } from '../middleware/error-handler.js';
+import { ErrorCode } from '../utils/error-codes.js';
 import { logger } from '../utils/logger.js';
 import type { UserRecord } from './auth.service.js';
 import type { UpdateProfileInput, ChangePasswordInput } from '../validators/user.schema.js';
@@ -12,7 +13,7 @@ export function getUserById(userId: string): Omit<UserRecord, 'password_hash' | 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord | undefined;
 
   if (!user) {
-    throw new AppError(404, 404, '用户不存在');
+    throw new AppError(ErrorCode.USER_NOT_FOUND, '用户不存在');
   }
 
   const { password_hash, verify_token, ...safeUser } = user;
@@ -33,7 +34,7 @@ export function updateProfile(
     ).get(input.username, userId);
 
     if (existing) {
-      throw new AppError(409, 409, '该用户名已被占用');
+      throw new AppError(ErrorCode.USER_USERNAME_EXISTS, '该用户名已被占用');
     }
   }
 
@@ -68,12 +69,12 @@ export async function changePassword(userId: string, input: ChangePasswordInput)
     | undefined;
 
   if (!user) {
-    throw new AppError(404, 404, '用户不存在');
+    throw new AppError(ErrorCode.USER_NOT_FOUND, '用户不存在');
   }
 
   const valid = await verifyPassword(user.password_hash, input.currentPassword);
   if (!valid) {
-    throw new AppError(400, 400, '当前密码不正确');
+    throw new AppError(ErrorCode.AUTH_CURRENT_PASSWORD_WRONG, '当前密码不正确');
   }
 
   const newHash = await hashPassword(input.newPassword);
@@ -94,11 +95,11 @@ export function setEncryptionSalt(userId: string, salt: string): void {
     | undefined;
 
   if (!user) {
-    throw new AppError(404, 404, '用户不存在');
+    throw new AppError(ErrorCode.USER_NOT_FOUND, '用户不存在');
   }
 
   if (user.encryption_salt) {
-    throw new AppError(400, 400, '加密盐值已设置，不能修改');
+    throw new AppError(ErrorCode.SYNC_SALT_ALREADY_SET, '加密盐值已设置，不能修改');
   }
 
   db.prepare(`
@@ -152,12 +153,12 @@ export async function deleteAccount(userId: string, password: string): Promise<v
     | undefined;
 
   if (!user) {
-    throw new AppError(404, 404, '用户不存在');
+    throw new AppError(ErrorCode.USER_NOT_FOUND, '用户不存在');
   }
 
   const valid = await verifyPassword(user.password_hash, password);
   if (!valid) {
-    throw new AppError(400, 400, '密码不正确');
+    throw new AppError(ErrorCode.AUTH_CURRENT_PASSWORD_WRONG, '密码不正确');
   }
 
   // 删除所有会话
@@ -180,7 +181,7 @@ export function revokeSession(userId: string, sessionId: string): void {
   ).run(sessionId, userId);
 
   if (result.changes === 0) {
-    throw new AppError(404, 404, '会话不存在');
+    throw new AppError(ErrorCode.NOT_FOUND, '会话不存在');
   }
 
   logger.info({ userId, sessionId }, '会话已撤销');

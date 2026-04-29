@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyToken, type JwtPayload } from '../utils/jwt.js';
 import { AppError } from './error-handler.js';
+import { ErrorCode } from '../utils/error-codes.js';
 
 /**
  * 扩展 Express Request 类型，附加已验证的用户信息
@@ -21,7 +22,7 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    next(new AppError(401, 401, '未提供认证 Token'));
+    next(new AppError(ErrorCode.AUTH_TOKEN_MISSING, '未提供认证 Token'));
     return;
   }
 
@@ -32,10 +33,11 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
     req.user = payload;
     next();
   } catch (err) {
-    const message = err instanceof Error && err.name === 'TokenExpiredError'
-      ? 'Token 已过期，请重新登录'
-      : 'Token 无效，请重新登录';
-    next(new AppError(401, 401, message));
+    if (err instanceof Error && err.name === 'TokenExpiredError') {
+      next(new AppError(ErrorCode.AUTH_TOKEN_EXPIRED, 'Token 已过期，请重新登录'));
+    } else {
+      next(new AppError(ErrorCode.AUTH_TOKEN_INVALID, 'Token 无效，请重新登录'));
+    }
   }
 }
 

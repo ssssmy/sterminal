@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as userService from '../services/user.service.js';
 import { signToken } from '../utils/jwt.js';
+import { AppError } from '../middleware/error-handler.js';
+import { ErrorCode } from '../utils/error-codes.js';
 import type { UpdateProfileInput, ChangePasswordInput, SetEncryptionSaltInput } from '../validators/user.schema.js';
 
 /**
@@ -134,8 +136,7 @@ export async function deleteAccount(req: Request, res: Response, next: NextFunct
     const { password } = req.body;
 
     if (!password) {
-      res.status(400).json({ code: 400, data: null, message: '请提供密码以确认删除' });
-      return;
+      throw new AppError(ErrorCode.VALIDATION_FAILED, '请提供密码以确认删除');
     }
 
     await userService.deleteAccount(userId, password);

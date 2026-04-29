@@ -84,7 +84,7 @@ describe('authService.register', () => {
         email: 'dup@example.com',
         password: 'Password1!',
       })
-    ).rejects.toMatchObject({ statusCode: 409 })
+    ).rejects.toMatchObject({ statusCode: 409, code: 40901 })
   })
 
   it('用户名重复时抛出 409 错误', async () => {
@@ -100,7 +100,7 @@ describe('authService.register', () => {
         email: 'b@example.com',
         password: 'Password1!',
       })
-    ).rejects.toMatchObject({ statusCode: 409 })
+    ).rejects.toMatchObject({ statusCode: 409, code: 40902 })
   })
 })
 
@@ -122,13 +122,13 @@ describe('authService.login', () => {
     await createUser()
     await expect(
       authService.login({ email: 'login@example.com', password: 'WrongPass1!' })
-    ).rejects.toMatchObject({ statusCode: 401 })
+    ).rejects.toMatchObject({ statusCode: 401, code: 40101 })
   })
 
   it('邮箱不存在时抛出 401 错误', async () => {
     await expect(
       authService.login({ email: 'nobody@example.com', password: 'Password1!' })
-    ).rejects.toMatchObject({ statusCode: 401 })
+    ).rejects.toMatchObject({ statusCode: 401, code: 40101 })
   })
 
   it('remember=true 时会话有效期为 30 天', async () => {
@@ -150,11 +150,11 @@ describe('authService.login', () => {
     expect(diffDays).toBeGreaterThan(25)
   })
 
-  it('登录失败次数过多后触发限流', async () => {
+  it('登录失败次数过多后触发限流（PRD 5次/15分钟）', async () => {
     await createUser('limit@example.com')
 
-    // 插入 10 条失败记录（模拟近期失败）
-    for (let i = 0; i < 10; i++) {
+    // 插入 5 条失败记录（达到 PRD 锁定阈值）
+    for (let i = 0; i < 5; i++) {
       testDb
         .prepare(`INSERT INTO login_attempts (id, email, ip_address, success) VALUES (?, ?, NULL, 0)`)
         .run(`attempt-${i}`, 'limit@example.com')
@@ -162,7 +162,21 @@ describe('authService.login', () => {
 
     await expect(
       authService.login({ email: 'limit@example.com', password: 'Password1!' })
-    ).rejects.toMatchObject({ statusCode: 429 })
+    ).rejects.toMatchObject({ statusCode: 429, code: 42901 })
+  })
+
+  it('登录失败 4 次未触发限流（低于阈值）', async () => {
+    await createUser('limit2@example.com')
+
+    for (let i = 0; i < 4; i++) {
+      testDb
+        .prepare(`INSERT INTO login_attempts (id, email, ip_address, success) VALUES (?, ?, NULL, 0)`)
+        .run(`attempt2-${i}`, 'limit2@example.com')
+    }
+
+    // 用正确密码应能登录成功
+    const result = await authService.login({ email: 'limit2@example.com', password: 'Password1!' })
+    expect(result.token).toBeTruthy()
   })
 })
 

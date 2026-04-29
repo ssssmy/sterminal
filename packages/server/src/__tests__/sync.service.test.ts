@@ -253,3 +253,141 @@ describe('syncService.getSyncCursors', () => {
     expect(deviceIds).toContain('cursor-dev-2')
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('syncService.pullFullSync', () => {
+  it('返回该用户全部未删除实体（不受 since 限制）', () => {
+    // 先插入 3 条
+    for (let i = 1; i <= 3; i++) {
+      syncService.pushSync(TEST_USER_ID, {
+        deviceId: DEVICE_A,
+        entities: [{
+          id: `full-${i}`, entityType: 'host',
+          data: '{}', version: 1, deleted: false,
+          updatedAt: new Date().toISOString(),
+        }],
+      })
+    }
+
+    const result = syncService.pullFullSync(TEST_USER_ID)
+    const ids = result.entities.map(e => e.id)
+    expect(ids).toContain('full-1')
+    expect(ids).toContain('full-2')
+    expect(ids).toContain('full-3')
+    expect(result.total).toBeGreaterThanOrEqual(3)
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('已软删除的实体不出现在 pullFullSync 结果中', () => {
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [{
+        id: 'soft-del', entityType: 'host',
+        data: '{}', version: 1, deleted: false,
+        updatedAt: new Date().toISOString(),
+      }],
+    })
+    syncService.deleteEntity(TEST_USER_ID, 'host', 'soft-del')
+
+    const result = syncService.pullFullSync(TEST_USER_ID)
+    const ids = result.entities.map(e => e.id)
+    expect(ids).not.toContain('soft-del')
+  })
+
+  it('limit + offset 分页', () => {
+    for (let i = 1; i <= 5; i++) {
+      syncService.pushSync(TEST_USER_ID, {
+        deviceId: DEVICE_A,
+        entities: [{
+          id: `page-${i}`, entityType: 'snippet',
+          data: '{}', version: 1, deleted: false,
+          updatedAt: new Date(Date.now() + i * 1000).toISOString(),
+        }],
+      })
+    }
+
+    const page1 = syncService.pullFullSync(TEST_USER_ID, 2, 0)
+    expect(page1.entities.length).toBeLessThanOrEqual(2)
+    expect(page1.hasMore).toBe(true)
+
+    const page2 = syncService.pullFullSync(TEST_USER_ID, 2, 2)
+    expect(page2.entities.length).toBeLessThanOrEqual(2)
+
+    // 两页的 id 不应重复
+    const ids1 = new Set(page1.entities.map(e => e.id))
+    const ids2 = new Set(page2.entities.map(e => e.id))
+    for (const id of ids1) expect(ids2.has(id)).toBe(false)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('syncService.resetSync', () => {
+  it('清空该用户全部 sync_entities + sync_cursors + encryption_salt', () => {
+    // 准备数据
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: 'reset-dev',
+      entities: [{
+        id: 'will-be-wiped', entityType: 'host',
+        data: '{}', version: 1, deleted: false,
+        updatedAt: new Date().toISOString(),
+      }],
+    })
+    syncService.setEncryptionSalt(TEST_USER_ID, 'a'.repeat(32))
+
+    const result = syncService.resetSync(TEST_USER_ID)
+
+    expect(result.entitiesDeleted).toBeGreaterThan(0)
+    expect(result.cursorsDeleted).toBeGreaterThan(0)
+
+    const remaining = testDb
+      .prepare('SELECT COUNT(*) as c FROM sync_entities WHERE user_id = ?')
+      .get(TEST_USER_ID) as { c: number }
+    expect(remaining.c).toBe(0)
+
+    const cursors = testDb
+      .prepare('SELECT COUNT(*) as c FROM sync_cursors WHERE user_id = ?')
+      .get(TEST_USER_ID) as { c: number }
+    expect(cursors.c).toBe(0)
+
+    const userRow = testDb
+      .prepare('SELECT encryption_salt FROM users WHERE id = ?')
+      .get(TEST_USER_ID) as { encryption_salt: string | null }
+    expect(userRow.encryption_salt).toBeNull()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('syncService.getEncryptionStatus / setEncryptionSalt', () => {
+  it('未设置时返回 hasEncryption=false', () => {
+    // 确保 salt 是 null
+    testDb.prepare('UPDATE users SET encryption_salt = NULL WHERE id = ?').run(TEST_USER_ID)
+
+    const result = syncService.getEncryptionStatus(TEST_USER_ID)
+    expect(result.hasEncryption).toBe(false)
+    expect(result.salt).toBeNull()
+  })
+
+  it('设置后返回 hasEncryption=true 且能读到 salt', () => {
+    testDb.prepare('UPDATE users SET encryption_salt = NULL WHERE id = ?').run(TEST_USER_ID)
+    const salt = 'b'.repeat(32)
+
+    syncService.setEncryptionSalt(TEST_USER_ID, salt)
+
+    const result = syncService.getEncryptionStatus(TEST_USER_ID)
+    expect(result.hasEncryption).toBe(true)
+    expect(result.salt).toBe(salt)
+  })
+
+  it('已设置时再次 set 抛 SYNC_SALT_ALREADY_SET (40004)', () => {
+    testDb.prepare('UPDATE users SET encryption_salt = NULL WHERE id = ?').run(TEST_USER_ID)
+    syncService.setEncryptionSalt(TEST_USER_ID, 'c'.repeat(32))
+
+    expect(() => syncService.setEncryptionSalt(TEST_USER_ID, 'd'.repeat(32)))
+      .toThrowError()
+    try {
+      syncService.setEncryptionSalt(TEST_USER_ID, 'e'.repeat(32))
+    } catch (e) {
+      expect((e as { code: number }).code).toBe(40004)
+    }
+  })
+})

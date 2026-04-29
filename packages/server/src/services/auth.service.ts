@@ -4,8 +4,13 @@ import { hashPassword, verifyPassword, sha256 } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
 import { sendVerifyEmail, sendPasswordResetEmail } from './email.service.js';
 import { AppError } from '../middleware/error-handler.js';
+import { ErrorCode } from '../utils/error-codes.js';
 import { logger } from '../utils/logger.js';
 import type { RegisterInput, LoginInput } from '../validators/auth.schema.js';
+
+/** 登录锁定参数（PRD：5 次/15 分钟） */
+const LOGIN_LOCK_WINDOW_MINUTES = 15;
+const LOGIN_LOCK_MAX_FAILS = 5;
 
 /**
  * 用户数据库记录类型
@@ -33,13 +38,13 @@ export async function register(input: RegisterInput, ipAddress?: string): Promis
   // 检查邮箱是否已注册
   const existingByEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(input.email);
   if (existingByEmail) {
-    throw new AppError(409, 409, '该邮箱已被注册');
+    throw new AppError(ErrorCode.USER_EMAIL_EXISTS, '该邮箱已被注册');
   }
 
   // 检查用户名是否已占用
   const existingByUsername = db.prepare('SELECT id FROM users WHERE username = ?').get(input.username);
   if (existingByUsername) {
-    throw new AppError(409, 409, '该用户名已被占用');
+    throw new AppError(ErrorCode.USER_USERNAME_EXISTS, '该用户名已被占用');
   }
 
   const userId = uuidv4();
@@ -94,24 +99,27 @@ export async function login(input: LoginInput, ipAddress?: string): Promise<{ to
 
   if (!user) {
     recordAttempt(false);
-    throw new AppError(401, 401, '邮箱或密码错误');
+    throw new AppError(ErrorCode.AUTH_INVALID_CREDENTIALS, '邮箱或密码错误');
   }
 
-  // 检查近期登录失败次数（10 分钟内超过 10 次则锁定）
+  // 检查近期登录失败次数（PRD：15 分钟内 5 次失败锁定）
   const recentFails = db.prepare(`
     SELECT COUNT(*) as count FROM login_attempts
     WHERE email = ? AND success = 0
-    AND created_at > datetime('now', '-10 minutes')
+    AND created_at > datetime('now', '-${LOGIN_LOCK_WINDOW_MINUTES} minutes')
   `).get(input.email) as { count: number };
 
-  if (recentFails.count >= 10) {
-    throw new AppError(429, 429, '登录失败次数过多，请 10 分钟后再试');
+  if (recentFails.count >= LOGIN_LOCK_MAX_FAILS) {
+    throw new AppError(
+      ErrorCode.LOGIN_LOCKED,
+      `登录失败次数过多，请 ${LOGIN_LOCK_WINDOW_MINUTES} 分钟后再试`,
+    );
   }
 
   const valid = await verifyPassword(user.password_hash, input.password);
   if (!valid) {
     recordAttempt(false);
-    throw new AppError(401, 401, '邮箱或密码错误');
+    throw new AppError(ErrorCode.AUTH_INVALID_CREDENTIALS, '邮箱或密码错误');
   }
 
   recordAttempt(true);
@@ -159,7 +167,7 @@ export function verifyEmail(token: string): void {
   ).get(token) as { id: string } | undefined;
 
   if (!user) {
-    throw new AppError(400, 400, '验证链接无效或已过期');
+    throw new AppError(ErrorCode.AUTH_VERIFY_TOKEN_INVALID, '验证链接无效或已过期');
   }
 
   db.prepare(`
@@ -204,7 +212,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
   `).get(tokenHash) as { id: string; user_id: string } | undefined;
 
   if (!reset) {
-    throw new AppError(400, 400, '重置链接无效或已过期');
+    throw new AppError(ErrorCode.AUTH_RESET_TOKEN_INVALID, '重置链接无效或已过期');
   }
 
   const newHash = await hashPassword(newPassword);

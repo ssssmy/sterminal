@@ -31,8 +31,14 @@ export function createApp(): express.Application {
   // ===== 中间件配置 =====
 
   // CORS - 允许客户端跨域访问
+  // 由 config.corsOrigin 控制，默认 '*'（自托管 + Electron 友好；安全由 JWT 保证）。
+  // credentials: true 时 cors 会自动把 origin: true 回显请求里的 Origin 头，避免 '*' + credentials 的违规组合。
+  const corsOrigin = config.corsOrigin === '*'
+    ? true                                          // 任意 origin（cors 库会回显 Origin）
+    : config.corsOrigin.split(',').map(s => s.trim()).filter(Boolean);
+
   app.use(cors({
-    origin: config.isDev ? '*' : config.baseUrl,
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

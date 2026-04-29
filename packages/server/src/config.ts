@@ -11,6 +11,11 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   baseUrl: process.env.BASE_URL ?? 'http://localhost:3001',
 
+  // CORS 允许的前端 origin（逗号分隔可多个）。
+  // 不设 / 设为 '*'：放开所有 origin（默认；安全靠 JWT，不靠 CORS — 适合自托管 + Electron 客户端）。
+  // 显式列举：例 "https://app.example.com,https://admin.example.com"
+  corsOrigin: process.env.CORS_ORIGIN ?? '*',
+
   // 数据库
   dbPath: process.env.DB_PATH ?? './data/sterminal.db',
 

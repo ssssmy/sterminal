@@ -31,9 +31,11 @@ ARG NPM_REGISTRY
 WORKDIR /repo
 
 # 切 apt 源（如果传了 APT_MIRROR）
+# bookworm-slim 不带 ca-certificates，所以强制使用 http://；apt 包本身由 GPG 签名验证，无需 TLS。
 RUN if [ -n "$APT_MIRROR" ]; then \
-        sed -ri "s#https?://deb\\.debian\\.org/debian-security#${APT_MIRROR}/debian-security#g" /etc/apt/sources.list.d/debian.sources && \
-        sed -ri "s#https?://deb\\.debian\\.org/debian#${APT_MIRROR}/debian#g" /etc/apt/sources.list.d/debian.sources; \
+        MIRROR=$(echo "$APT_MIRROR" | sed -E 's#^https?://#http://#'); \
+        sed -ri "s#https?://deb\\.debian\\.org/debian-security#${MIRROR}/debian-security#g" /etc/apt/sources.list.d/debian.sources && \
+        sed -ri "s#https?://deb\\.debian\\.org/debian#${MIRROR}/debian#g" /etc/apt/sources.list.d/debian.sources; \
     fi
 
 # 切 npm 源（如果传了 NPM_REGISTRY）
@@ -71,10 +73,11 @@ FROM node:20-bookworm-slim AS runtime
 
 ARG APT_MIRROR
 
-# 切 apt 源（如果传了 APT_MIRROR）
+# 切 apt 源（同 builder：强制 http:// 避免 slim 镜像缺 ca-certificates 导致 TLS 失败）
 RUN if [ -n "$APT_MIRROR" ]; then \
-        sed -ri "s#https?://deb\\.debian\\.org/debian-security#${APT_MIRROR}/debian-security#g" /etc/apt/sources.list.d/debian.sources && \
-        sed -ri "s#https?://deb\\.debian\\.org/debian#${APT_MIRROR}/debian#g" /etc/apt/sources.list.d/debian.sources; \
+        MIRROR=$(echo "$APT_MIRROR" | sed -E 's#^https?://#http://#'); \
+        sed -ri "s#https?://deb\\.debian\\.org/debian-security#${MIRROR}/debian-security#g" /etc/apt/sources.list.d/debian.sources && \
+        sed -ri "s#https?://deb\\.debian\\.org/debian#${MIRROR}/debian#g" /etc/apt/sources.list.d/debian.sources; \
     fi
 
 # dumb-init 用于正确转发 PID 1 信号（让 SIGTERM 优雅关闭逻辑生效）

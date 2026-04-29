@@ -1,6 +1,12 @@
 import passport from 'passport';
-import { Strategy as GitHubStrategy } from 'passport-github2';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import {
+  Strategy as GitHubStrategy,
+  type Profile as GitHubProfile,
+} from 'passport-github2';
+import {
+  Strategy as GoogleStrategy,
+  type Profile as GoogleProfile,
+} from 'passport-google-oauth20';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../database/connection.js';
 import { signToken } from '../utils/jwt.js';
@@ -100,7 +106,8 @@ export function initOAuthStrategies(): void {
           callbackURL: config.github.callbackUrl,
           scope: ['user:email'],
         },
-        async (_accessToken, _refreshToken, profile, done) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        async (_accessToken: string, _refreshToken: string, profile: GitHubProfile, done: any) => {
           try {
             const email =
               (profile.emails?.[0]?.value) ??
@@ -132,7 +139,10 @@ export function initOAuthStrategies(): void {
           clientSecret: config.google.clientSecret,
           callbackURL: config.google.callbackUrl,
         },
-        async (_accessToken, _refreshToken, profile, done) => {
+        // done 参数 passport 各 strategy 的具体签名差异较大，
+        // 用 unknown 函数签名最稳，能同时满足 GitHubStrategy / GoogleStrategy 的 overload。
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        async (_accessToken: string, _refreshToken: string, profile: GoogleProfile, done: any) => {
           try {
             const email = profile.emails?.[0]?.value;
             if (!email) {

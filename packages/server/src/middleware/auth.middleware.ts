@@ -4,13 +4,13 @@ import { AppError } from './error-handler.js';
 import { ErrorCode } from '../utils/error-codes.js';
 
 /**
- * 扩展 Express Request 类型，附加已验证的用户信息
+ * 让 Passport 的 Express.User 与我们的 JwtPayload 兼容。
+ * 这样 req.user 同时满足 passport 的类型期望和业务代码的 userId/sessionId/email 访问。
  */
 declare global {
   namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    interface User extends JwtPayload {}
   }
 }
 

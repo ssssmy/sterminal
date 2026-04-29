@@ -16,7 +16,7 @@ export function validate(schema: ZodSchema, source: 'body' | 'query' | 'params' 
       return;
     }
     // 将解析后的数据写回（经过 coerce/default 处理）
-    (req as Record<string, unknown>)[source] = result.data;
+    (req as unknown as Record<string, unknown>)[source] = result.data;
     next();
   };
 }

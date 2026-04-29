@@ -1,4 +1,4 @@
-export const DEFAULT_SERVER_URL = 'http://localhost:3000'
+export const DEFAULT_SERVER_URL = 'http://localhost:3001'
 
 export function normalizeServerUrl(url: string): string {
   return url.replace(/\/+$/, '')

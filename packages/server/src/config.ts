@@ -5,9 +5,9 @@ import 'dotenv/config';
  */
 export const config = {
   // 服务配置
-  port: parseInt(process.env.PORT ?? '3000', 10),
+  port: parseInt(process.env.PORT ?? '3001', 10),
   nodeEnv: process.env.NODE_ENV ?? 'development',
-  baseUrl: process.env.BASE_URL ?? 'http://localhost:3000',
+  baseUrl: process.env.BASE_URL ?? 'http://localhost:3001',
 
   // 数据库
   dbPath: process.env.DB_PATH ?? './data/sterminal.db',
@@ -30,14 +30,14 @@ export const config = {
   github: {
     clientId: process.env.GITHUB_CLIENT_ID ?? '',
     clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
-    callbackUrl: `${process.env.BASE_URL ?? 'http://localhost:3000'}/api/v1/auth/github/callback`,
+    callbackUrl: `${process.env.BASE_URL ?? 'http://localhost:3001'}/api/v1/auth/github/callback`,
   },
 
   // OAuth - Google
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-    callbackUrl: `${process.env.BASE_URL ?? 'http://localhost:3000'}/api/v1/auth/google/callback`,
+    callbackUrl: `${process.env.BASE_URL ?? 'http://localhost:3001'}/api/v1/auth/google/callback`,
   },
 
   // 文件上传

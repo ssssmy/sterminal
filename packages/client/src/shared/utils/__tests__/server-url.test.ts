@@ -60,7 +60,7 @@ describe('deriveWsUrl', () => {
 })
 
 describe('DEFAULT_SERVER_URL', () => {
-  it('points to localhost:3000', () => {
-    expect(DEFAULT_SERVER_URL).toBe('http://localhost:3000')
+  it('points to localhost:3001', () => {
+    expect(DEFAULT_SERVER_URL).toBe('http://localhost:3001')
   })
 })

@@ -98,7 +98,7 @@
             <el-collapse-transition>
               <div v-show="showServerUrl" class="login-form__server-input">
                 <label class="field-label">{{ t('loginView.serverUrl') }}</label>
-                <el-input v-model="serverUrl" placeholder="http://localhost:3000" clearable @change="handleServerUrlChange">
+                <el-input v-model="serverUrl" placeholder="http://localhost:3001" clearable @change="handleServerUrlChange">
                   <template #append>
                     <el-button :loading="testingServer" @click="handleTestServer">
                       {{ t('loginView.testConnection') }}

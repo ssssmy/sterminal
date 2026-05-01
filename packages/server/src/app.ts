@@ -21,6 +21,10 @@ import fileRoutes from './routes/file.routes.js';
 export function createApp(): express.Application {
   const app = express();
 
+  // 反向代理感知：让 express-rate-limit、req.ip 等读取 X-Forwarded-For
+  // 信任最近一跳代理（nginx / Caddy / 云负载均衡）。生产部署 sterminal 几乎总在反代后面。
+  app.set('trust proxy', 1);
+
   // 确保上传目录存在
   const uploadDir = path.resolve(config.uploadDir);
   if (!fs.existsSync(uploadDir)) {

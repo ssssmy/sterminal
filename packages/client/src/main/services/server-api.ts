@@ -19,7 +19,9 @@ class ServerApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: res.statusText }))
-      throw new Error(error.message || `HTTP ${res.status}`)
+      // 服务端 Zod 错误把字段细节放在 data 里，附加到消息里方便诊断
+      const detail = error.data ? ` :: ${JSON.stringify(error.data).slice(0, 500)}` : ''
+      throw new Error(`${error.message || `HTTP ${res.status}`}${detail}`)
     }
 
     if (res.status === 204) return undefined as T

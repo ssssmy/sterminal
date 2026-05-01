@@ -2,6 +2,15 @@ import db from '../database/connection.js';
 import { AppError } from '../middleware/error-handler.js';
 import { ErrorCode } from '../utils/error-codes.js';
 import { logger } from '../utils/logger.js';
+import {
+  mergeCrdt,
+  isAlive,
+  parseFieldMeta,
+  serializeFieldMeta,
+  type CrdtState,
+  type FieldMeta,
+  type Tick,
+} from './crdt-merge.js';
 import type { PushSyncInput, PullSyncQuery } from '../validators/sync.schema.js';
 
 /** ISO datetime → SQLite datetime (2024-01-01T00:00:00.000Z → 2024-01-01 00:00:00) */
@@ -9,74 +18,107 @@ function toSqliteTime(t: string): string {
   return t.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
 }
 
+function toIsoTime(t: string): string {
+  if (t.includes('T')) return t;
+  return t.replace(' ', 'T') + '.000Z';
+}
+
 /**
- * 同步实体记录类型
+ * 同步实体记录类型（DB 行）
  */
 export interface SyncEntityRecord {
   id: string;
   user_id: string;
   entity_type: string;
-  data: string;
+  data: string;                     // JSON-serialized fields
+  field_meta: string | null;        // JSON-serialized field clocks
   version: number;
   deleted: number;
+  tombstone_ts: string | null;
+  tombstone_did: string | null;
   updated_at: string;
   created_at: string;
 }
 
+function maxTs(meta: FieldMeta, tombstone: Tick | null): string {
+  let max = '1970-01-01T00:00:00.000Z';
+  for (const m of Object.values(meta)) {
+    if (m.ts > max) max = m.ts;
+  }
+  if (tombstone && tombstone.ts > max) max = tombstone.ts;
+  return max;
+}
+
+function rowToCrdtState(row: SyncEntityRecord): CrdtState {
+  let fields: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(row.data);
+    if (parsed && typeof parsed === 'object') fields = parsed as Record<string, unknown>;
+  } catch { /* ignore */ }
+  const fieldMeta = parseFieldMeta(row.field_meta);
+  const tombstone: Tick | null =
+    row.tombstone_ts && row.tombstone_did
+      ? { ts: row.tombstone_ts, did: row.tombstone_did }
+      : null;
+  return { fields, fieldMeta, tombstone };
+}
+
 /**
  * 推送同步数据（客户端 → 服务端）
- * 使用乐观锁：version 必须等于服务端当前 version + 1
+ *
+ * CRDT 合并：每个实体读取服务端现状 → mergeCrdt(local, remote) → 写回
+ * 每次合并都强制 +1 version 并刷新 updated_at，确保其他设备能拉到最新版本。
+ * 不再产生 conflicts —— CRDT 永不冲突。
  */
 export function pushSync(userId: string, input: PushSyncInput): {
   accepted: number;
   conflicts: string[];
 } {
   let accepted = 0;
-  const conflicts: string[] = [];
 
   const tx = db.transaction(() => {
     for (const entity of input.entities) {
-      const updatedAt = toSqliteTime(entity.updatedAt);
+      const remoteState: CrdtState = {
+        fields: entity.fields,
+        fieldMeta: entity.fieldMeta,
+        tombstone: entity.tombstone ?? null,
+      };
 
       const existing = db.prepare(`
-        SELECT version FROM sync_entities
+        SELECT * FROM sync_entities
         WHERE user_id = ? AND entity_type = ? AND id = ?
-      `).get(userId, entity.entityType, entity.id) as { version: number } | undefined;
+      `).get(userId, entity.entityType, entity.id) as SyncEntityRecord | undefined;
 
-      // 删除操作跳过版本检查（允许任意版本删除）
-      if (existing && !entity.deleted && entity.version !== existing.version + 1) {
-        conflicts.push(entity.id);
-        continue;
-      }
+      const localState: CrdtState | null = existing ? rowToCrdtState(existing) : null;
+      const merged = mergeCrdt(localState, remoteState);
+      const dead = !isAlive(merged);
+
+      const newVersion = (existing?.version ?? 0) + 1;
+      const newUpdatedAt = toSqliteTime(maxTs(merged.fieldMeta, merged.tombstone));
+
+      const dataJson = JSON.stringify(merged.fields);
+      const fieldMetaJson = serializeFieldMeta(merged.fieldMeta);
+      const tombTs = merged.tombstone?.ts ?? null;
+      const tombDid = merged.tombstone?.did ?? null;
 
       if (existing) {
-        // 删除操作强制递增版本号确保其他设备能拉到变更
-        const newVersion = entity.deleted ? existing.version + 1 : entity.version;
         db.prepare(`
           UPDATE sync_entities
-          SET data = ?, version = ?, deleted = ?, updated_at = ?
+          SET data = ?, field_meta = ?, version = ?, deleted = ?,
+              tombstone_ts = ?, tombstone_did = ?, updated_at = ?
           WHERE user_id = ? AND entity_type = ? AND id = ?
         `).run(
-          entity.data,
-          newVersion,
-          entity.deleted ? 1 : 0,
-          updatedAt,
-          userId,
-          entity.entityType,
-          entity.id,
+          dataJson, fieldMetaJson, newVersion, dead ? 1 : 0,
+          tombTs, tombDid, newUpdatedAt,
+          userId, entity.entityType, entity.id,
         );
       } else {
         db.prepare(`
-          INSERT INTO sync_entities (id, user_id, entity_type, data, version, deleted, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO sync_entities (id, user_id, entity_type, data, field_meta, version, deleted, tombstone_ts, tombstone_did, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          entity.id,
-          userId,
-          entity.entityType,
-          entity.data,
-          entity.version,
-          entity.deleted ? 1 : 0,
-          updatedAt,
+          entity.id, userId, entity.entityType, dataJson, fieldMetaJson,
+          newVersion, dead ? 1 : 0, tombTs, tombDid, newUpdatedAt,
         );
       }
 
@@ -93,16 +135,29 @@ export function pushSync(userId: string, input: PushSyncInput): {
 
   tx();
 
-  logger.debug({ userId, accepted, conflicts: conflicts.length }, '同步数据推送完成');
+  logger.debug({ userId, accepted }, '同步数据推送完成（CRDT 合并）');
 
-  return { accepted, conflicts };
+  // 兼容旧返回结构：conflicts 永远空数组
+  return { accepted, conflicts: [] };
 }
 
 /**
  * 拉取同步数据（服务端 → 客户端）
+ *
+ * 返回 CRDT 表示：fields + field_meta + tombstone_ts/did + updated_at。
  */
+export interface PullEntity {
+  id: string;
+  entity_type: string;
+  fields: Record<string, unknown>;
+  field_meta: FieldMeta;
+  tombstone_ts: string | null;
+  tombstone_did: string | null;
+  updated_at: string;
+}
+
 export function pullSync(userId: string, query: PullSyncQuery): {
-  entities: SyncEntityRecord[];
+  entities: PullEntity[];
   hasMore: boolean;
   nextSince: string;
 } {
@@ -118,18 +173,35 @@ export function pullSync(userId: string, query: PullSyncQuery): {
 
   params.push(query.limit + 1);
 
-  const entities = db.prepare(`
+  const rows = db.prepare(`
     SELECT * FROM sync_entities
     WHERE ${conditions.join(' AND ')}
     ORDER BY updated_at ASC
     LIMIT ?
   `).all(...params) as SyncEntityRecord[];
 
-  const hasMore = entities.length > query.limit;
-  const result = hasMore ? entities.slice(0, query.limit) : entities;
-  const nextSince = result.length > 0 ? result[result.length - 1].updated_at : since;
+  const hasMore = rows.length > query.limit;
+  const slice = hasMore ? rows.slice(0, query.limit) : rows;
+  const nextSince = slice.length > 0 ? toIsoTime(slice[slice.length - 1].updated_at) : toIsoTime(since);
 
-  return { entities: result, hasMore, nextSince };
+  const entities: PullEntity[] = slice.map((row) => {
+    let fields: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(row.data);
+      if (parsed && typeof parsed === 'object') fields = parsed as Record<string, unknown>;
+    } catch { /* ignore */ }
+    return {
+      id: row.id,
+      entity_type: row.entity_type,
+      fields,
+      field_meta: parseFieldMeta(row.field_meta),
+      tombstone_ts: row.tombstone_ts,
+      tombstone_did: row.tombstone_did,
+      updated_at: toIsoTime(row.updated_at),
+    };
+  });
+
+  return { entities, hasMore, nextSince };
 }
 
 /**
@@ -150,12 +222,16 @@ export function getSyncCursors(userId: string): Array<{
 }
 
 /**
- * 删除指定实体（软删除）
+ * 直接删除指定实体（管理 API 用，普通客户端走 push tombstone 路径）
  */
 export function deleteEntity(userId: string, entityType: string, entityId: string): void {
   const result = db.prepare(`
     UPDATE sync_entities
-    SET deleted = 1, updated_at = datetime('now'), version = version + 1
+    SET deleted = 1,
+        tombstone_ts = datetime('now'),
+        tombstone_did = 'admin',
+        updated_at = datetime('now'),
+        version = version + 1
     WHERE user_id = ? AND entity_type = ? AND id = ?
   `).run(userId, entityType, entityId);
 
@@ -165,11 +241,10 @@ export function deleteEntity(userId: string, entityType: string, entityId: strin
 }
 
 /**
- * 全量拉取该用户所有未删除实体（用于新设备首次同步或重建本地）
- * 不带 since 游标，但支持分页避免单次响应过大
+ * 全量拉取该用户所有未删除实体（新设备首次同步）
  */
 export function pullFullSync(userId: string, limit = 1000, offset = 0): {
-  entities: SyncEntityRecord[];
+  entities: PullEntity[];
   total: number;
   hasMore: boolean;
 } {
@@ -178,12 +253,29 @@ export function pullFullSync(userId: string, limit = 1000, offset = 0): {
     WHERE user_id = ? AND deleted = 0
   `).get(userId) as { count: number };
 
-  const entities = db.prepare(`
+  const rows = db.prepare(`
     SELECT * FROM sync_entities
     WHERE user_id = ? AND deleted = 0
     ORDER BY entity_type ASC, updated_at ASC
     LIMIT ? OFFSET ?
   `).all(userId, limit, offset) as SyncEntityRecord[];
+
+  const entities: PullEntity[] = rows.map((row) => {
+    let fields: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(row.data);
+      if (parsed && typeof parsed === 'object') fields = parsed as Record<string, unknown>;
+    } catch { /* ignore */ }
+    return {
+      id: row.id,
+      entity_type: row.entity_type,
+      fields,
+      field_meta: parseFieldMeta(row.field_meta),
+      tombstone_ts: row.tombstone_ts,
+      tombstone_did: row.tombstone_did,
+      updated_at: toIsoTime(row.updated_at),
+    };
+  });
 
   return {
     entities,
@@ -193,10 +285,7 @@ export function pullFullSync(userId: string, limit = 1000, offset = 0): {
 }
 
 /**
- * 重置该用户全部同步数据（清空 sync_entities + sync_cursors，
- * 同时清除 encryption_salt 让客户端可以重新设置 E2EE 密钥）
- *
- * ⚠️  破坏性操作，调用方需在控制器层做密码二次确认
+ * 重置该用户全部同步数据
  */
 export function resetSync(userId: string): { entitiesDeleted: number; cursorsDeleted: number } {
   let entitiesDeleted = 0;
@@ -209,7 +298,6 @@ export function resetSync(userId: string): { entitiesDeleted: number; cursorsDel
     const r2 = db.prepare('DELETE FROM sync_cursors WHERE user_id = ?').run(userId);
     cursorsDeleted = r2.changes;
 
-    // 清除加密 salt：用户重置后需要重新设置 E2EE
     db.prepare(`
       UPDATE users SET encryption_salt = NULL, updated_at = datetime('now') WHERE id = ?
     `).run(userId);
@@ -245,9 +333,6 @@ export function getEncryptionStatus(userId: string): {
 
 /**
  * 设置 E2EE 加密 salt（首次启用加密时调用）
- *
- * 与 user.service.setEncryptionSalt 行为一致：
- * 已设置过的盐值不能直接覆盖，必须先调用 resetSync 清除
  */
 export function setEncryptionSalt(userId: string, salt: string): void {
   const user = db.prepare(

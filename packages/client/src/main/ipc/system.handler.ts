@@ -13,6 +13,7 @@ import { dbAll, dbRun, dbGet } from '../services/db'
 import { parseSshConfig } from '../services/ssh-config-parser'
 import { parseSharedLinks } from '../services/shared-link-parser'
 import { logAuditEvent } from '../services/audit-service'
+import { syncEngine } from '../services/sync-engine'
 
 /**
  * 注册系统操作相关的 IPC handlers
@@ -237,6 +238,11 @@ export function registerSystemHandlers(): void {
       try { dbRun(`DELETE FROM ${table}`) } catch { /* table may not exist */ }
     }
     dbRun('PRAGMA foreign_keys = ON')
+
+    // 重置同步游标，否则下次 pull 仍从旧 since 开始，云端数据不会全量回流。
+    // 注意：保留 sync_meta.device_id，仅清空 last_sync_at。
+    syncEngine.resetCursor()
+
     logAuditEvent({ eventType: 'data.clear', category: 'system', summary: 'Cleared local data' })
     return true
   })

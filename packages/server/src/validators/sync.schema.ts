@@ -23,14 +23,29 @@ export const EntityTypeEnum = z.enum([
 export type EntityType = z.infer<typeof EntityTypeEnum>;
 
 /**
- * 单个同步实体 Schema
+ * CRDT 字段时钟
+ */
+export const TickSchema = z.object({
+  ts: z.string().min(1),
+  did: z.string().min(1),
+});
+
+export type Tick = z.infer<typeof TickSchema>;
+
+/**
+ * 单个同步实体 Schema（CRDT 协议）
+ *
+ *   - fields:     字段名 -> 值（任意 JSON）
+ *   - fieldMeta:  字段名 -> {ts, did} 字段级 LWW 时钟
+ *   - tombstone:  实体删除事件的时钟（可空）
+ *   - updatedAt:  max(fieldMeta[*].ts, tombstone.ts)，用作服务端游标
  */
 export const SyncEntitySchema = z.object({
   id: z.string().min(1, '实体 ID 不能为空'),
   entityType: EntityTypeEnum,
-  data: z.string().min(1, '实体数据不能为空'),  // JSON 字符串
-  version: z.number().int().positive(),
-  deleted: z.boolean().default(false),
+  fields: z.record(z.unknown()),
+  fieldMeta: z.record(TickSchema),
+  tombstone: TickSchema.nullable().optional(),
   updatedAt: z.string().min(1, '更新时间不能为空'),
 });
 

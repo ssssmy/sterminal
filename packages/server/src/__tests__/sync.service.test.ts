@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeAll, afterEach } from 'vitest'
+import { vi, describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
 
 // ── 内存数据库 ────────────────────────────────────────────────────────────────
 const testDb = vi.hoisted(() => {
@@ -20,7 +20,9 @@ vi.mock('../services/email.service.js', () => ({
 }))
 
 import { up } from '../database/migrations/001_initial.js'
+import { up as upCrdt } from '../database/migrations/002_crdt.js'
 import * as syncService from '../services/sync.service.js'
+import type { SyncEntityInput, Tick } from '../validators/sync.schema.js'
 
 const TEST_USER_ID = 'test-user-uuid-1234'
 const DEVICE_A = 'device-a'
@@ -28,7 +30,7 @@ const DEVICE_B = 'device-b'
 
 beforeAll(() => {
   up(testDb)
-  // 插入测试用户（不走注册流程以避免 argon2 开销）
+  upCrdt(testDb)
   testDb
     .prepare(`
       INSERT INTO users (id, username, email, password_hash)
@@ -44,141 +46,272 @@ afterEach(() => {
   `)
 })
 
+// 构造 CRDT 实体的辅助函数
+function tick(ts: string, did = DEVICE_A): Tick {
+  return { ts, did }
+}
+
+function entity(opts: {
+  id: string
+  entityType: SyncEntityInput['entityType']
+  fields: Record<string, unknown>
+  ts?: string
+  did?: string
+  tombstone?: Tick | null
+}): SyncEntityInput {
+  const t = opts.ts ?? new Date().toISOString()
+  const did = opts.did ?? DEVICE_A
+  const fieldMeta: Record<string, Tick> = {}
+  for (const k of Object.keys(opts.fields)) {
+    fieldMeta[k] = tick(t, did)
+  }
+  return {
+    id: opts.id,
+    entityType: opts.entityType,
+    fields: opts.fields,
+    fieldMeta,
+    tombstone: opts.tombstone ?? null,
+    updatedAt: t,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-describe('syncService.pushSync', () => {
-  it('新实体直接插入，accepted=1', () => {
+describe('syncService.pushSync (CRDT 字段级合并)', () => {
+  it('新实体直接插入，accepted=1，无 conflicts', () => {
     const result = syncService.pushSync(TEST_USER_ID, {
       deviceId: DEVICE_A,
-      entities: [
-        {
-          id: 'host-1',
-          entityType: 'host',
-          data: JSON.stringify({ label: 'prod' }),
-          version: 1,
-          deleted: false,
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-    })
-
-    expect(result.accepted).toBe(1)
-    expect(result.conflicts).toHaveLength(0)
-  })
-
-  it('版本号正确（version+1）时更新成功', () => {
-    // 先插入 version=1
-    syncService.pushSync(TEST_USER_ID, {
-      deviceId: DEVICE_A,
-      entities: [{
-        id: 'host-2', entityType: 'host',
-        data: '{"label":"v1"}', version: 1, deleted: false,
-        updatedAt: new Date().toISOString(),
-      }],
-    })
-
-    // 再用 version=2 更新
-    const result = syncService.pushSync(TEST_USER_ID, {
-      deviceId: DEVICE_A,
-      entities: [{
-        id: 'host-2', entityType: 'host',
-        data: '{"label":"v2"}', version: 2, deleted: false,
-        updatedAt: new Date().toISOString(),
-      }],
+      entities: [entity({ id: 'host-1', entityType: 'host', fields: { label: 'prod' } })],
     })
 
     expect(result.accepted).toBe(1)
     expect(result.conflicts).toHaveLength(0)
 
     const row = testDb
-      .prepare('SELECT version, data FROM sync_entities WHERE id = ? AND user_id = ?')
-      .get('host-2', TEST_USER_ID) as { version: number; data: string }
-    expect(row.version).toBe(2)
+      .prepare('SELECT data, field_meta FROM sync_entities WHERE id = ? AND user_id = ?')
+      .get('host-1', TEST_USER_ID) as { data: string; field_meta: string }
+    expect(JSON.parse(row.data).label).toBe('prod')
+    expect(JSON.parse(row.field_meta).label).toBeDefined()
+  })
+
+  it('CRDT 协议下永远没有冲突——任意 push 都被合并', () => {
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [entity({ id: 'host-2', entityType: 'host', fields: { label: 'v1' } })],
+    })
+
+    // 使用更大的时间戳推送 → 字段级合并接受新值
+    const result = syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [entity({
+        id: 'host-2',
+        entityType: 'host',
+        fields: { label: 'v2' },
+        ts: new Date(Date.now() + 1000).toISOString(),
+      })],
+    })
+
+    expect(result.accepted).toBe(1)
+    expect(result.conflicts).toHaveLength(0)
+
+    const row = testDb
+      .prepare('SELECT data FROM sync_entities WHERE id = ? AND user_id = ?')
+      .get('host-2', TEST_USER_ID) as { data: string }
     expect(JSON.parse(row.data).label).toBe('v2')
   })
 
-  it('版本号冲突时记录到 conflicts', () => {
+  it('两个设备并发改不同字段：合并后两边都保留', () => {
+    const baseTs = new Date(Date.now() - 1000).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [entity({
+        id: 'host-merge',
+        entityType: 'host',
+        fields: { label: 'orig', port: 22, address: '1.1.1.1' },
+        ts: baseTs,
+        did: DEVICE_A,
+      })],
+    })
+
+    // 设备 A 改 label
+    const tsA = new Date(Date.now() + 100).toISOString()
     syncService.pushSync(TEST_USER_ID, {
       deviceId: DEVICE_A,
       entities: [{
-        id: 'host-3', entityType: 'host',
-        data: '{}', version: 1, deleted: false,
-        updatedAt: new Date().toISOString(),
+        id: 'host-merge',
+        entityType: 'host',
+        fields: { label: 'a-changed', port: 22, address: '1.1.1.1' },
+        fieldMeta: {
+          label: tick(tsA, DEVICE_A),
+          port: tick(baseTs, DEVICE_A),
+          address: tick(baseTs, DEVICE_A),
+        },
+        tombstone: null,
+        updatedAt: tsA,
       }],
     })
 
-    // 用错误的 version=5（应为 2）
-    const result = syncService.pushSync(TEST_USER_ID, {
-      deviceId: DEVICE_A,
+    // 设备 B 改 port（基于旧 base，没看到 A 的改动）
+    const tsB = new Date(Date.now() + 200).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_B,
       entities: [{
-        id: 'host-3', entityType: 'host',
-        data: '{}', version: 5, deleted: false,
-        updatedAt: new Date().toISOString(),
+        id: 'host-merge',
+        entityType: 'host',
+        fields: { label: 'orig', port: 2222, address: '1.1.1.1' },
+        fieldMeta: {
+          label: tick(baseTs, DEVICE_A),
+          port: tick(tsB, DEVICE_B),
+          address: tick(baseTs, DEVICE_A),
+        },
+        tombstone: null,
+        updatedAt: tsB,
       }],
     })
 
-    expect(result.accepted).toBe(0)
-    expect(result.conflicts).toContain('host-3')
+    const row = testDb
+      .prepare('SELECT data FROM sync_entities WHERE id = ? AND user_id = ?')
+      .get('host-merge', TEST_USER_ID) as { data: string }
+    const merged = JSON.parse(row.data)
+    expect(merged.label).toBe('a-changed') // A 的修改保留
+    expect(merged.port).toBe(2222)          // B 的修改保留
+    expect(merged.address).toBe('1.1.1.1')  // 未改动字段保留
   })
 
-  it('软删除操作跳过版本检查', () => {
+  it('tombstone 推送：实体进入软删除', () => {
+    const t1 = new Date(Date.now() - 1000).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [entity({ id: 'host-del', entityType: 'host', fields: { label: 'x' }, ts: t1 })],
+    })
+
+    const t2 = new Date().toISOString()
     syncService.pushSync(TEST_USER_ID, {
       deviceId: DEVICE_A,
       entities: [{
-        id: 'host-del', entityType: 'host',
-        data: '{}', version: 1, deleted: false,
-        updatedAt: new Date().toISOString(),
+        id: 'host-del',
+        entityType: 'host',
+        fields: {},
+        fieldMeta: {},
+        tombstone: tick(t2, DEVICE_A),
+        updatedAt: t2,
       }],
     })
 
-    // 用任意版本号执行删除
-    const result = syncService.pushSync(TEST_USER_ID, {
+    const row = testDb
+      .prepare('SELECT deleted, tombstone_ts FROM sync_entities WHERE id = ? AND user_id = ?')
+      .get('host-del', TEST_USER_ID) as { deleted: number; tombstone_ts: string }
+    expect(row.deleted).toBe(1)
+    expect(row.tombstone_ts).toBeTruthy()
+  })
+
+  it('tombstone 之后字段更新（ts 更大）→ 实体复活', () => {
+    const baseTs = new Date(Date.now() - 5000).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [entity({ id: 'host-resurrect', entityType: 'host', fields: { label: 'x' }, ts: baseTs })],
+    })
+
+    // 删除
+    const tombTs = new Date(Date.now() - 1000).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
       deviceId: DEVICE_A,
       entities: [{
-        id: 'host-del', entityType: 'host',
-        data: '{}', version: 99, deleted: true,
-        updatedAt: new Date().toISOString(),
+        id: 'host-resurrect',
+        entityType: 'host',
+        fields: {},
+        fieldMeta: {},
+        tombstone: tick(tombTs, DEVICE_A),
+        updatedAt: tombTs,
       }],
     })
 
-    expect(result.accepted).toBe(1)
+    // 在 tombTs 之后用新的 ts 修改字段 → 复活
+    const reviveTs = new Date().toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_B,
+      entities: [{
+        id: 'host-resurrect',
+        entityType: 'host',
+        fields: { label: 'revived' },
+        fieldMeta: { label: tick(reviveTs, DEVICE_B) },
+        tombstone: null,
+        updatedAt: reviveTs,
+      }],
+    })
+
+    const row = testDb
+      .prepare('SELECT data, deleted FROM sync_entities WHERE id = ? AND user_id = ?')
+      .get('host-resurrect', TEST_USER_ID) as { data: string; deleted: number }
+    expect(row.deleted).toBe(0)                    // 复活
+    expect(JSON.parse(row.data).label).toBe('revived')
+  })
+
+  it('删除前的修改（ts 更小）不能阻止 tombstone', () => {
+    const oldTs = new Date(Date.now() - 5000).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [entity({ id: 'host-del-wins', entityType: 'host', fields: { label: 'x' }, ts: oldTs })],
+    })
+
+    // 设备 B 在 oldTs 后改了 label，但还没推
+    const editTs = new Date(Date.now() - 3000).toISOString()
+    // 设备 A 删除（更晚）
+    const tombTs = new Date(Date.now() - 1000).toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [{
+        id: 'host-del-wins',
+        entityType: 'host',
+        fields: {},
+        fieldMeta: {},
+        tombstone: tick(tombTs, DEVICE_A),
+        updatedAt: tombTs,
+      }],
+    })
+
+    // B 现在才推送旧的修改（editTs < tombTs）
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_B,
+      entities: [{
+        id: 'host-del-wins',
+        entityType: 'host',
+        fields: { label: 'b-edit' },
+        fieldMeta: { label: tick(editTs, DEVICE_B) },
+        tombstone: null,
+        updatedAt: editTs,
+      }],
+    })
+
     const row = testDb
       .prepare('SELECT deleted FROM sync_entities WHERE id = ? AND user_id = ?')
-      .get('host-del', TEST_USER_ID) as { deleted: number }
-    expect(row.deleted).toBe(1)
+      .get('host-del-wins', TEST_USER_ID) as { deleted: number }
+    expect(row.deleted).toBe(1) // tombstone 仍生效
   })
 
   it('批量推送多个实体', () => {
-    const entities = Array.from({ length: 5 }, (_, i) => ({
-      id: `snippet-${i}`,
-      entityType: 'snippet',
-      data: `{"name":"s${i}"}`,
-      version: 1,
-      deleted: false,
-      updatedAt: new Date().toISOString(),
-    }))
-
+    const entities = Array.from({ length: 5 }, (_, i) =>
+      entity({ id: `snippet-${i}`, entityType: 'snippet', fields: { name: `s${i}` } })
+    )
     const result = syncService.pushSync(TEST_USER_ID, { deviceId: DEVICE_A, entities })
     expect(result.accepted).toBe(5)
+    expect(result.conflicts).toHaveLength(0)
   })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('syncService.pullSync', () => {
-  // 每个测试前重新插入实体（外层 afterEach 会清理）
   beforeEach(() => {
     const base = Date.now() - 10000
     for (let i = 1; i <= 3; i++) {
-      const updatedAt = new Date(base + i * 1000).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')
-      testDb
-        .prepare(`
-          INSERT OR IGNORE INTO sync_entities (id, user_id, entity_type, data, version, deleted, updated_at, created_at)
-          VALUES (?, ?, 'host', '{}', 1, 0, ?, ?)
-        `)
-        .run(`pull-host-${i}`, TEST_USER_ID, updatedAt, updatedAt)
+      const ts = new Date(base + i * 1000).toISOString()
+      syncService.pushSync(TEST_USER_ID, {
+        deviceId: DEVICE_A,
+        entities: [entity({ id: `pull-host-${i}`, entityType: 'host', fields: { label: `h${i}` }, ts })],
+      })
     }
   })
 
-  it('拉取所有数据（since=epoch）', () => {
+  it('拉取所有数据（since=epoch）返回 fields + field_meta', () => {
     const result = syncService.pullSync(TEST_USER_ID, {
       deviceId: DEVICE_B,
       since: '1970-01-01T00:00:00Z',
@@ -186,6 +319,10 @@ describe('syncService.pullSync', () => {
     })
 
     expect(result.entities.length).toBeGreaterThanOrEqual(3)
+    const first = result.entities[0]
+    expect(first.fields).toBeTypeOf('object')
+    expect(first.field_meta).toBeTypeOf('object')
+    expect(first.tombstone_ts).toBeNull()
   })
 
   it('since 过滤只返回更新的实体', () => {
@@ -196,7 +333,6 @@ describe('syncService.pullSync', () => {
       limit: 200,
     })
 
-    // 只有后两条在 since 之后
     expect(result.entities.length).toBeLessThanOrEqual(3)
   })
 
@@ -206,45 +342,60 @@ describe('syncService.pullSync', () => {
       since: '1970-01-01T00:00:00Z',
       limit: 200,
     })
-    // nextSince 应为最后一条实体的 updated_at，不再是 epoch
     expect(result.nextSince).not.toBe('1970-01-01 00:00:00')
     expect(result.hasMore).toBe(false)
+  })
+
+  it('tombstone 实体也会通过 pull 返回（带 tombstone_ts）', () => {
+    const ts = new Date().toISOString()
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: DEVICE_A,
+      entities: [{
+        id: 'tomb-pull',
+        entityType: 'host',
+        fields: {},
+        fieldMeta: {},
+        tombstone: tick(ts, DEVICE_A),
+        updatedAt: ts,
+      }],
+    })
+
+    const result = syncService.pullSync(TEST_USER_ID, {
+      deviceId: DEVICE_B,
+      since: '1970-01-01T00:00:00Z',
+      limit: 200,
+    })
+    const tombEntity = result.entities.find(e => e.id === 'tomb-pull')
+    expect(tombEntity).toBeDefined()
+    expect(tombEntity!.tombstone_ts).toBeTruthy()
   })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('syncService.deleteEntity', () => {
-  it('软删除指定实体', () => {
+  it('管理 API 软删除指定实体', () => {
     syncService.pushSync(TEST_USER_ID, {
       deviceId: DEVICE_A,
-      entities: [{
-        id: 'to-delete', entityType: 'snippet',
-        data: '{}', version: 1, deleted: false,
-        updatedAt: new Date().toISOString(),
-      }],
+      entities: [entity({ id: 'to-delete', entityType: 'snippet', fields: { name: 'x' } })],
     })
 
     syncService.deleteEntity(TEST_USER_ID, 'snippet', 'to-delete')
 
     const row = testDb
-      .prepare('SELECT deleted FROM sync_entities WHERE id = ? AND user_id = ?')
-      .get('to-delete', TEST_USER_ID) as { deleted: number } | undefined
-    expect(row?.deleted).toBe(1)
+      .prepare('SELECT deleted, tombstone_ts FROM sync_entities WHERE id = ? AND user_id = ?')
+      .get('to-delete', TEST_USER_ID) as { deleted: number; tombstone_ts: string }
+    expect(row.deleted).toBe(1)
+    expect(row.tombstone_ts).toBeTruthy()
   })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('syncService.getSyncCursors', () => {
-  it('pushSync 后游标被写入，getSyncCursors 能读到', () => {
-    const entity = {
-      id: 'cursor-entity-1',
-      entityType: 'snippet' as const,
-      data: '{}',
-      version: 1,
-      deleted: false,
-      updatedAt: new Date().toISOString(),
-    }
-    syncService.pushSync(TEST_USER_ID, { deviceId: 'cursor-dev-1', entities: [entity] })
+  it('pushSync 后游标被写入', () => {
+    syncService.pushSync(TEST_USER_ID, {
+      deviceId: 'cursor-dev-1',
+      entities: [entity({ id: 'cursor-entity-1', entityType: 'snippet', fields: {} })],
+    })
     syncService.pushSync(TEST_USER_ID, { deviceId: 'cursor-dev-2', entities: [] })
 
     const cursors = syncService.getSyncCursors(TEST_USER_ID)
@@ -256,16 +407,11 @@ describe('syncService.getSyncCursors', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('syncService.pullFullSync', () => {
-  it('返回该用户全部未删除实体（不受 since 限制）', () => {
-    // 先插入 3 条
+  it('返回该用户全部未删除实体', () => {
     for (let i = 1; i <= 3; i++) {
       syncService.pushSync(TEST_USER_ID, {
         deviceId: DEVICE_A,
-        entities: [{
-          id: `full-${i}`, entityType: 'host',
-          data: '{}', version: 1, deleted: false,
-          updatedAt: new Date().toISOString(),
-        }],
+        entities: [entity({ id: `full-${i}`, entityType: 'host', fields: {} })],
       })
     }
 
@@ -278,14 +424,10 @@ describe('syncService.pullFullSync', () => {
     expect(result.hasMore).toBe(false)
   })
 
-  it('已软删除的实体不出现在 pullFullSync 结果中', () => {
+  it('已 tombstone 的实体不出现在 pullFullSync 结果中', () => {
     syncService.pushSync(TEST_USER_ID, {
       deviceId: DEVICE_A,
-      entities: [{
-        id: 'soft-del', entityType: 'host',
-        data: '{}', version: 1, deleted: false,
-        updatedAt: new Date().toISOString(),
-      }],
+      entities: [entity({ id: 'soft-del', entityType: 'host', fields: {} })],
     })
     syncService.deleteEntity(TEST_USER_ID, 'host', 'soft-del')
 
@@ -296,13 +438,10 @@ describe('syncService.pullFullSync', () => {
 
   it('limit + offset 分页', () => {
     for (let i = 1; i <= 5; i++) {
+      const ts = new Date(Date.now() + i * 1000).toISOString()
       syncService.pushSync(TEST_USER_ID, {
         deviceId: DEVICE_A,
-        entities: [{
-          id: `page-${i}`, entityType: 'snippet',
-          data: '{}', version: 1, deleted: false,
-          updatedAt: new Date(Date.now() + i * 1000).toISOString(),
-        }],
+        entities: [entity({ id: `page-${i}`, entityType: 'snippet', fields: {}, ts })],
       })
     }
 
@@ -313,7 +452,6 @@ describe('syncService.pullFullSync', () => {
     const page2 = syncService.pullFullSync(TEST_USER_ID, 2, 2)
     expect(page2.entities.length).toBeLessThanOrEqual(2)
 
-    // 两页的 id 不应重复
     const ids1 = new Set(page1.entities.map(e => e.id))
     const ids2 = new Set(page2.entities.map(e => e.id))
     for (const id of ids1) expect(ids2.has(id)).toBe(false)
@@ -323,14 +461,9 @@ describe('syncService.pullFullSync', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describe('syncService.resetSync', () => {
   it('清空该用户全部 sync_entities + sync_cursors + encryption_salt', () => {
-    // 准备数据
     syncService.pushSync(TEST_USER_ID, {
       deviceId: 'reset-dev',
-      entities: [{
-        id: 'will-be-wiped', entityType: 'host',
-        data: '{}', version: 1, deleted: false,
-        updatedAt: new Date().toISOString(),
-      }],
+      entities: [entity({ id: 'will-be-wiped', entityType: 'host', fields: {} })],
     })
     syncService.setEncryptionSalt(TEST_USER_ID, 'a'.repeat(32))
 
@@ -359,7 +492,6 @@ describe('syncService.resetSync', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describe('syncService.getEncryptionStatus / setEncryptionSalt', () => {
   it('未设置时返回 hasEncryption=false', () => {
-    // 确保 salt 是 null
     testDb.prepare('UPDATE users SET encryption_salt = NULL WHERE id = ?').run(TEST_USER_ID)
 
     const result = syncService.getEncryptionStatus(TEST_USER_ID)

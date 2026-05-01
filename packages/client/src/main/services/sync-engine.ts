@@ -1,5 +1,5 @@
 // 同步引擎
-// 管理本地数据与服务端的双向同步，支持 E2EE 加密
+// 管理本地数据与服务端的双向同步，CRDT 字段级 LWW + tombstone 复活
 
 import WebSocket from 'ws'
 import { v4 as uuidv4 } from 'uuid'
@@ -9,37 +9,48 @@ import { api } from './server-api'
 import { getServerUrl } from './server-url-service'
 import { deriveWsUrl } from '../../shared/utils/server-url'
 import type { SyncStatus } from '../../shared/types/sync'
+import { crdtClock, compareTick, type Tick } from './crdt-clock'
+import {
+  mergeCrdt,
+  isAlive,
+  parseFieldMeta,
+  serializeFieldMeta,
+  type CrdtState,
+  type FieldMeta,
+} from './crdt-merge'
 
 export type { SyncState, SyncStatus } from '../../shared/types/sync'
 
-interface SyncEntity {
+// 同步实体的线缆表示（push / pull 共用）
+interface SyncEntityWire {
   id: string
   entityType: string
-  data: string
-  version: number
-  deleted: boolean
+  fields: Record<string, unknown>
+  fieldMeta: FieldMeta
+  tombstone: Tick | null
   updatedAt: string
 }
 
 interface PushResult {
   accepted: number
-  conflicts: string[]
+}
+
+interface PullEntity {
+  id: string
+  entity_type: string
+  fields: Record<string, unknown>
+  field_meta: FieldMeta
+  tombstone_ts: string | null
+  tombstone_did: string | null
+  updated_at: string
 }
 
 interface PullResult {
-  entities: Array<{
-    id: string
-    entity_type: string
-    data: string
-    version: number
-    deleted: number
-    updated_at: string
-  }>
+  entities: PullEntity[]
   hasMore: boolean
   nextSince: string
 }
 
-// 需要同步的实体表映射
 const SYNC_TABLES: Array<{
   table: string
   entityType: string
@@ -59,26 +70,57 @@ const SYNC_TABLES: Array<{
   { table: 'vault_entries', entityType: 'vault_entry', idField: 'id' },
 ]
 
-// 主机表中需要加密的敏感字段
+// 这些列不参与 CRDT 字段合并（属于同步元数据或本地派生）
+const NON_CRDT_COLUMNS = new Set([
+  'sync_version',
+  'sync_updated_at',
+  'created_at',
+  'field_meta',
+])
+
 const HOST_SENSITIVE_FIELDS = ['password_enc', 'key_passphrase_enc', 'proxy_password_enc']
 
-/**
- * 将 SQLite datetime 格式 (2024-01-01 00:00:00) 转为 ISO 格式 (2024-01-01T00:00:00.000Z)
- */
+const LEGACY_DID = 'legacy' // 没有 field_meta 时合成 tick 用的占位 did
+
 function toISODateTime(dt: string | null | undefined): string {
   if (!dt) return new Date().toISOString()
   if (dt.includes('T')) return dt
   return dt.replace(' ', 'T') + '.000Z'
 }
 
-/**
- * 将 ISO/任意格式转为 SQLite datetime 格式 (2024-01-01 00:00:00)
- * 用于本地 DB 查询的 WHERE 比较
- */
 function toSqliteDateTime(dt: string | null | undefined): string {
   if (!dt) return '1970-01-01 00:00:00'
-  // ISO → SQLite: "2024-01-01T00:00:00.000Z" → "2024-01-01 00:00:00"
   return dt.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '')
+}
+
+function maxFieldTs(meta: FieldMeta): string {
+  let max = '1970-01-01T00:00:00.000Z'
+  for (const m of Object.values(meta)) {
+    if (m.ts > max) max = m.ts
+  }
+  return max
+}
+
+/**
+ * 拼出实体的 CrdtState（用于合并）。fields 与 fieldMeta 已剔除同步元数据。
+ */
+function rowToCrdt(row: Record<string, unknown>): { fields: Record<string, unknown>; fieldMeta: FieldMeta } {
+  const fields: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (NON_CRDT_COLUMNS.has(k)) continue
+    fields[k] = v
+  }
+  const stored = parseFieldMeta((row.field_meta as string | null | undefined) ?? null)
+  // 兼容旧行：未打过 stamp 的列用 sync_updated_at 合成 tick
+  const fallback: Tick = {
+    ts: toISODateTime((row.sync_updated_at as string | null | undefined) ?? null),
+    did: LEGACY_DID,
+  }
+  const fieldMeta: FieldMeta = { ...stored }
+  for (const f of Object.keys(fields)) {
+    if (!fieldMeta[f]) fieldMeta[f] = fallback
+  }
+  return { fields, fieldMeta }
 }
 
 class SyncEngine {
@@ -107,9 +149,7 @@ class SyncEngine {
         "SELECT value FROM sync_meta WHERE key = 'device_id'"
       )
       if (row) return row.value
-    } catch {
-      // sync_meta table might not exist yet
-    }
+    } catch { /* sync_meta table might not exist yet */ }
 
     const id = uuidv4()
     try {
@@ -117,9 +157,7 @@ class SyncEngine {
         "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('device_id', ?)",
         [id]
       )
-    } catch {
-      // ignore if table doesn't exist
-    }
+    } catch { /* ignore */ }
     return id
   }
 
@@ -171,16 +209,9 @@ class SyncEngine {
     this.lastSyncAt = this.loadLastSyncAt()
     this.updateStatus({ state: 'idle', lastSyncAt: this.lastSyncAt ?? undefined })
 
-    // Load saved auto-sync interval
     this.loadAutoSyncInterval()
-
-    // Connect WebSocket
     this.connectWs()
-
-    // Schedule periodic sync
     this.schedulePeriodicSync()
-
-    // Initial sync
     setTimeout(() => this.syncNow().catch(console.error), 2000)
   }
 
@@ -197,40 +228,42 @@ class SyncEngine {
     this.updateStatus({ state: 'stopped' })
   }
 
+  resetCursor(): void {
+    this.lastSyncAt = null
+    try {
+      dbRun("DELETE FROM sync_meta WHERE key = 'last_sync_at'")
+    } catch { /* ignore */ }
+    if (this.token) {
+      this.updateStatus({ state: 'idle', lastSyncAt: undefined })
+    }
+  }
+
   async syncNow(): Promise<void> {
-    console.log('[Sync] syncNow called, isSyncing:', this.isSyncing, 'hasToken:', !!this.token)
     if (this.isSyncing || !this.token) {
       if (this.isSyncing) this.pendingSyncRequest = true
-      console.log('[Sync] syncNow skipped:', this.isSyncing ? 'already syncing' : 'no token')
       return
     }
 
     this.isSyncing = true
     this.pendingSyncRequest = false
-    // Reset WS reconnect on manual sync (allows retry after max attempts)
     if (this.wsReconnectAttempts > SyncEngine.MAX_WS_RECONNECT_ATTEMPTS && !this.ws) {
       this.wsReconnectAttempts = 0
       this.connectWs()
     }
-    console.log('[Sync] === syncNow start ===', 'token:', !!this.token, 'lastSyncAt:', this.lastSyncAt)
     this.updateStatus({ state: 'syncing', progress: 'Pushing changes...' })
 
     try {
       await this.pushChanges()
-      console.log('[Sync] Push done, starting pull...')
       this.updateStatus({ state: 'syncing', progress: 'Pulling changes...' })
       await this.pullChanges()
-      console.log('[Sync] Pull done, lastSyncAt:', this.lastSyncAt)
       this.updateStatus({ state: 'idle', lastSyncAt: this.lastSyncAt ?? undefined })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown sync error'
       console.error('[Sync] Error:', message, err)
       this.updateStatus({ state: 'error', message })
-      // 重新抛出让调用方知道同步失败
       throw err
     } finally {
       this.isSyncing = false
-      // If a sync was requested while we were busy, run again
       if (this.pendingSyncRequest && this.token) {
         this.pendingSyncRequest = false
         setTimeout(() => this.syncNow().catch(console.error), 1000)
@@ -242,43 +275,43 @@ class SyncEngine {
     if (!this.token) return
 
     const entities = this.collectDirtyEntities()
-    console.log(`[Sync] Push: ${entities.length} dirty entities`)
     if (entities.length === 0) return
 
-    // Batch push (max 500 per request)
     for (let i = 0; i < entities.length; i += 500) {
       const batch = entities.slice(i, i + 500)
-      const result = await api.post<PushResult>(
+      await api.post<PushResult>(
         '/sync/push',
         { deviceId: this.deviceId, entities: batch },
         this.token
       )
 
-      if (result.conflicts.length > 0) {
-        console.warn('[Sync] Conflicts:', result.conflicts)
-        // On conflict, we'll rely on the pull phase to resolve (LWW)
-      }
-
-      // Mark pushed deletes as synced
-      const deletedEntities = batch.filter(e => e.deleted)
-      for (const entity of deletedEntities) {
-        dbRun(
-          'UPDATE sync_deletes SET synced = 1 WHERE entity_type = ? AND entity_id = ?',
-          [entity.entityType, entity.id]
-        )
+      // 标记 tombstones 为已同步
+      for (const e of batch) {
+        if (e.tombstone) {
+          dbRun(
+            'UPDATE crdt_tombstones SET synced = 1 WHERE entity_type = ? AND entity_id = ?',
+            [e.entityType, e.id]
+          )
+          // 同时清掉旧的 sync_deletes 记录（兼容期保留）
+          dbRun(
+            'UPDATE sync_deletes SET synced = 1 WHERE entity_type = ? AND entity_id = ?',
+            [e.entityType, e.id]
+          )
+        }
       }
     }
 
-    // Purge synced deletes to prevent unbounded table growth
-    // 清理已同步的删除记录 + 超过 7 天的残留记录
+    // 清理超过 30 天的已同步 tombstone（避免无限膨胀）
+    dbRun("DELETE FROM crdt_tombstones WHERE synced = 1 AND ts < datetime('now', '-30 days')")
     dbRun("DELETE FROM sync_deletes WHERE synced = 1 OR deleted_at < datetime('now', '-7 days')")
   }
 
-  private collectDirtyEntities(): SyncEntity[] {
-    const entities: SyncEntity[] = []
-    // 本地 DB 用 SQLite datetime 格式比较
+  private collectDirtyEntities(): SyncEntityWire[] {
+    const entities: SyncEntityWire[] = []
     const sinceSqlite = toSqliteDateTime(this.lastSyncAt)
+    const seen = new Set<string>() // entityType:id, 防止 tombstone 与活跃行重复推送
 
+    // 1. 收集存活实体
     for (const { table, entityType, idField } of SYNC_TABLES) {
       const rows = dbAll<Record<string, unknown>>(
         `SELECT * FROM ${table} WHERE sync_updated_at > ?`,
@@ -286,83 +319,101 @@ class SyncEngine {
       )
 
       for (const row of rows) {
-        let data = { ...row }
+        const id = row[idField] as string
+        const { fields, fieldMeta } = rowToCrdt(row)
 
-        // For snippets, include tags
+        // snippet 的 tags 单独处理：作为伪字段挂到 _tags
         if (entityType === 'snippet') {
           const tags = dbAll<{ tag: string }>(
             'SELECT tag FROM snippet_tags WHERE snippet_id = ?',
-            [row[idField] as string]
+            [id]
           )
-          data = { ...data, _tags: tags.map(t => t.tag) }
-        }
-
-        // Encrypt sensitive host fields
-        if (entityType === 'host' && e2eCrypto.hasKey()) {
-          for (const field of HOST_SENSITIVE_FIELDS) {
-            const value = data[field]
-            if (value && typeof value === 'string') {
-              data[field] = e2eCrypto.encrypt(value)
-              data[`${field}_encrypted`] = true
+          fields._tags = tags.map(t => t.tag)
+          // _tags 没有独立 tick，蹭 row 级 tick
+          if (!fieldMeta._tags) {
+            fieldMeta._tags = {
+              ts: toISODateTime((row.sync_updated_at as string | null) ?? null),
+              did: LEGACY_DID,
             }
           }
         }
 
+        // 加密敏感字段
+        if (entityType === 'host' && e2eCrypto.hasKey()) {
+          for (const f of HOST_SENSITIVE_FIELDS) {
+            const v = fields[f]
+            if (v && typeof v === 'string') {
+              fields[f] = e2eCrypto.encrypt(v)
+              fields[`${f}_encrypted`] = true
+            }
+          }
+        }
+
+        // 同时附带可能存在的 tombstone（极少见的活+tomb 共存场景）
+        const tomb = dbGet<{ ts: string; did: string }>(
+          'SELECT ts, did FROM crdt_tombstones WHERE entity_type = ? AND entity_id = ? AND synced = 0',
+          [entityType, id]
+        )
+
         entities.push({
-          id: row[idField] as string,
+          id,
           entityType,
-          data: JSON.stringify(data),
-          version: (row.sync_version as number) ?? 1,
-          deleted: false,
-          updatedAt: toISODateTime(row.sync_updated_at as string),
+          fields,
+          fieldMeta,
+          tombstone: tomb ? { ts: tomb.ts, did: tomb.did } : null,
+          updatedAt: maxFieldTs(fieldMeta),
         })
+        seen.add(`${entityType}:${id}`)
       }
     }
 
-    // Settings (each key is a separate entity)
-    const settingsRows = dbAll<{ key: string; value: string; sync_version: number; sync_updated_at: string }>(
+    // 2. 单独收集只剩 tombstone 的删除事件（业务表已无对应行）
+    const tombs = dbAll<{ entity_type: string; entity_id: string; ts: string; did: string }>(
+      'SELECT entity_type, entity_id, ts, did FROM crdt_tombstones WHERE synced = 0'
+    )
+    for (const t of tombs) {
+      const key = `${t.entity_type}:${t.entity_id}`
+      if (seen.has(key)) continue
+      entities.push({
+        id: t.entity_id,
+        entityType: t.entity_type,
+        fields: {},
+        fieldMeta: {},
+        tombstone: { ts: t.ts, did: t.did },
+        updatedAt: t.ts,
+      })
+    }
+
+    // 3. settings / keybinding：仍按单字段实体推送，meta 中只有 value/shortcut
+    const settingsRows = dbAll<{ key: string; value: string; sync_updated_at: string }>(
       'SELECT * FROM settings WHERE sync_updated_at > ?',
       [sinceSqlite]
     )
     for (const row of settingsRows) {
+      const tick: Tick = { ts: toISODateTime(row.sync_updated_at), did: LEGACY_DID }
       entities.push({
         id: row.key,
         entityType: 'settings',
-        data: JSON.stringify({ key: row.key, value: row.value }),
-        version: row.sync_version ?? 1,
-        deleted: false,
-        updatedAt: toISODateTime(row.sync_updated_at),
+        fields: { key: row.key, value: row.value },
+        fieldMeta: { value: tick },
+        tombstone: null,
+        updatedAt: tick.ts,
       })
     }
 
-    // Keybindings
-    const keybindingRows = dbAll<{ action: string; shortcut: string; sync_version: number; sync_updated_at: string }>(
+    const kbRows = dbAll<{ action: string; shortcut: string; sync_updated_at: string }>(
       'SELECT * FROM keybindings WHERE sync_updated_at > ?',
       [sinceSqlite]
     )
-    for (const row of keybindingRows) {
+    for (const row of kbRows) {
+      const tick: Tick = { ts: toISODateTime(row.sync_updated_at), did: LEGACY_DID }
       entities.push({
         id: row.action,
         entityType: 'keybinding',
-        data: JSON.stringify({ action: row.action, shortcut: row.shortcut }),
-        version: row.sync_version ?? 1,
-        deleted: false,
-        updatedAt: toISODateTime(row.sync_updated_at),
-      })
-    }
-
-    // Tracked deletes
-    const deletes = dbAll<{ entity_type: string; entity_id: string; deleted_at: string }>(
-      'SELECT * FROM sync_deletes WHERE synced = 0'
-    )
-    for (const del of deletes) {
-      entities.push({
-        id: del.entity_id,
-        entityType: del.entity_type,
-        data: '{}',
-        version: 1,
-        deleted: true,
-        updatedAt: toISODateTime(del.deleted_at),
+        fields: { action: row.action, shortcut: row.shortcut },
+        fieldMeta: { shortcut: tick },
+        tombstone: null,
+        updatedAt: tick.ts,
       })
     }
 
@@ -381,7 +432,6 @@ class SyncEngine {
         this.token
       )
 
-      console.log(`[Sync] Pull: ${result.entities.length} entities, hasMore=${result.hasMore}`)
       for (const entity of result.entities) {
         this.applyEntity(entity)
       }
@@ -393,152 +443,193 @@ class SyncEngine {
     this.saveLastSyncAt(since)
   }
 
-  private applyEntity(entity: {
-    id: string
-    entity_type: string
-    data: string
-    version: number
-    deleted: number
-    updated_at: string
-  }): void {
-    const entityType = entity.entity_type
-    console.log(`[Sync] Applying ${entityType}:${entity.id} v${entity.version} deleted=${entity.deleted}`)
-
-    if (entity.deleted) {
-      this.deleteLocalEntity(entityType, entity.id)
-      return
-    }
-
-    let data: Record<string, unknown>
-    try {
-      data = JSON.parse(entity.data)
-    } catch {
-      console.error('[Sync] Invalid entity data:', entity.id)
-      return
-    }
-
-    // Decrypt sensitive host fields
-    if (entityType === 'host' && e2eCrypto.hasKey()) {
-      for (const field of HOST_SENSITIVE_FIELDS) {
-        if (data[`${field}_encrypted`] && data[field] && typeof data[field] === 'string') {
-          try {
-            data[field] = e2eCrypto.decrypt(data[field] as string)
-          } catch {
-            console.warn(`[Sync] Failed to decrypt ${field} for host ${entity.id}`)
-          }
-          delete data[`${field}_encrypted`]
-        }
-      }
-    }
-
-    // Check local version - only apply if remote >= local (LWW)
-    const tableInfo = this.getTableInfo(entityType)
-    if (tableInfo) {
-      const local = dbGet<{ sync_version: number }>(
-        `SELECT sync_version FROM ${tableInfo.table} WHERE ${tableInfo.idField} = ?`,
-        [entity.id]
-      )
-      if (local && local.sync_version > entity.version) {
-        console.log(`[Sync] Skip ${entityType}:${entity.id} — local v${local.sync_version} > remote v${entity.version}`)
-        return
-      }
-    }
-
-    this.upsertEntity(entityType, entity.id, data, entity.version, entity.updated_at)
-  }
-
   private static readonly TABLE_MAP = new Map(SYNC_TABLES.map(t => [t.entityType, t]))
 
-  private getTableInfo(entityType: string) {
+  private getTableInfo(entityType: string): typeof SYNC_TABLES[0] | undefined {
     return SyncEngine.TABLE_MAP.get(entityType)
   }
 
-  private deleteLocalEntity(entityType: string, id: string): void {
-    const tableInfo = this.getTableInfo(entityType)
+  private applyEntity(entity: PullEntity): void {
+    const { entity_type: entityType, id } = entity
 
-    if (entityType === 'settings') {
-      dbRun('DELETE FROM settings WHERE key = ?', [id])
-    } else if (entityType === 'keybinding') {
-      dbRun('DELETE FROM keybindings WHERE action = ?', [id])
-    } else if (entityType === 'snippet') {
-      dbRun('DELETE FROM snippet_tags WHERE snippet_id = ?', [id])
-      dbRun('DELETE FROM snippets WHERE id = ?', [id])
-    } else if (tableInfo) {
-      dbRun(`DELETE FROM ${tableInfo.table} WHERE ${tableInfo.idField} = ?`, [id])
+    // 拉高本地时钟
+    for (const m of Object.values(entity.field_meta || {})) {
+      crdtClock.observe(m.ts)
     }
-  }
+    if (entity.tombstone_ts) crdtClock.observe(entity.tombstone_ts)
 
-  private upsertEntity(
-    entityType: string,
-    id: string,
-    data: Record<string, unknown>,
-    version: number,
-    updatedAt: string
-  ): void {
+    // settings / keybinding：单字段 LWW
     if (entityType === 'settings') {
-      dbRun(
-        `INSERT INTO settings (key, value, sync_version, sync_updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, sync_version = excluded.sync_version, sync_updated_at = excluded.sync_updated_at`,
-        [data.key as string, data.value as string, version, updatedAt]
+      const local = dbGet<{ sync_updated_at: string }>(
+        'SELECT sync_updated_at FROM settings WHERE key = ?',
+        [id]
       )
+      const remoteTs = entity.field_meta?.value?.ts ?? entity.updated_at
+      if (local && toISODateTime(local.sync_updated_at) > remoteTs) return
+      const value = entity.fields.value as string | undefined
+      if (typeof value === 'string') {
+        dbRun(
+          `INSERT INTO settings (key, value, sync_updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, sync_updated_at = excluded.sync_updated_at`,
+          [id, value, toSqliteDateTime(remoteTs)]
+        )
+      }
       return
     }
 
     if (entityType === 'keybinding') {
-      dbRun(
-        `INSERT INTO keybindings (action, shortcut, sync_version, sync_updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(action) DO UPDATE SET shortcut = excluded.shortcut, sync_version = excluded.sync_version, sync_updated_at = excluded.sync_updated_at`,
-        [data.action as string, data.shortcut as string, version, updatedAt]
+      const local = dbGet<{ sync_updated_at: string }>(
+        'SELECT sync_updated_at FROM keybindings WHERE action = ?',
+        [id]
       )
+      const remoteTs = entity.field_meta?.shortcut?.ts ?? entity.updated_at
+      if (local && toISODateTime(local.sync_updated_at) > remoteTs) return
+      const shortcut = entity.fields.shortcut as string | undefined
+      if (typeof shortcut === 'string') {
+        dbRun(
+          `INSERT INTO keybindings (action, shortcut, sync_updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(action) DO UPDATE SET shortcut = excluded.shortcut, sync_updated_at = excluded.sync_updated_at`,
+          [id, shortcut, toSqliteDateTime(remoteTs)]
+        )
+      }
       return
     }
 
     const tableInfo = this.getTableInfo(entityType)
     if (!tableInfo) return
 
-    // Handle snippet tags separately
-    let snippetTags: string[] = []
-    if (entityType === 'snippet' && Array.isArray(data._tags)) {
-      snippetTags = data._tags as string[]
-      delete data._tags
+    // 解密敏感字段（hosts）
+    const remoteFields: Record<string, unknown> = { ...entity.fields }
+    if (entityType === 'host' && e2eCrypto.hasKey()) {
+      for (const f of HOST_SENSITIVE_FIELDS) {
+        if (remoteFields[`${f}_encrypted`] && typeof remoteFields[f] === 'string') {
+          try {
+            remoteFields[f] = e2eCrypto.decrypt(remoteFields[f] as string)
+          } catch {
+            console.warn(`[Sync] Failed to decrypt ${f} for ${entityType}:${id}`)
+          }
+          delete remoteFields[`${f}_encrypted`]
+        }
+      }
     }
 
-    // Remove sync metadata fields from data (they are added separately)
-    delete data.sync_version
-    delete data.sync_updated_at
+    const remoteState: CrdtState = {
+      fields: remoteFields,
+      fieldMeta: entity.field_meta || {},
+      tombstone: entity.tombstone_ts && entity.tombstone_did
+        ? { ts: entity.tombstone_ts, did: entity.tombstone_did }
+        : null,
+    }
 
-    // Build UPSERT query
-    const columns = Object.keys(data).filter(k => !k.endsWith('_encrypted'))
-    const placeholders = columns.map(() => '?').join(', ')
-    const updates = columns
+    // 读本地状态
+    const localRow = dbGet<Record<string, unknown>>(
+      `SELECT * FROM ${tableInfo.table} WHERE ${tableInfo.idField} = ?`,
+      [id]
+    )
+    const localTomb = dbGet<{ ts: string; did: string }>(
+      'SELECT ts, did FROM crdt_tombstones WHERE entity_type = ? AND entity_id = ?',
+      [entityType, id]
+    )
+    let localState: CrdtState | null = null
+    if (localRow) {
+      const { fields, fieldMeta } = rowToCrdt(localRow)
+      // snippet 把 tags 也并进 fields
+      if (entityType === 'snippet') {
+        const tags = dbAll<{ tag: string }>(
+          'SELECT tag FROM snippet_tags WHERE snippet_id = ?',
+          [id]
+        )
+        fields._tags = tags.map(t => t.tag)
+      }
+      localState = {
+        fields,
+        fieldMeta,
+        tombstone: localTomb ? { ts: localTomb.ts, did: localTomb.did } : null,
+      }
+    } else if (localTomb) {
+      localState = {
+        fields: {},
+        fieldMeta: {},
+        tombstone: { ts: localTomb.ts, did: localTomb.did },
+      }
+    }
+
+    const merged = mergeCrdt(localState, remoteState)
+
+    if (isAlive(merged)) {
+      this.upsertMerged(tableInfo, id, merged)
+    } else {
+      // 实体被 tombstone 占据，业务表删除，保留 tombstone（标记 synced=1，避免回推）
+      dbRun(`DELETE FROM ${tableInfo.table} WHERE ${tableInfo.idField} = ?`, [id])
+      if (entityType === 'snippet') {
+        dbRun('DELETE FROM snippet_tags WHERE snippet_id = ?', [id])
+      }
+      if (merged.tombstone) {
+        dbRun(
+          `INSERT INTO crdt_tombstones (entity_type, entity_id, ts, did, synced) VALUES (?, ?, ?, ?, 1)
+           ON CONFLICT(entity_type, entity_id) DO UPDATE SET ts = excluded.ts, did = excluded.did, synced = 1`,
+          [entityType, id, merged.tombstone.ts, merged.tombstone.did]
+        )
+      }
+    }
+  }
+
+  private upsertMerged(
+    tableInfo: typeof SYNC_TABLES[0],
+    id: string,
+    state: CrdtState
+  ): void {
+    const fields = { ...state.fields }
+    let snippetTags: string[] | null = null
+    if (tableInfo.entityType === 'snippet' && Array.isArray(fields._tags)) {
+      snippetTags = fields._tags as string[]
+      delete fields._tags
+    }
+
+    // 移除任何残留的同步元数据
+    delete fields.sync_version
+    delete fields.sync_updated_at
+    delete fields.field_meta
+
+    const cols = Object.keys(fields).filter(k => !k.endsWith('_encrypted'))
+    if (cols.length === 0) return
+
+    const placeholders = cols.map(() => '?').join(', ')
+    const updates = cols
       .filter(c => c !== tableInfo.idField)
       .map(c => `${c} = excluded.${c}`)
       .join(', ')
-
-    const values = columns.map(c => {
-      const v = data[c]
-      return v === undefined || v === null ? null : typeof v === 'object' ? JSON.stringify(v) : v
+    const values = cols.map(c => {
+      const v = fields[c]
+      return v === undefined || v === null
+        ? null
+        : typeof v === 'object'
+          ? JSON.stringify(v)
+          : v
     })
+    const fieldMetaJson = serializeFieldMeta(state.fieldMeta)
 
-    const sql = `INSERT INTO ${tableInfo.table} (${columns.join(', ')}, sync_version, sync_updated_at)
-         VALUES (${placeholders}, ?, ?)
-         ON CONFLICT(${tableInfo.idField}) DO UPDATE SET ${updates}, sync_version = excluded.sync_version, sync_updated_at = excluded.sync_updated_at`
+    const sql = `INSERT INTO ${tableInfo.table} (${cols.join(', ')}, field_meta, sync_updated_at, sync_version)
+         VALUES (${placeholders}, ?, datetime('now'), 1)
+         ON CONFLICT(${tableInfo.idField}) DO UPDATE SET ${updates}, field_meta = excluded.field_meta, sync_updated_at = excluded.sync_updated_at, sync_version = ${tableInfo.table}.sync_version + 1`
 
     try {
-      dbRun(sql, [...values, version, updatedAt])
-      console.log(`[Sync] Upserted ${entityType}:${id}`)
+      dbRun(sql, [...values, fieldMetaJson])
     } catch (err) {
-      console.error(`[Sync] Failed to upsert ${entityType}:${id}:`, err)
-      console.error(`[Sync] SQL: ${sql}`)
-      console.error(`[Sync] Columns: ${columns.join(', ')}`)
-      console.error(`[Sync] Values:`, values)
+      console.error(`[Sync] Failed to upsert ${tableInfo.entityType}:${id}:`, err)
       return
     }
 
-    // Handle snippet tags
-    if (entityType === 'snippet' && snippetTags.length > 0) {
+    // tombstone 同步状态：实体存活时，本地 tombstone 标记为已 synced（不再推送）
+    if (state.tombstone) {
+      dbRun(
+        `INSERT INTO crdt_tombstones (entity_type, entity_id, ts, did, synced) VALUES (?, ?, ?, ?, 1)
+         ON CONFLICT(entity_type, entity_id) DO UPDATE SET ts = excluded.ts, did = excluded.did, synced = 1`,
+        [tableInfo.entityType, id, state.tombstone.ts, state.tombstone.did]
+      )
+    }
+
+    if (tableInfo.entityType === 'snippet' && snippetTags) {
       dbRun('DELETE FROM snippet_tags WHERE snippet_id = ?', [id])
       for (const tag of snippetTags) {
         dbRun('INSERT INTO snippet_tags (snippet_id, tag) VALUES (?, ?)', [id, tag])
@@ -551,7 +642,6 @@ class SyncEngine {
   private connectWs(): void {
     if (!this.token) return
 
-    // Clean up existing connection if any
     if (this.ws) {
       this.ws.removeAllListeners()
       this.ws.close()
@@ -562,26 +652,21 @@ class SyncEngine {
       this.ws = new WebSocket(deriveWsUrl(getServerUrl()))
 
       this.ws.on('open', () => {
-        // Send auth message
         this.ws?.send(JSON.stringify({
           type: 'auth',
           data: { token: this.token, deviceId: this.deviceId },
         }))
         this.wsReconnectDelay = 1000
         this.wsReconnectAttempts = 0
-        console.log('[Sync] WebSocket connected')
       })
 
       this.ws.on('message', (rawData) => {
         try {
           const msg = JSON.parse(rawData.toString())
           if (msg.type === 'sync_notify') {
-            // Another device pushed data, pull immediately
             this.syncNow().catch(console.error)
           }
-        } catch {
-          // ignore parse errors
-        }
+        } catch { /* ignore parse errors */ }
       })
 
       this.ws.on('close', () => {
@@ -611,7 +696,6 @@ class SyncEngine {
     this.wsReconnectTimer = setTimeout(() => {
       this.connectWs()
     }, this.wsReconnectDelay)
-    // Exponential backoff: 1s, 2s, 4s, 8s, ... max 60s
     this.wsReconnectDelay = Math.min(this.wsReconnectDelay * 2, 60000)
   }
 
@@ -628,7 +712,6 @@ class SyncEngine {
 
   setAutoSyncInterval(minutes: number): void {
     this.autoSyncMinutes = minutes
-    // 重新调度
     if (this.syncTimer) {
       clearTimeout(this.syncTimer)
       this.syncTimer = null
@@ -649,3 +732,5 @@ class SyncEngine {
 }
 
 export const syncEngine = new SyncEngine()
+// 让 IPC 层能调用 compareTick 之类的工具
+export { compareTick }

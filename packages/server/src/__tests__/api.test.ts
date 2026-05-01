@@ -31,12 +31,14 @@ vi.mock('../middleware/rate-limit.js', () => {
 })
 
 import { up } from '../database/migrations/001_initial.js'
+import { up as upCrdt } from '../database/migrations/002_crdt.js'
 import { createApp } from '../app.js'
 
 const app = createApp()
 
 beforeAll(() => {
   up(testDb)
+  upCrdt(testDb)
 })
 
 afterEach(() => {
@@ -286,9 +288,10 @@ describe('PUT /api/v1/user/me/password', () => {
 // ============================================================================
 // 同步 - push / pull
 // ============================================================================
-describe('Sync push & pull', () => {
+describe('Sync push & pull (CRDT)', () => {
   it('push 合法实体后 pull 能读到', async () => {
     const { token } = await registerAndLogin('syncu', 'sync-api@test.com')
+    const ts = new Date().toISOString()
 
     const push = await request(app)
       .post('/api/v1/sync/push')
@@ -296,8 +299,12 @@ describe('Sync push & pull', () => {
       .send({
         deviceId: 'dev-a',
         entities: [{
-          id: 'host-x', entityType: 'host', data: '{"label":"x"}',
-          version: 1, deleted: false, updatedAt: new Date().toISOString(),
+          id: 'host-x',
+          entityType: 'host',
+          fields: { label: 'x' },
+          fieldMeta: { label: { ts, did: 'dev-a' } },
+          tombstone: null,
+          updatedAt: ts,
         }],
       })
 
@@ -313,6 +320,7 @@ describe('Sync push & pull', () => {
     expect(pull.status).toBe(200)
     expect(pull.body.data.entities.length).toBeGreaterThanOrEqual(1)
     expect(pull.body.data.entities[0].id).toBe('host-x')
+    expect(pull.body.data.entities[0].fields.label).toBe('x')
   })
 
   it('未认证访问 sync/push 返回 401', async () => {
@@ -323,8 +331,10 @@ describe('Sync push & pull', () => {
     expect(res.status).toBe(401)
   })
 
-  it('版本冲突进入 conflicts 列表', async () => {
+  it('CRDT 协议下重复 push 同 ID 不再产生冲突', async () => {
     const { token } = await registerAndLogin('confu', 'conf@test.com')
+    const t1 = new Date(Date.now() - 1000).toISOString()
+    const t2 = new Date().toISOString()
 
     await request(app)
       .post('/api/v1/sync/push')
@@ -332,8 +342,11 @@ describe('Sync push & pull', () => {
       .send({
         deviceId: 'd1',
         entities: [{
-          id: 'h1', entityType: 'host', data: '{}',
-          version: 1, deleted: false, updatedAt: new Date().toISOString(),
+          id: 'h1', entityType: 'host',
+          fields: { label: 'v1' },
+          fieldMeta: { label: { ts: t1, did: 'd1' } },
+          tombstone: null,
+          updatedAt: t1,
         }],
       })
 
@@ -343,13 +356,16 @@ describe('Sync push & pull', () => {
       .send({
         deviceId: 'd1',
         entities: [{
-          id: 'h1', entityType: 'host', data: '{}',
-          version: 99, deleted: false, updatedAt: new Date().toISOString(),
+          id: 'h1', entityType: 'host',
+          fields: { label: 'v2' },
+          fieldMeta: { label: { ts: t2, did: 'd1' } },
+          tombstone: null,
+          updatedAt: t2,
         }],
       })
 
-    expect(push2.body.data.accepted).toBe(0)
-    expect(push2.body.data.conflicts).toContain('h1')
+    expect(push2.body.data.accepted).toBe(1)
+    expect(push2.body.data.conflicts).toEqual([])
   })
 })
 
@@ -362,14 +378,18 @@ describe('Sync full / reset / encryption', () => {
 
     // push 3 条
     for (let i = 1; i <= 3; i++) {
+      const ts = new Date().toISOString()
       await request(app)
         .post('/api/v1/sync/push')
         .set('Authorization', `Bearer ${token}`)
         .send({
           deviceId: 'd',
           entities: [{
-            id: `f-${i}`, entityType: 'snippet', data: '{}',
-            version: 1, deleted: false, updatedAt: new Date().toISOString(),
+            id: `f-${i}`, entityType: 'snippet',
+            fields: { name: `s${i}` },
+            fieldMeta: { name: { ts, did: 'd' } },
+            tombstone: null,
+            updatedAt: ts,
           }],
         })
     }
@@ -414,14 +434,18 @@ describe('Sync full / reset / encryption', () => {
     const { token, userId } = await registerAndLogin('resu3', 'reset3@test.com', 'Password1!')
 
     // push 一些数据
+    const ts = new Date().toISOString()
     await request(app)
       .post('/api/v1/sync/push')
       .set('Authorization', `Bearer ${token}`)
       .send({
         deviceId: 'd',
         entities: [{
-          id: 'will-reset', entityType: 'host', data: '{}',
-          version: 1, deleted: false, updatedAt: new Date().toISOString(),
+          id: 'will-reset', entityType: 'host',
+          fields: { label: 'x' },
+          fieldMeta: { label: { ts, did: 'd' } },
+          tombstone: null,
+          updatedAt: ts,
         }],
       })
 

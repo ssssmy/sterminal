@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { createWsServer } from './websocket/ws-server.js';
 import db from './database/connection.js';
 import { up as runInitialMigration } from './database/migrations/001_initial.js';
+import { up as runCrdtMigration } from './database/migrations/002_crdt.js';
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 
@@ -12,6 +13,7 @@ import { logger } from './utils/logger.js';
 function runMigrations(): void {
   try {
     runInitialMigration(db);
+    runCrdtMigration(db);
     logger.info('数据库迁移完成');
   } catch (err) {
     logger.error({ err }, '数据库迁移失败');

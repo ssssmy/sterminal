@@ -6,6 +6,7 @@ import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { SCHEMA_SQL } from '../database/schema'
+import { runMigrations } from '../database/migrations'
 
 let db: Database.Database | null = null
 
@@ -42,6 +43,9 @@ export function initDatabase(): Database.Database {
 
   // 运行建表 SQL（幂等，使用 IF NOT EXISTS）
   db.exec(SCHEMA_SQL)
+
+  // 运行 schema 迁移（追加列、新表）
+  runMigrations(db)
 
   console.log(`[DB] 数据库已初始化: ${dbPath}`)
 

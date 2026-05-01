@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS } from '../../shared/constants/defaults'
 import { syncEngine } from '../services/sync-engine'
 import { e2eCrypto } from '../services/crypto'
 import { logAuditEvent } from '../services/audit-service'
+import { stampInsert, stampUpdate, stampTombstone } from '../services/crdt-write'
 
 /**
  * 数据变更后防抖触发同步（5 秒内多次变更只触发一次）
@@ -22,9 +23,12 @@ function scheduleSyncAfterChange(): void {
 }
 
 /**
- * 记录实体删除到 sync_deletes 表（供同步引擎推送）
+ * 记录实体删除：
+ *   1. 写入 crdt_tombstones（新同步流程的删除事件）
+ *   2. 同时保留 sync_deletes 写入，供尚未迁移的旧路径与回退使用
  */
 function trackDelete(entityType: string, entityId: string): void {
+  stampTombstone(entityType, entityId)
   dbRun(
     `INSERT OR REPLACE INTO sync_deletes (entity_type, entity_id, deleted_at, synced)
      VALUES (?, ?, datetime('now'), 0)`,
@@ -142,6 +146,7 @@ function registerLocalTerminalsHandlers(): void {
         data.groupId ?? null,
       ]
     )
+    stampInsert('local_terminals', 'id', id, ['name', 'shell', 'cwd', 'startup_command', 'environment', 'login_shell', 'is_default', 'sort_order', 'group_id'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
   })
@@ -156,11 +161,12 @@ function registerLocalTerminalsHandlers(): void {
 
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
 
-    if ('name' in data) { sets.push('name = COALESCE(?, name)'); params.push(data.name ?? null) }
-    if ('sortOrder' in data) { sets.push('sort_order = COALESCE(?, sort_order)'); params.push(data.sortOrder ?? null) }
-    if ('loginShell' in data) { sets.push('login_shell = ?'); params.push(data.loginShell ? 1 : 0) }
-    if ('isDefault' in data) { sets.push('is_default = ?'); params.push(data.isDefault ? 1 : 0) }
+    if ('name' in data) { sets.push('name = COALESCE(?, name)'); params.push(data.name ?? null); changedCols.push('name') }
+    if ('sortOrder' in data) { sets.push('sort_order = COALESCE(?, sort_order)'); params.push(data.sortOrder ?? null); changedCols.push('sort_order') }
+    if ('loginShell' in data) { sets.push('login_shell = ?'); params.push(data.loginShell ? 1 : 0); changedCols.push('login_shell') }
+    if ('isDefault' in data) { sets.push('is_default = ?'); params.push(data.isDefault ? 1 : 0); changedCols.push('is_default') }
 
     // 可为 null 的字段
     const nullableFields: [string, string][] = [
@@ -171,11 +177,13 @@ function registerLocalTerminalsHandlers(): void {
       if (key in data) {
         sets.push(`${col} = ?`)
         params.push(data[key] ?? null)
+        changedCols.push(col)
       }
     }
     if ('environment' in data) {
       sets.push('environment = ?')
       params.push(data.environment ? JSON.stringify(data.environment) : null)
+      changedCols.push('environment')
     }
 
     if (sets.length === 0) return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
@@ -183,6 +191,7 @@ function registerLocalTerminalsHandlers(): void {
     sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE local_terminals SET ${sets.join(', ')} WHERE id = ?`, params)
+    stampUpdate('local_terminals', 'id', id, changedCols)
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminals WHERE id = ?', [id])
   })
@@ -208,6 +217,7 @@ function registerLocalTerminalGroupsHandlers(): void {
       'INSERT INTO local_terminal_groups (id, name, parent_id, sort_order) VALUES (?, ?, ?, ?)',
       [id, data.name, data.parentId ?? null, data.sortOrder ?? 0]
     )
+    stampInsert('local_terminal_groups', 'id', id, ['name', 'parent_id', 'sort_order'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminal_groups WHERE id = ?', [id])
   })
@@ -222,6 +232,7 @@ function registerLocalTerminalGroupsHandlers(): void {
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.sortOrder ?? null, id]
     )
+    stampUpdate('local_terminal_groups', 'id', id, ['name', 'parent_id', 'sort_order'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM local_terminal_groups WHERE id = ?', [id])
   })
@@ -254,6 +265,13 @@ function registerHostsHandlers(): void {
   // 创建主机
   ipcMain.handle(IPC_DB.HOSTS_CREATE, (_event, data: Record<string, unknown>) => {
     const id = uuidv4()
+    const insertCols = [
+      'label', 'address', 'port', 'protocol', 'username', 'auth_type',
+      'password_enc', 'key_id', 'key_passphrase_enc', 'startup_command',
+      'encoding', 'keepalive_interval', 'connect_timeout', 'compression',
+      'strict_host_key', 'ssh_version', 'notes', 'group_id',
+      'proxy_jump_id', 'socks_proxy', 'http_proxy', 'sort_order',
+    ]
     dbRun(
       `INSERT INTO hosts (id, label, address, port, protocol, username, auth_type, password_enc, key_id, key_passphrase_enc, startup_command, encoding, keepalive_interval, connect_timeout, compression, strict_host_key, ssh_version, notes, group_id, proxy_jump_id, socks_proxy, http_proxy, sort_order)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -283,6 +301,7 @@ function registerHostsHandlers(): void {
         data.sortOrder ?? 0,
       ]
     )
+    stampInsert('hosts', 'id', id, insertCols)
     scheduleSyncAfterChange()
     logAuditEvent({ eventType: 'host.create', category: 'config', summary: 'Created host: ' + (data.label ?? data.address) })
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
@@ -294,6 +313,7 @@ function registerHostsHandlers(): void {
   ipcMain.handle(IPC_DB.HOSTS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
 
     // COALESCE 字段：未传时保持原值
     const coalesceFields: [string, string][] = [
@@ -308,12 +328,13 @@ function registerHostsHandlers(): void {
       if (key in data) {
         sets.push(`${col} = COALESCE(?, ${col})`)
         params.push(data[key] ?? null)
+        changedCols.push(col)
       }
     }
 
     // 布尔字段
-    if ('compression' in data) { sets.push('compression = ?'); params.push(data.compression ? 1 : 0) }
-    if ('strictHostKey' in data) { sets.push('strict_host_key = ?'); params.push(data.strictHostKey ? 1 : 0) }
+    if ('compression' in data) { sets.push('compression = ?'); params.push(data.compression ? 1 : 0); changedCols.push('compression') }
+    if ('strictHostKey' in data) { sets.push('strict_host_key = ?'); params.push(data.strictHostKey ? 1 : 0); changedCols.push('strict_host_key') }
 
     // 可为 null 的字段：只有显式传入时才更新（允许设为 null）
     const nullableFields: [string, string][] = [
@@ -326,6 +347,7 @@ function registerHostsHandlers(): void {
       if (key in data) {
         sets.push(`${col} = ?`)
         params.push(data[key] ?? null)
+        changedCols.push(col)
       }
     }
 
@@ -334,6 +356,7 @@ function registerHostsHandlers(): void {
     sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE hosts SET ${sets.join(', ')} WHERE id = ?`, params)
+    stampUpdate('hosts', 'id', id, changedCols)
     scheduleSyncAfterChange()
     logAuditEvent({ eventType: 'host.update', category: 'config', summary: 'Updated host: ' + id })
     return dbGet('SELECT * FROM hosts WHERE id = ?', [id])
@@ -362,6 +385,7 @@ function registerHostGroupsHandlers(): void {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, data.name, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? 0, data.collapsed ? 1 : 0]
     )
+    stampInsert('host_groups', 'id', id, ['name', 'parent_id', 'icon', 'color', 'sort_order', 'collapsed'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM host_groups WHERE id = ?', [id])
   })
@@ -379,6 +403,7 @@ function registerHostGroupsHandlers(): void {
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.icon ?? null, data.color ?? null, data.sortOrder ?? null, data.collapsed !== undefined ? (data.collapsed ? 1 : 0) : null, id]
     )
+    stampUpdate('host_groups', 'id', id, ['name', 'parent_id', 'icon', 'color', 'sort_order', 'collapsed'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM host_groups WHERE id = ?', [id])
   })
@@ -404,6 +429,7 @@ function registerTagsHandlers(): void {
       'INSERT INTO tags (id, name, color) VALUES (?, ?, ?)',
       [id, data.name, data.color ?? '#6366f1']
     )
+    stampInsert('tags', 'id', id, ['name', 'color'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM tags WHERE id = ?', [id])
   })
@@ -413,6 +439,7 @@ function registerTagsHandlers(): void {
       `UPDATE tags SET name = COALESCE(?, name), color = COALESCE(?, color), sync_updated_at = datetime('now'), sync_version = sync_version + 1 WHERE id = ?`,
       [data.name ?? null, data.color ?? null, id]
     )
+    stampUpdate('tags', 'id', id, ['name', 'color'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM tags WHERE id = ?', [id])
   })
@@ -469,6 +496,7 @@ function registerSnippetsHandlers(): void {
         data.sortOrder ?? 0,
       ]
     )
+    stampInsert('snippets', 'id', id, ['name', 'content', 'description', 'group_id', 'sort_order'])
     // 插入标签
     const tags = (data.tags as string[]) || []
     for (const tag of tags) {
@@ -484,6 +512,7 @@ function registerSnippetsHandlers(): void {
   ipcMain.handle(IPC_DB.SNIPPETS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
 
     const coalesceFields: [string, string][] = [
       ['name', 'name'], ['content', 'content'], ['sort_order', 'sortOrder'],
@@ -492,6 +521,7 @@ function registerSnippetsHandlers(): void {
       if (key in data) {
         sets.push(`${col} = COALESCE(?, ${col})`)
         params.push(data[key] ?? null)
+        changedCols.push(col)
       }
     }
     const nullableFields: [string, string][] = [
@@ -501,6 +531,7 @@ function registerSnippetsHandlers(): void {
       if (key in data) {
         sets.push(`${col} = ?`)
         params.push(data[key] ?? null)
+        changedCols.push(col)
       }
     }
 
@@ -508,6 +539,7 @@ function registerSnippetsHandlers(): void {
       sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
       params.push(id)
       dbRun(`UPDATE snippets SET ${sets.join(', ')} WHERE id = ?`, params)
+      stampUpdate('snippets', 'id', id, changedCols)
     }
 
     // 更新标签（如果传入了 tags）
@@ -546,6 +578,7 @@ function registerSnippetsHandlers(): void {
       `UPDATE snippets SET use_count = use_count + 1, last_used_at = datetime('now'), updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1 WHERE id = ?`,
       [id]
     )
+    stampUpdate('snippets', 'id', id, ['use_count', 'last_used_at'])
     const row = dbGet<Record<string, unknown>>('SELECT use_count, last_used_at FROM snippets WHERE id = ?', [id])
     return row ? { useCount: row.use_count, lastUsedAt: row.last_used_at } : null
   })
@@ -628,6 +661,7 @@ function registerSnippetGroupsHandlers(): void {
       'INSERT INTO snippet_groups (id, name, parent_id, color, sort_order) VALUES (?, ?, ?, ?, ?)',
       [id, data.name, data.parentId ?? null, data.color ?? null, data.sortOrder ?? 0]
     )
+    stampInsert('snippet_groups', 'id', id, ['name', 'parent_id', 'color', 'sort_order'])
     const row = dbGet<Record<string, unknown>>('SELECT * FROM snippet_groups WHERE id = ?', [id])
     scheduleSyncAfterChange()
     return row ? { id: row.id, name: row.name, parentId: row.parent_id || null, color: row.color || null, sortOrder: row.sort_order ?? 0 } : null
@@ -644,6 +678,7 @@ function registerSnippetGroupsHandlers(): void {
        WHERE id = ?`,
       [data.name ?? null, data.parentId ?? null, data.color ?? null, data.sortOrder ?? null, id]
     )
+    stampUpdate('snippet_groups', 'id', id, ['name', 'parent_id', 'color', 'sort_order'])
     const row = dbGet<Record<string, unknown>>('SELECT * FROM snippet_groups WHERE id = ?', [id])
     scheduleSyncAfterChange()
     return row ? { id: row.id, name: row.name, parentId: row.parent_id || null, color: row.color || null, sortOrder: row.sort_order ?? 0 } : null
@@ -713,6 +748,7 @@ function registerPortForwardsHandlers(): void {
         data.sortOrder ?? 0,
       ]
     )
+    stampInsert('port_forwards', 'id', id, ['name', 'type', 'host_id', 'local_bind_addr', 'local_port', 'remote_target_addr', 'remote_target_port', 'remote_bind_addr', 'remote_port', 'local_target_addr', 'local_target_port', 'auto_start', 'app_start', 'group_id', 'sort_order'])
     const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
     scheduleSyncAfterChange()
     return row ? mapPortForwardRow(row) : null
@@ -721,6 +757,7 @@ function registerPortForwardsHandlers(): void {
   ipcMain.handle(IPC_DB.PORT_FORWARDS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
 
     const coalesceFields: [string, string][] = [
       ['name', 'name'], ['type', 'type'], ['host_id', 'hostId'],
@@ -734,13 +771,14 @@ function registerPortForwardsHandlers(): void {
       if (key in data) {
         sets.push(`${col} = COALESCE(?, ${col})`)
         params.push(data[key] ?? null)
+        changedCols.push(col)
       }
     }
-    if ('autoStart' in data) { sets.push('auto_start = ?'); params.push(data.autoStart ? 1 : 0) }
-    if ('appStart' in data) { sets.push('app_start = ?'); params.push(data.appStart ? 1 : 0) }
+    if ('autoStart' in data) { sets.push('auto_start = ?'); params.push(data.autoStart ? 1 : 0); changedCols.push('auto_start') }
+    if ('appStart' in data) { sets.push('app_start = ?'); params.push(data.appStart ? 1 : 0); changedCols.push('app_start') }
     const nullableFields: [string, string][] = [['group_id', 'groupId']]
     for (const [col, key] of nullableFields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null); changedCols.push(col) }
     }
 
     if (sets.length === 0) {
@@ -751,6 +789,7 @@ function registerPortForwardsHandlers(): void {
     sets.push("sync_updated_at = datetime('now')", 'sync_version = sync_version + 1')
     params.push(id)
     dbRun(`UPDATE port_forwards SET ${sets.join(', ')} WHERE id = ?`, params)
+    stampUpdate('port_forwards', 'id', id, changedCols)
     const row = dbGet<Record<string, unknown>>('SELECT * FROM port_forwards WHERE id = ?', [id])
     scheduleSyncAfterChange()
     return row ? mapPortForwardRow(row) : null
@@ -781,6 +820,7 @@ function registerSftpBookmarksHandlers(): void {
       'INSERT INTO sftp_bookmarks (id, host_id, path, name) VALUES (?, ?, ?, ?)',
       [id, data.hostId, data.path, data.name ?? null]
     )
+    stampInsert('sftp_bookmarks', 'id', id, ['host_id', 'path', 'name'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM sftp_bookmarks WHERE id = ?', [id])
   })
@@ -831,6 +871,7 @@ function registerKeysHandlers(): void {
         data.autoLoadAgent ? 1 : 0,
       ]
     )
+    stampInsert('keys', 'id', id, ['name', 'key_type', 'bits', 'curve', 'fingerprint', 'public_key', 'private_key_enc', 'passphrase_enc', 'comment', 'auto_load_agent'])
     scheduleSyncAfterChange()
     const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
     return row ? mapKeyRow(row) : null
@@ -839,15 +880,16 @@ function registerKeysHandlers(): void {
   ipcMain.handle(IPC_DB.KEYS_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
     const fields: [string, string][] = [
       ['name', 'name'], ['comment', 'comment'],
       ['passphrase_enc', 'passphraseEnc'],
     ]
     for (const [col, key] of fields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null); changedCols.push(col) }
     }
     if ('autoLoadAgent' in data) {
-      sets.push('auto_load_agent = ?'); params.push(data.autoLoadAgent ? 1 : 0)
+      sets.push('auto_load_agent = ?'); params.push(data.autoLoadAgent ? 1 : 0); changedCols.push('auto_load_agent')
     }
     if (sets.length === 0) {
       const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
@@ -856,6 +898,7 @@ function registerKeysHandlers(): void {
     sets.push("sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE keys SET ${sets.join(', ')} WHERE id = ?`, params)
+    stampUpdate('keys', 'id', id, changedCols)
     scheduleSyncAfterChange()
     const row = dbGet<Record<string, unknown>>('SELECT * FROM keys WHERE id = ?', [id])
     return row ? mapKeyRow(row) : null
@@ -933,6 +976,7 @@ function registerVaultHandlers(): void {
         data.sortOrder ?? 0,
       ]
     )
+    stampInsert('vault_entries', 'id', id, ['name_enc', 'type', 'username_enc', 'value_enc', 'url_enc', 'notes_enc', 'tags_enc', 'expires_at', 'group_id', 'sort_order'])
     scheduleSyncAfterChange()
     logAuditEvent({ eventType: 'vault.create', category: 'security', summary: 'Created vault entry: ' + data.name })
     const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
@@ -942,17 +986,19 @@ function registerVaultHandlers(): void {
   ipcMain.handle(IPC_DB.VAULT_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
     // 敏感字段加密
     const encFields: [string, string][] = [
       ['name_enc', 'name'], ['username_enc', 'username'],
       ['value_enc', 'value'], ['url_enc', 'url'], ['notes_enc', 'notes'],
     ]
     for (const [col, key] of encFields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(encryptField(data[key])) }
+      if (key in data) { sets.push(`${col} = ?`); params.push(encryptField(data[key])); changedCols.push(col) }
     }
     if ('tags' in data) {
       sets.push('tags_enc = ?')
       params.push(data.tags ? encryptField(JSON.stringify(data.tags)) : null)
+      changedCols.push('tags_enc')
     }
     // 非敏感字段
     const plainFields: [string, string][] = [
@@ -960,7 +1006,7 @@ function registerVaultHandlers(): void {
       ['group_id', 'groupId'], ['sort_order', 'sortOrder'],
     ]
     for (const [col, key] of plainFields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null); changedCols.push(col) }
     }
     if (sets.length === 0) {
       const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
@@ -969,6 +1015,7 @@ function registerVaultHandlers(): void {
     sets.push("updated_at = datetime('now'), sync_updated_at = datetime('now'), sync_version = sync_version + 1")
     params.push(id)
     dbRun(`UPDATE vault_entries SET ${sets.join(', ')} WHERE id = ?`, params)
+    stampUpdate('vault_entries', 'id', id, changedCols)
     scheduleSyncAfterChange()
     const row = dbGet<Record<string, unknown>>('SELECT * FROM vault_entries WHERE id = ?', [id])
     return row ? mapVaultRow(row) : null
@@ -1005,6 +1052,7 @@ function registerThemesHandlers(): void {
         data.ansiColors != null ? JSON.stringify(data.ansiColors) : null,
       ]
     )
+    stampInsert('custom_themes', 'id', id, ['name', 'type', 'foreground', 'background', 'cursor', 'selection', 'ansi_colors'])
     scheduleSyncAfterChange()
     return dbGet('SELECT * FROM custom_themes WHERE id = ?', [id])
   })
@@ -1012,6 +1060,7 @@ function registerThemesHandlers(): void {
   ipcMain.handle(IPC_DB.THEMES_UPDATE, (_event, id: string, data: Record<string, unknown>) => {
     const sets: string[] = []
     const params: unknown[] = []
+    const changedCols: string[] = []
     const fields: [string, string][] = [
       ['name', 'name'],
       ['type', 'type'],
@@ -1021,16 +1070,18 @@ function registerThemesHandlers(): void {
       ['selection', 'selection'],
     ]
     for (const [col, key] of fields) {
-      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null) }
+      if (key in data) { sets.push(`${col} = ?`); params.push(data[key] ?? null); changedCols.push(col) }
     }
     if ('ansiColors' in data) {
       sets.push('ansi_colors = ?')
       params.push(data.ansiColors != null ? JSON.stringify(data.ansiColors) : null)
+      changedCols.push('ansi_colors')
     }
     if (sets.length === 0) return true
     sets.push("sync_version = sync_version + 1, sync_updated_at = datetime('now')")
     params.push(id)
     dbRun(`UPDATE custom_themes SET ${sets.join(', ')} WHERE id = ?`, params)
+    stampUpdate('custom_themes', 'id', id, changedCols)
     scheduleSyncAfterChange()
     return true
   })

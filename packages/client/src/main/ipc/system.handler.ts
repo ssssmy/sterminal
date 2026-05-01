@@ -11,6 +11,7 @@ import { IPC_SYSTEM } from '../../shared/types/ipc-channels'
 import { assertUnderHome } from '../utils/platform'
 import { dbAll, dbRun, dbGet } from '../services/db'
 import { parseSshConfig } from '../services/ssh-config-parser'
+import { parseSharedLinks } from '../services/shared-link-parser'
 import { logAuditEvent } from '../services/audit-service'
 
 /**
@@ -70,6 +71,28 @@ export function registerSystemHandlers(): void {
         imported++
       }
       logAuditEvent({ eventType: 'data.import', category: 'system', summary: 'Imported ' + imported + ' hosts from SSH config' })
+      return { total: parsed.length, imported, skipped: parsed.length - imported }
+    }
+
+    if (params.type === 'shared_link') {
+      if (!params.content) throw new Error('No content provided')
+      const parsed = parseSharedLinks(params.content)
+      if (parsed.length === 0) throw new Error('No valid sharing link recognized')
+      let imported = 0
+      for (const host of parsed) {
+        const exists = dbGet(
+          'SELECT id FROM hosts WHERE address = ? AND port = ? AND username = ?',
+          [host.address, host.port, host.username ?? '']
+        )
+        if (exists) continue
+        const id = uuidv4()
+        dbRun(
+          `INSERT INTO hosts (id, label, address, port, username, auth_type) VALUES (?, ?, ?, ?, ?, ?)`,
+          [id, host.label, host.address, host.port, host.username ?? null, 'password']
+        )
+        imported++
+      }
+      logAuditEvent({ eventType: 'data.import', category: 'system', summary: 'Imported ' + imported + ' hosts from shared link' })
       return { total: parsed.length, imported, skipped: parsed.length - imported }
     }
 

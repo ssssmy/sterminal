@@ -18,6 +18,17 @@
         </el-button>
       </div>
 
+      <!-- 从分享链接导入 -->
+      <div class="settings-row">
+        <div class="settings-row__info">
+          <label class="settings-row__label">{{ t('dataSettings.importLinkLabel') }}</label>
+          <span class="settings-row__desc">{{ t('dataSettings.importLinkDesc') }}</span>
+        </div>
+        <el-button :loading="importingLink" @click="openLinkDialog">
+          {{ t('dataSettings.importLinkBtn') }}
+        </el-button>
+      </div>
+
       <!-- 从 STerminal 文件导入 -->
       <div class="settings-row">
         <div class="settings-row__info">
@@ -113,6 +124,29 @@
       </div>
     </div>
 
+    <!-- ===== 分享链接导入对话框 ===== -->
+    <el-dialog
+      v-model="linkDialogVisible"
+      :title="t('dataSettings.importLinkLabel')"
+      width="520px"
+      append-to-body
+    >
+      <p class="link-dialog__hint">{{ t('dataSettings.importLinkDialogDesc') }}</p>
+      <el-input
+        v-model="linkInput"
+        type="textarea"
+        :rows="4"
+        :placeholder="t('dataSettings.importLinkPlaceholder')"
+        autofocus
+      />
+      <template #footer>
+        <el-button @click="linkDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="importingLink" @click="handleImportLink">
+          {{ t('dataSettings.importLinkConfirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- ===== 危险操作区块 ===== -->
     <div class="settings-block settings-block--danger">
       <h4 class="settings-block__title settings-block__title--danger">{{ t('dataSettings.dangerSection') }}</h4>
@@ -197,6 +231,50 @@ async function handleImportSshConfig(): Promise<void> {
     ElMessage.error(err instanceof Error ? err.message : t('dataSettings.importFailed'))
   } finally {
     importingSsh.value = false
+  }
+}
+
+// ===== 导入分享链接 =====
+
+const importingLink = ref(false)
+const linkDialogVisible = ref(false)
+const linkInput = ref('')
+
+function openLinkDialog(): void {
+  linkInput.value = ''
+  linkDialogVisible.value = true
+}
+
+async function handleImportLink(): Promise<void> {
+  const content = linkInput.value.trim()
+  if (!content) {
+    ElMessage.warning(t('dataSettings.importLinkEmpty'))
+    return
+  }
+  importingLink.value = true
+  try {
+    const result = await invoke<{ total: number; imported: number; skipped: number }>(
+      IPC_SYSTEM.IMPORT_HOSTS,
+      { type: 'shared_link', content }
+    )
+    if (!result || result.total === 0) {
+      ElMessage.error(t('dataSettings.importLinkInvalid'))
+      return
+    }
+    reloadAllStores()
+    ElMessage.success(
+      t('dataSettings.importLinkSuccess', { imported: result.imported, skipped: result.skipped })
+    )
+    linkDialogVisible.value = false
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('No valid sharing link')) {
+      ElMessage.error(t('dataSettings.importLinkInvalid'))
+    } else {
+      ElMessage.error(msg || t('dataSettings.importFailed'))
+    }
+  } finally {
+    importingLink.value = false
   }
 }
 
@@ -486,5 +564,12 @@ onMounted(() => {
     align-items: center;
     gap: 8px;
   }
+}
+
+.link-dialog__hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+  line-height: 1.5;
 }
 </style>

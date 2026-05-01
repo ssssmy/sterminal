@@ -1,6 +1,6 @@
 {
   "name": "@sterminal/server",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "STerminal 同步服务后端",
   "main": "dist/index.js",
   "scripts": {
